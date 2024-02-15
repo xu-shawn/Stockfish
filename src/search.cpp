@@ -1105,6 +1105,14 @@ moves_loop:  // When in check, search starts here
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
         pos.do_move(move, st, givesCheck);
 
+        ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
+                      + (*contHist[0])[movedPiece][move.to_sq()]
+                      + (*contHist[1])[movedPiece][move.to_sq()]
+                      + (*contHist[3])[movedPiece][move.to_sq()] - 4392;
+
+        // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
+        r -= ss->statScore / 14189;
+
         // Decrease reduction if position is or has been on the PV (~5 Elo)
         if (ss->ttPv)
             r -= 1 + (ttValue > alpha) + (ttValue > beta && tte->depth() >= depth);
@@ -1130,17 +1138,9 @@ moves_loop:  // When in check, search starts here
             r++;
 
         // Set reduction to 0 for first picked move (ttMove) (~2 Elo)
-        // Nullifies all previous reduction adjustments to ttMove and leaves only history to do them
+        // Nullifies all previous reduction adjustments to ttMove
         else if (move == ttMove)
             r = 0;
-
-        ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
-                      + (*contHist[0])[movedPiece][move.to_sq()]
-                      + (*contHist[1])[movedPiece][move.to_sq()]
-                      + (*contHist[3])[movedPiece][move.to_sq()] - 4392;
-
-        // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
-        r -= ss->statScore / 14189;
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
         if (depth >= 2 && moveCount > 1 + rootNode)
