@@ -1098,10 +1098,6 @@ moves_loop:  // When in check, search starts here
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
         pos.do_move(move, st, givesCheck);
 
-        // Decrease reduction if position is or has been on the PV (~7 Elo)
-        if (ss->ttPv)
-            r -= 1 + (ttValue > alpha) + (tte->depth() >= depth);
-
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)
             r += 2 - (tte->depth() >= depth && ss->ttPv);
@@ -1122,6 +1118,10 @@ moves_loop:  // When in check, search starts here
         // Nullifies all previous reduction adjustments to ttMove and leaves only history to do them
         else if (move == ttMove)
             r = 0;
+
+        // Decrease reduction if position is or has been on the PV (~7 Elo)
+        if (ss->ttPv)
+            r -= 1 + (ttValue > alpha) + (tte->depth() >= depth);
 
         // Decrease reduction for PvNodes (~3 Elo)
         if (PvNode)
