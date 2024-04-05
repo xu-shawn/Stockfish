@@ -770,7 +770,7 @@ Value Search::Worker::search(
                - (ss - 1)->statScore / 267
              >= beta
         && eval >= beta && eval < VALUE_TB_WIN_IN_MAX_PLY && (!ttMove || ttCapture))
-        return beta > VALUE_TB_LOSS_IN_MAX_PLY ? (eval + beta) / 2 : eval;
+        return beta > VALUE_TB_LOSS_IN_MAX_PLY ? (eval + beta + beta) / 3 : eval;
 
     // Step 9. Null move search with verification search (~35 Elo)
     if (!PvNode && (ss - 1)->currentMove != Move::null() && (ss - 1)->statScore < 16878
@@ -1902,9 +1902,8 @@ std::string SearchManager::pv(const Search::Worker&     worker,
         if (ss.rdbuf()->in_avail())  // Not at first line
             ss << "\n";
 
-        ss << "info"
-           << " depth " << d << " seldepth " << rootMoves[i].selDepth << " multipv " << i + 1
-           << " score " << UCI::to_score(v, pos);
+        ss << "info" << " depth " << d << " seldepth " << rootMoves[i].selDepth << " multipv "
+           << i + 1 << " score " << UCI::to_score(v, pos);
 
         if (worker.options["UCI_ShowWDL"])
             ss << UCI::wdl(v, pos);
