@@ -1131,7 +1131,7 @@ moves_loop:  // When in check, search starts here
             r++;
 
         if (foundImprovement)
-            r += 2;
+            r++;
 
         // Set reduction to 0 for first picked move (ttMove) (~2 Elo)
         // Nullifies all previous reduction adjustments to ttMove and leaves only history to do them
@@ -1282,7 +1282,11 @@ moves_loop:  // When in check, search starts here
                 {
                     // Reduce other moves if we have found at least one score improvement (~2 Elo)
                     if (depth > 2 && depth < 12 && beta < 14206 && value > -12077)
+                    {
+                        depth -= 2;
                         foundImprovement = true;
+                    }
+
                     assert(depth > 0);
                     alpha = value;  // Update alpha! Always alpha < beta
                 }
