@@ -541,7 +541,7 @@ Value Search::Worker::search(
     Depth    extension, newDepth;
     Value    bestValue, value, ttValue, eval, maxValue, probCutBeta;
     bool     givesCheck, improving, priorCapture, opponentWorsening;
-    bool     capture, moveCountPruning, ttCapture;
+    bool     capture, moveCountPruning, ttCapture, foundImprovement;
     Piece    movedPiece;
     int      moveCount, captureCount, quietCount;
 
@@ -905,7 +905,7 @@ moves_loop:  // When in check, search starts here
                   contHist, &thisThread->pawnHistory, countermove, ss->killers);
 
     value            = bestValue;
-    moveCountPruning = false;
+    moveCountPruning = foundImprovement = false;
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -1130,6 +1130,9 @@ moves_loop:  // When in check, search starts here
         if ((ss + 1)->cutoffCnt > 3)
             r++;
 
+        if (foundImprovement)
+            r += 2;
+
         // Set reduction to 0 for first picked move (ttMove) (~2 Elo)
         // Nullifies all previous reduction adjustments to ttMove and leaves only history to do them
         else if (move == ttMove)
@@ -1279,8 +1282,7 @@ moves_loop:  // When in check, search starts here
                 {
                     // Reduce other moves if we have found at least one score improvement (~2 Elo)
                     if (depth > 2 && depth < 12 && beta < 14206 && value > -12077)
-                        depth -= 2;
-
+                        foundImprovement = true;
                     assert(depth > 0);
                     alpha = value;  // Update alpha! Always alpha < beta
                 }
@@ -1902,9 +1904,8 @@ std::string SearchManager::pv(const Search::Worker&     worker,
         if (ss.rdbuf()->in_avail())  // Not at first line
             ss << "\n";
 
-        ss << "info"
-           << " depth " << d << " seldepth " << rootMoves[i].selDepth << " multipv " << i + 1
-           << " score " << UCI::to_score(v, pos);
+        ss << "info" << " depth " << d << " seldepth " << rootMoves[i].selDepth << " multipv "
+           << i + 1 << " score " << UCI::to_score(v, pos);
 
         if (worker.options["UCI_ShowWDL"])
             ss << UCI::wdl(v, pos);
