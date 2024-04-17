@@ -1046,6 +1046,21 @@ moves_loop:  // When in check, search starts here
                     if (!PvNode && ss->multipleExtensions <= 16)
                     {
                         extension = 2 + (value < singularBeta - 11 && !ttCapture);
+
+                        if (value < singularBeta - 300 && !ttCapture && (ss + 1)->cutoffCnt > 3)
+                        {
+                            singularDepth = newDepth * 2 / 3;
+
+                            ss->excludedMove  = move;
+                            int moveCountPrev = ss->moveCount;
+                            value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta,
+                                                  singularDepth, cutNode);
+                            ss->excludedMove = Move::none();
+                            ss->moveCount    = moveCountPrev;
+
+                            extension += value < singularBeta - 300;
+                        }
+
                         depth += depth < 14;
                     }
                     if (PvNode && !ttCapture && ss->multipleExtensions <= 5
