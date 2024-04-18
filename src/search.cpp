@@ -1050,8 +1050,7 @@ moves_loop:  // When in check, search starts here
                     {
                         extension = 2 + (value < singularBeta - 11 && !ttCapture);
 
-                        if (value < singularBeta - 300 && !ttCapture && (ss + 1)->cutoffCnt > 3
-                            && tte->depth() >= depth - 2)
+                        if (value < singularBeta - 300 && !ttCapture && depth >= 14)
                         {
                             singularBeta -= 300;
                             singularDepth = newDepth * 2 / 3;
