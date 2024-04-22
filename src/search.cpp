@@ -1058,7 +1058,7 @@ moves_loop:  // When in check, search starts here
                         if (value < singularBeta - 300 && !ttCapture && (ss + 1)->cutoffCnt > 3
                             && tte->depth() >= depth - 2)
                         {
-                            singularBeta -= 300;
+                            singularBeta -= 200;
                             singularDepth = newDepth * 2 / 3;
 
                             ss->excludedMove  = move;
