@@ -1059,14 +1059,14 @@ moves_loop:  // When in check, search starts here
                             && tte->depth() >= depth - 2)
                         {
                             singularBeta -= 300;
-                            singularDepth = std::min(singularDepth + 3, newDepth);
+                            singularDepth = newDepth * 2 / 3;
 
                             ss->excludedMove  = move;
                             int moveCountPrev = ss->moveCount;
                             value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta,
                                                   singularDepth, cutNode);
                             ss->excludedMove = Move::none();
-                            ss->moveCount    = moveCountPrev;
+                            ss->moveCount += moveCountPrev;
 
                             extension += value < singularBeta;
                         }
