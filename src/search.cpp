@@ -1092,7 +1092,7 @@ moves_loop:  // When in check, search starts here
                             && tte->depth() >= depth - 2 && ttValue > alpha)
                         {
                             singularBeta -= 300;
-                            singularDepth = newDepth * 2 / 3;
+                            singularDepth = newDepth;
 
                             ss->excludedMove  = move;
                             int moveCountPrev = ss->moveCount;
