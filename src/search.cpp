@@ -42,10 +42,18 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "uci.h"
 #include "ucioption.h"
 
 namespace Stockfish {
+
+int qExtMargin                = 300;
+int qExtDepthMultiplier       = 64;
+int qExtSingularBetaReduction = 300;
+
+TUNE(SetRange(0, 500), qExtMargin, qExtSingularBetaReduction);
+TUNE(SetRange(48, 96), qExtDepthMultiplier);
 
 namespace TB = Tablebases;
 
@@ -1055,11 +1063,11 @@ moves_loop:  // When in check, search starts here
                     {
                         extension = 2 + (value < singularBeta - 11 && !ttCapture);
 
-                        if (value < singularBeta - 250 && !ttCapture && (ss + 1)->cutoffCnt > 3
-                            && tte->depth() >= depth - 2)
+                        if (value < singularBeta - qExtMargin && !ttCapture
+                            && (ss + 1)->cutoffCnt > 3 && tte->depth() >= depth - 2)
                         {
-                            singularBeta -= 250;
-                            singularDepth = newDepth * 2 / 3;
+                            singularBeta -= qExtSingularBetaReduction;
+                            singularDepth = newDepth * qExtDepthMultiplier / 72;
 
                             ss->excludedMove  = move;
                             int moveCountPrev = ss->moveCount;
