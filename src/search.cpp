@@ -49,7 +49,7 @@
 namespace Stockfish {
 
 int qExtMargin                = 300;
-int qExtDepthMultiplier       = 64;
+int qExtDepthMultiplier       = 48;
 int qExtSingularBetaReduction = 300;
 
 TUNE(SetRange(0, 500), qExtMargin, qExtSingularBetaReduction);
