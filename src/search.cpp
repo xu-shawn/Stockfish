@@ -48,10 +48,9 @@
 
 namespace Stockfish {
 
-int tExtMargin                = 11;
-int qExtMargin                = 300;
+int qExtMargin                = 254;
 int qExtDepthMultiplier       = 16;
-int qExtSingularBetaReduction = 300;
+int qExtSingularBetaReduction = 243;
 int qExtDepthConstant         = 0;
 int qExtResearchMargin        = 0;
 int qExtFormulaTerm1          = 0;
@@ -60,7 +59,6 @@ int qExtFormulaTerm3          = 0;
 
 TUNE(SetRange(0, 500), qExtMargin, qExtSingularBetaReduction);
 TUNE(SetRange(0, 36), qExtDepthMultiplier);
-TUNE(SetRange(0, 200), tExtMargin);
 TUNE(SetRange(-20, 20), qExtDepthConstant);
 TUNE(SetRange(-200, 200), qExtResearchMargin, qExtFormulaTerm1, qExtFormulaTerm2);
 TUNE(SetRange(-40, 40), qExtFormulaTerm3);
@@ -1072,7 +1070,7 @@ moves_loop:  // When in check, search starts here
                     // We make sure to limit the extensions in some way to avoid a search explosion
                     if (!PvNode && ss->multipleExtensions <= 16)
                     {
-                        extension = 2 + (value < singularBeta - tExtMargin && !ttCapture);
+                        extension = 2 + (value < singularBeta - 11 && !ttCapture);
 
                         if (value < singularBeta - qExtMargin && !ttCapture
                             && (ss + 1)->cutoffCnt > 3 && tte->depth() >= depth - 2)
