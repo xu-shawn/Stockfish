@@ -1056,8 +1056,7 @@ moves_loop:  // When in check, search starts here
 
                 if (value < singularBeta)
                 {
-                    extension  = 1;
-                    ttSingular = true;
+                    extension = 1;
 
                     // We make sure to limit the extensions in some way to avoid a search explosion
                     if (!PvNode && ss->multipleExtensions <= 16)
@@ -1085,6 +1084,8 @@ moves_loop:  // When in check, search starts here
                     if (PvNode && !ttCapture && ss->multipleExtensions <= 5
                         && value < singularBeta - 38)
                         extension = 2;
+
+                    ttSingular = true;
                 }
 
                 // Multi-cut pruning
