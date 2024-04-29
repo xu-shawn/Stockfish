@@ -1071,6 +1071,8 @@ moves_loop:  // When in check, search starts here
                     if (!ttCapture)
                         update_quiet_stats(pos, ss, *this, ttMove, -stat_malus(depth));
 
+                    ss->cutoffCnt++;
+
                     return singularBeta;
                 }
 
