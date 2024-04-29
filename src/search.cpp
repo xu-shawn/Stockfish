@@ -679,6 +679,11 @@ Value Search::Worker::search(
                               std::min(MAX_PLY - 1, depth + 6), Move::none(), VALUE_NONE,
                               tt.generation());
 
+                    if (value >= beta)
+                    {
+                        ss->cutoffCnt++;
+                    }
+
                     return value;
                 }
 
