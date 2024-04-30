@@ -1055,20 +1055,10 @@ moves_loop:  // When in check, search starts here
                     {
                         extension = 2 + (value < singularBeta - 11 && !ttCapture);
 
-                        if (value < singularBeta - 300 && !ttCapture && !pos.see_ge(ttMove, 0)
-                            && (ss + 1)->cutoffCnt > 3 && tte->depth() >= depth - 2)
+                        if (value < singularBeta - 300 && !ttCapture && (ss + 1)->cutoffCnt > 3
+                            && tte->depth() >= depth - 2)
                         {
-                            singularBeta -= 300;
-                            singularDepth = newDepth * 2 / 3;
-
-                            ss->excludedMove  = move;
-                            int moveCountPrev = ss->moveCount;
-                            value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta,
-                                                  singularDepth, cutNode);
-                            ss->excludedMove = Move::none();
-                            ss->moveCount    = moveCountPrev;
-
-                            extension += value < singularBeta;
+                            extension++;
                         }
 
                         depth += depth < 14;
