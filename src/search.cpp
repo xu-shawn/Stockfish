@@ -48,19 +48,18 @@
 
 namespace Stockfish {
 
-int qExtMargin                = 254;
-int qExtDepthMultiplier       = 16;
-int qExtSingularBetaReduction = 243;
-int qExtDepthConstant         = 0;
-int qExtResearchMargin        = 0;
-int qExtFormulaTerm1          = 0;
-int qExtFormulaTerm2          = 0;
-int qExtFormulaTerm3          = 0;
+int qExtMargin                = 210;
+int qExtDepthMultiplier       = 15;
+int qExtSingularBetaReduction = 208;
+int qExtDepthConstant         = -1;
+int qExtFormulaTerm1          = -16;
+int qExtFormulaTerm2          = -4;
+int qExtFormulaTerm3          = 7;
 
 TUNE(SetRange(0, 500), qExtMargin, qExtSingularBetaReduction);
 TUNE(SetRange(0, 36), qExtDepthMultiplier);
 TUNE(SetRange(-20, 20), qExtDepthConstant);
-TUNE(SetRange(-200, 200), qExtResearchMargin, qExtFormulaTerm1, qExtFormulaTerm2);
+TUNE(SetRange(-200, 200), qExtFormulaTerm1, qExtFormulaTerm2);
 TUNE(SetRange(-40, 40), qExtFormulaTerm3);
 
 namespace TB = Tablebases;
@@ -1089,7 +1088,7 @@ moves_loop:  // When in check, search starts here
                             ss->excludedMove = Move::none();
                             ss->moveCount    = moveCountPrev;
 
-                            extension += value < singularBeta - qExtResearchMargin;
+                            extension += value < singularBeta;
                         }
 
                         depth += depth < 14;
