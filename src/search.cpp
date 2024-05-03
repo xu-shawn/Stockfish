@@ -1056,16 +1056,13 @@ moves_loop:  // When in check, search starts here
                     {
                         extension = 2 + (value < singularBeta - 11 && !ttCapture);
 
-                        if (value < singularBeta - 234 && !ttCapture && (ss + 1)->cutoffCnt > 3
+                        if (value < singularBeta - 301 && !ttCapture && (ss + 1)->cutoffCnt > 3
                             && tte->depth() >= depth - 2)
                         {
                             singularBeta -=
-                              151
-                              + (6 - 88 * (ss->ttPv && !PvNode) + 49 * ss->ttPv - 73 * !PvNode)
-                                  * depth / 64
-                              + 10 * (ss->ttPv && !PvNode) - 70 * ss->ttPv + 12 * !PvNode;
+                              std::max(188 - (115 + 36 * (ss->ttPv && !PvNode)) * depth / 64, 0);
 
-                            singularDepth = newDepth * 27 / 32 + 1;
+                            singularDepth = newDepth * 20 / 24 - 3;
 
                             ss->excludedMove  = move;
                             int moveCountPrev = ss->moveCount;
