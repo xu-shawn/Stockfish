@@ -48,19 +48,29 @@
 
 namespace Stockfish {
 
-int qExtMargin                = 210;
-int qExtDepthMultiplier       = 15;
-int qExtSingularBetaReduction = 208;
+int qExtMargin                = 217;
+int qExtDepthMultiplier       = 27;
+int qExtSingularBetaReduction = 162;
 int qExtDepthConstant         = -1;
-int qExtFormulaTerm1          = -16;
-int qExtFormulaTerm2          = -4;
-int qExtFormulaTerm3          = 7;
+int qExtFormulaTerm1          = -1;
+int qExtFormulaTerm2          = -21;
+int qExtFormulaTerm3          = 0;
+int qExtFormulaTerm4          = 0;
+int qExtFormulaTerm5          = 0;
+int qExtFormulaTerm6          = 0;
+int qExtFormulaTerm7          = 0;
 
 TUNE(SetRange(0, 500), qExtMargin, qExtSingularBetaReduction);
 TUNE(SetRange(0, 36), qExtDepthMultiplier);
 TUNE(SetRange(-20, 20), qExtDepthConstant);
-TUNE(SetRange(-200, 200), qExtFormulaTerm1, qExtFormulaTerm2);
-TUNE(SetRange(-40, 40), qExtFormulaTerm3);
+TUNE(SetRange(-200, 200),
+     qExtFormulaTerm1,
+     qExtFormulaTerm2,
+     qExtFormulaTerm3,
+     qExtFormulaTerm4,
+     qExtFormulaTerm5,
+     qExtFormulaTerm6,
+     qExtFormulaTerm7);
 
 namespace TB = Tablebases;
 
@@ -1077,9 +1087,12 @@ moves_loop:  // When in check, search starts here
                             singularBeta -=
                               qExtSingularBetaReduction
                               + (qExtFormulaTerm1 + qExtFormulaTerm2 * (ss->ttPv && !PvNode)
-                                 + qExtFormulaTerm3 * ss->multipleExtensions)
-                                  * depth / 64;
-                            singularDepth = newDepth * qExtDepthMultiplier / 24 + qExtDepthConstant;
+                                 + qExtFormulaTerm3 * ss->ttPv + qExtFormulaTerm4 * !PvNode)
+                                  * depth / 64
+                              + qExtFormulaTerm5 * (ss->ttPv && !PvNode)
+                              + qExtFormulaTerm6 * ss->ttPv + qExtFormulaTerm7 * !PvNode;
+
+                            singularDepth = newDepth * qExtDepthMultiplier / 32 + qExtDepthConstant;
 
                             ss->excludedMove  = move;
                             int moveCountPrev = ss->moveCount;
