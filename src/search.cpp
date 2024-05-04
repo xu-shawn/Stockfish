@@ -1793,7 +1793,8 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
         if (ss->inCheck && i > 2)
             break;
         if (((ss - i)->currentMove).is_ok())
-            (*(ss - i)->continuationHistory)[pc][to] << bonus / (1 + 3 * (i == 3 || i == 6));
+            (*(ss - i)->continuationHistory)[pc][to]
+              << (i != 6 ? bonus / (1 + 3 * (i == 3)) : bonus * 2 / 3);
     }
 }
 
