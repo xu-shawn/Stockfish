@@ -42,10 +42,14 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "uci.h"
 #include "ucioption.h"
 
 namespace Stockfish {
+
+int divisor = 500;
+TUNE(SetRange(1, 6000), divisor);
 
 namespace TB = Tablebases;
 
@@ -761,7 +765,7 @@ Value Search::Worker::search(
     // Adjust razor margin according to cutoffCnt. (~1 Elo)
     if (eval < alpha - 471
                  - (275 - 148 * ((ss + 1)->cutoffCnt > 3)
-                    - thisThread->mainHistory[~us][(ss - 1)->currentMove.from_to()] / 500)
+                    - thisThread->mainHistory[~us][(ss - 1)->currentMove.from_to()] / divisor)
                      * depth * depth)
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
