@@ -761,7 +761,7 @@ Value Search::Worker::search(
     // Adjust razor margin according to cutoffCnt. (~1 Elo)
     if (eval < alpha - 471
                  - (275 - 148 * ((ss + 1)->cutoffCnt > 3)
-                    - thisThread->mainHistory[~us][(ss - 1)->currentMove.from_to()] / 500)
+                    - thisThread->mainHistory[~us][(ss - 1)->currentMove.from_to()] / 158)
                      * depth * depth)
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
