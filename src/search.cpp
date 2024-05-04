@@ -238,7 +238,7 @@ void Search::Worker::iterative_deepening() {
     // (ss - 7) is needed for update_continuation_histories(ss - 1) which accesses (ss - 6),
     // (ss + 2) is needed for initialization of cutOffCnt and killers.
     Stack  stack[MAX_PLY + 10] = {};
-    Stack* ss                  = stack + 7;
+    Stack* ss                  = stack + 8;
 
     for (int i = 8; i > 0; --i)
     {
