@@ -1041,8 +1041,9 @@ moves_loop:  // When in check, search starts here
                 && std::abs(ttValue) < VALUE_TB_WIN_IN_MAX_PLY && (tte->bound() & BOUND_LOWER)
                 && tte->depth() >= depth - 3)
             {
-                Value singularBeta  = ttValue - (65 + 52 * (ss->ttPv && !PvNode)) * depth / 63;
-                Depth singularDepth = newDepth / 2;
+                Value singularBeta    = ttValue - (65 + 52 * (ss->ttPv && !PvNode)) * depth / 63;
+                Depth singularDepth   = newDepth / 2;
+                int   actualMoveCount = ss->moveCount;
 
                 ss->excludedMove = move;
                 value =
@@ -1093,6 +1094,11 @@ moves_loop:  // When in check, search starts here
                 // If the ttMove is assumed to fail low over the value of the reduced search (~1 Elo)
                 else if (ttValue <= value)
                     extension = -1;
+
+                if (extension <= 0)
+                {
+                    ss->moveCount = actualMoveCount;
+                }
             }
 
             // Extension for capturing the previous moved piece (~0 Elo on STC, ~1 Elo on LTC)
