@@ -1087,12 +1087,13 @@ moves_loop:  // When in check, search starts here
                 {
                     if (ttCapture && !ss->ttPv && !PvNode)
                     {
-                        Depth R = std::min(int(ttValue - beta) / 152, 2) + depth / 3;
-                        Value v = search<NonPV>(pos, ss, ttValue - 1, ttValue, depth - R, true);
+                        Depth R       = std::min(int(ttValue - beta) / 152, 2) + depth / 3;
+                        int   newBeta = ttValue + 10;
+                        Value v = search<NonPV>(pos, ss, newBeta - 1, newBeta, depth - R, true);
 
-                        if (v > ttValue)
+                        if (v > newBeta)
                         {
-                            return ttValue;
+                            return v;
                         }
                     }
                     extension = -3;
