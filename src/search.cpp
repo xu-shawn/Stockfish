@@ -1088,7 +1088,7 @@ moves_loop:  // When in check, search starts here
                     if (ttCapture && !ss->ttPv && !PvNode && pos.see_ge(ttMove, 25 * depth))
                     {
                         Depth R = std::min(int(ttValue - beta) / 152, 2) + depth / 3;
-                        Value v = search<NonPV>(pos, ss + 1, beta - 1, beta, depth - R, true);
+                        Value v = search<NonPV>(pos, ss, beta - 1, beta, depth - R, true);
 
                         if (v > beta)
                         {
