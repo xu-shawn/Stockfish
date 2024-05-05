@@ -1085,14 +1085,15 @@ moves_loop:  // When in check, search starts here
                 // If the ttMove is assumed to fail high over current beta (~7 Elo)
                 else if (ttValue >= beta)
                 {
-                    if (ttCapture && !PvNode && pos.see_ge(ttMove, 50 * depth))
+                    if (ttCapture && !PvNode && pos.see_ge(ttMove, 25 * depth))
                     {
+                        Depth R = std::min(int(ttValue - beta) / 152, 2) + depth / 3;
+
                         pos.do_move(ttMove, st, givesCheck);
-                        Value v =
-                          -search<NonPV>(pos, ss + 1, -(beta + 1), -beta, newDepth / 2, true);
+                        Value v = -search<NonPV>(pos, ss + 1, -(beta + 1), -beta, depth - R, true);
                         pos.undo_move(ttMove);
 
-                        if (v > beta + 50)
+                        if (v > beta)
                         {
                             return ttValue;
                         }
