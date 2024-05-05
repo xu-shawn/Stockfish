@@ -53,8 +53,8 @@ namespace TB = Tablebases;
 using Eval::evaluate;
 using namespace Search;
 
-int X = 0;
-int P[11];
+int X     = 5;
+int P[11] = {-2, -4, -4, 0, 3, -3, -5, 7, 4, 1, 2};
 
 TUNE(SetRange(0, 100), X);
 TUNE(SetRange(-100, 100), P);
