@@ -1084,7 +1084,21 @@ moves_loop:  // When in check, search starts here
 
                 // If the ttMove is assumed to fail high over current beta (~7 Elo)
                 else if (ttValue >= beta)
+                {
+                    if (ttCapture && !PvNode && pos.see_ge(ttMove, 50 * depth))
+                    {
+                        pos.do_move(ttMove, st, givesCheck);
+                        Value v =
+                          -search<NonPV>(pos, ss + 1, -(beta + 1), -beta, newDepth / 2, true);
+                        pos.undo_move(ttMove);
+
+                        if (v > beta + 50)
+                        {
+                            return ttValue;
+                        }
+                    }
                     extension = -3;
+                }
 
                 // If we are on a cutNode but the ttMove is not assumed to fail high over current beta (~1 Elo)
                 else if (cutNode)
