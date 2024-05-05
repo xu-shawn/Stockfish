@@ -1091,7 +1091,7 @@ moves_loop:  // When in check, search starts here
 
                         if (v > beta)
                         {
-                            return ttValue;
+                            return v;
                         }
                     }
                     extension = -3;
