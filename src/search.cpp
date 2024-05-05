@@ -42,6 +42,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "uci.h"
 #include "ucioption.h"
 
@@ -51,6 +52,12 @@ namespace TB = Tablebases;
 
 using Eval::evaluate;
 using namespace Search;
+
+int X = 0;
+int P[11];
+
+TUNE(SetRange(0, 100), X);
+TUNE(SetRange(-100, 100), P);
 
 namespace {
 
@@ -1083,7 +1090,42 @@ moves_loop:  // When in check, search starts here
 
                 // If the ttMove is assumed to fail high over current beta (~7 Elo)
                 else if (ttValue >= beta)
+                {
                     extension = -3;
+
+                    bool CC = ttCapture;
+
+                    if (CC)
+                    {
+                        std::vector<bool> C = {PvNode,
+                                               cutNode,
+                                               improving,
+                                               ss->inCheck,
+                                               priorCapture,
+                                               givesCheck,
+                                               ((ss + 1)->cutoffCnt > 3),
+                                               type_of(movedPiece) == PAWN,
+                                               type_of(movedPiece) == KING,
+                                               (ss - 1)->currentMove == Move::null(),
+                                               ss->ttPv};
+
+                        int conditions = 0;
+
+                        for (int i = 0; (i < int(C.size())) && CC; i++)
+                        {
+                            if (X <= std::abs(P[i]))
+                            {
+                                conditions++;
+                                CC = CC && (P[i] > 0 ? C[i] : -C[i]);
+                            }
+                        }
+
+                        if (CC && conditions > 0)
+                        {
+                            extension = -4;
+                        }
+                    }
+                }
 
                 // If we are on a cutNode but the ttMove is not assumed to fail high over current beta (~1 Elo)
                 else if (cutNode)
