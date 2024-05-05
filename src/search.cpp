@@ -912,14 +912,16 @@ moves_loop:  // When in check, search starts here
     value            = bestValue;
     moveCountPruning = false;
 
+    if (excludedMove)
+    {
+        mp.next_move();
+    }
+
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
     while ((move = mp.next_move(moveCountPruning)) != Move::none())
     {
         assert(move.is_ok());
-
-        if (move == excludedMove)
-            continue;
 
         // Check for legality
         if (!pos.legal(move))
