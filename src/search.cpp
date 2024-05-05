@@ -759,8 +759,10 @@ Value Search::Worker::search(
     // If eval is really low check with qsearch if it can exceed alpha, if it can't,
     // return a fail low.
     // Adjust razor margin according to cutoffCnt. (~1 Elo)
-    if (eval < alpha - 471 - (275 - 148 * ((ss + 1)->cutoffCnt > 3)) * depth * depth
-                 + thisThread->mainHistory[~us][(ss - 1)->currentMove.from_to()] / 500)
+    if (eval < alpha - 471
+                 - ((275 - 148 * ((ss + 1)->cutoffCnt > 3) * depth
+                     + thisThread->mainHistory[~us][(ss - 1)->currentMove.from_to()] / 129)
+                    * depth))
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
         if (value < alpha)
