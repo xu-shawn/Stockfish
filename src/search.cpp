@@ -1073,6 +1073,8 @@ moves_loop:  // When in check, search starts here
                     if (!ttCapture)
                         update_quiet_histories(pos, ss, *this, ttMove, -stat_malus(depth));
 
+                    dbg_hit_on(true);
+
                     return singularBeta;
                 }
 
