@@ -1085,7 +1085,7 @@ moves_loop:  // When in check, search starts here
                 // If the ttMove is assumed to fail high over current beta (~7 Elo)
                 else if (ttValue >= beta)
                 {
-                    if (ttCapture && !PvNode)
+                    if (ttCapture && ss->ttPv && !PvNode)
                     {
                         Depth R       = std::min(int(ttValue - beta) / 152, 2) + depth / 3;
                         int   realMC  = ss->moveCount;
