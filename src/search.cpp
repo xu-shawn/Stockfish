@@ -1087,9 +1087,10 @@ moves_loop:  // When in check, search starts here
                 {
                     if (!PvNode)
                     {
-                        int   realmc  = ss->moveCount;
-                        Value newBeta = ttValue + 5 + 5 * depth + 40 * !ttCapture;
-                        Value v       = qsearch<NonPV>(pos, ss, newBeta - 1, newBeta, true);
+                        int   realmc     = ss->moveCount;
+                        Value newBeta    = ttValue + 5 + 5 * depth + 40 * !ttCapture;
+                        ss->excludedMove = move;
+                        Value v          = search<NonPV>(pos, ss, newBeta - 1, newBeta, 1, true);
 
                         if (v > newBeta)
                         {
@@ -1100,9 +1101,12 @@ moves_loop:  // When in check, search starts here
 
                             if (v > newBeta)
                             {
+                                ss->excludedMove = Move::none();
                                 return v;
                             }
                         }
+
+                        ss->excludedMove = Move::none();
                     }
 
                     extension = -3;
