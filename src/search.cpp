@@ -1087,19 +1087,21 @@ moves_loop:  // When in check, search starts here
                 {
                     if (!PvNode)
                     {
-                        Depth R       = std::min(int(ttValue - beta) / 152, 2) + depth / 3;
-                        int   realMC  = ss->moveCount;
-                        Value newBeta = ttValue + 5 * depth;
-
-                        ss->excludedMove = move;
-                        Value v = search<NonPV>(pos, ss, newBeta - 1, newBeta, depth - R, true);
-
-                        ss->excludedMove = Move::none();
-                        ss->moveCount    = realMC;
+                        int   realmc  = ss->moveCount;
+                        Value newBeta = ttValue + 5 + 5 * depth + 40 * !ttCapture;
+                        Value v       = qsearch<NonPV>(pos, ss, newBeta - 1, newBeta, true);
 
                         if (v > newBeta)
                         {
-                            return ttValue;
+                            Depth R = depth / 3 + std::min(int(ttValue - beta) / 152, 2);
+                            v       = search<NonPV>(pos, ss, newBeta - 1, newBeta, depth - R, true);
+
+                            ss->moveCount = realmc;
+
+                            if (v > newBeta)
+                            {
+                                return v;
+                            }
                         }
                     }
 
