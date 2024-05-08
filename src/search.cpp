@@ -1085,21 +1085,21 @@ moves_loop:  // When in check, search starts here
                 // If the ttMove is assumed to fail high over current beta (~7 Elo)
                 else if (ttValue >= beta)
                 {
-                    if (ttCapture && !ss->ttPv && !PvNode && ss->ttHit)
+                    extension = -3;
+
+                    if (ttCapture && !ss->ttPv && !PvNode)
                     {
-                        int   realmc     = ss->moveCount;
-                        Depth d          = std::min(tte->depth(), newDepth);
+                        int realmc       = ss->moveCount;
                         ss->excludedMove = move;
-                        Value v          = search<NonPV>(pos, ss, ttValue - 1, ttValue, d, true);
+                        Value v          = search<NonPV>(pos, ss, ttValue - 1, ttValue, 1, true);
                         ss->excludedMove = Move::none();
                         ss->moveCount    = realmc;
 
                         if (v > ttValue)
                         {
-                            return ttValue;
+                            extension = -5;
                         }
                     }
-                    extension = -3;
                 }
 
                 // If we are on a cutNode but the ttMove is not assumed to fail high over current beta (~1 Elo)
