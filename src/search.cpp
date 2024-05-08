@@ -1087,10 +1087,12 @@ moves_loop:  // When in check, search starts here
                 {
                     if (ttCapture && !ss->ttPv && !PvNode && ss->ttHit)
                     {
-                        int   realmc  = ss->moveCount;
-                        Depth d       = std::min(tte->depth(), newDepth);
-                        Value v       = search<NonPV>(pos, ss, ttValue - 1, ttValue, d, true);
-                        ss->moveCount = realmc;
+                        int   realmc     = ss->moveCount;
+                        Depth d          = std::min(tte->depth(), newDepth);
+                        ss->excludedMove = move;
+                        Value v          = search<NonPV>(pos, ss, ttValue - 1, ttValue, d, true);
+                        ss->excludedMove = Move::none();
+                        ss->moveCount    = realmc;
 
                         if (v > ttValue)
                         {
