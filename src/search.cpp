@@ -1092,7 +1092,7 @@ moves_loop:  // When in check, search starts here
 
                 // If the ttMove is assumed to fail low over the value of the reduced search (~1 Elo)
                 else if (ttValue <= value)
-                    extension = -1 + (!PvNode);
+                    extension = -1 - (!PvNode);
             }
 
             // Extension for capturing the previous moved piece (~0 Elo on STC, ~1 Elo on LTC)
