@@ -1091,7 +1091,7 @@ moves_loop:  // When in check, search starts here
                     extension = -2;
 
                 // If the ttMove is assumed to fail low over the value of the reduced search (~1 Elo)
-                else if (ttValue <= value)
+                else if (ttValue <= value && !PvNode)
                     extension = -1;
             }
 
