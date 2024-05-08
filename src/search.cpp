@@ -1087,7 +1087,7 @@ moves_loop:  // When in check, search starts here
                 {
                     extension = -3;
 
-                    if (ttCapture && !ss->ttPv && !PvNode)
+                    if (ttCapture && !PvNode)
                     {
                         int realmc       = ss->moveCount;
                         ss->excludedMove = move;
@@ -1097,7 +1097,7 @@ moves_loop:  // When in check, search starts here
 
                         if (v > ttValue)
                         {
-                            extension = -5;
+                            extension = -6;
                         }
                     }
                 }
