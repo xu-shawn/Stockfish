@@ -901,7 +901,9 @@ moves_loop:  // When in check, search starts here
                                         (ss - 3)->continuationHistory,
                                         (ss - 4)->continuationHistory,
                                         nullptr,
-                                        (ss - 6)->continuationHistory};
+                                        (ss - 6)->continuationHistory,
+                                        nullptr,
+                                        (ss - 8)->continuationHistory};
 
     Move countermove =
       prevSq != SQ_NONE ? thisThread->counterMoves[pos.piece_on(prevSq)][prevSq] : Move::none();
@@ -1787,7 +1789,7 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
         if (ss->inCheck && i > 2)
             break;
         if (((ss - i)->currentMove).is_ok())
-            (*(ss - i)->continuationHistory)[pc][to] << bonus / (1 + 3 * (i == 3) + 15 * (i == 8));
+            (*(ss - i)->continuationHistory)[pc][to] << bonus / (1 + 3 * (i == 3) + 7 * (i == 8));
     }
 }
 
