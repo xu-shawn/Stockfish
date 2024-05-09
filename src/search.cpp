@@ -1778,10 +1778,10 @@ void update_all_stats(const Position& pos,
 
 
 // Updates histories of the move pairs formed
-// by moves at ply -1, -2, -3, -4, and -6 with current move.
+// by moves at ply -1, -2, -3, and -4 with current move.
 void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
 
-    for (int i : {1, 2, 3, 4, 6})
+    for (int i : {1, 2, 3, 4})
     {
         // Only update the first 2 continuation histories if we are in check
         if (ss->inCheck && i > 2)
