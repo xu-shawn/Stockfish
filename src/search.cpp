@@ -1046,7 +1046,7 @@ moves_loop:  // When in check, search starts here
 
                 ss->excludedMove = move;
                 value =
-                  search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, true);
+                  search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, false);
                 ss->excludedMove = Move::none();
 
                 if (value < singularBeta)
