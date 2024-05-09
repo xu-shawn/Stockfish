@@ -1154,7 +1154,7 @@ moves_loop:  // When in check, search starts here
                       + (*contHist[3])[movedPiece][move.to_sq()] - 5078;
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
-        r -= (move == ttMove) ? ss->statScore / 6000 : ss->statScore / 12076;
+        r -= (move == ttMove && !PvNode) ? ss->statScore / 6000 : ss->statScore / 12076;
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
         if (depth >= 2 && moveCount > 1 + rootNode)
