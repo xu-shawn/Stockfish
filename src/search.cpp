@@ -113,7 +113,7 @@ struct Skill {
 Value value_to_tt(Value v, int ply);
 Value value_from_tt(Value v, int ply, int r50c);
 void  update_pv(Move* pv, Move move, const Move* childPv);
-void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
+void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus, int rule50count);
 void  update_refutations(const Position& pos, Stack* ss, Search::Worker& workerThread, Move move);
 void  update_quiet_histories(
    const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus);
@@ -630,7 +630,7 @@ Value Search::Worker::search(
             // the previous ply (~1 Elo on STC, ~2 Elo on LTC)
             if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2 && !priorCapture)
                 update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                              -stat_malus(depth + 1));
+                                              -stat_malus(depth + 1), pos.rule50_count());
         }
 
         // Partial workaround for the graph history interaction problem
@@ -1179,7 +1179,8 @@ moves_loop:  // When in check, search starts here
                           : value >= beta  ? stat_bonus(newDepth)
                                            : 0;
 
-                update_continuation_histories(ss, movedPiece, move.to_sq(), bonus);
+                update_continuation_histories(ss, movedPiece, move.to_sq(), bonus,
+                                              pos.rule50_count());
             }
         }
 
@@ -1331,7 +1332,7 @@ moves_loop:  // When in check, search starts here
                   + ((ss - 1)->moveCount > 10) + (!ss->inCheck && bestValue <= ss->staticEval - 130)
                   + (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 77);
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                      stat_bonus(depth) * bonus);
+                                      stat_bonus(depth) * bonus, pos.rule50_count());
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
           << stat_bonus(depth) * bonus / 2;
     }
@@ -1765,7 +1766,8 @@ void update_all_stats(const Position& pos,
         && ((ss - 1)->moveCount == 1 + (ss - 1)->ttHit
             || ((ss - 1)->currentMove == (ss - 1)->killers[0]))
         && !pos.captured_piece())
-        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -quietMoveMalus);
+        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -quietMoveMalus,
+                                      pos.rule50_count());
 
     // Decrease stats for all non-best capture moves
     for (int i = 0; i < captureCount; ++i)
@@ -1779,7 +1781,7 @@ void update_all_stats(const Position& pos,
 
 // Updates histories of the move pairs formed
 // by moves at ply -1, -2, -3, -4, and -6 with current move.
-void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
+void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus, int rule50count) {
 
     for (int i : {1, 2, 3, 4, 6, 8})
     {
@@ -1787,7 +1789,8 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
         if (ss->inCheck && i > 2)
             break;
         if (((ss - i)->currentMove).is_ok())
-            (*(ss - i)->continuationHistory)[pc][to] << bonus / (1 + 3 * (i == 3) + 7 * (i == 8));
+            (*(ss - i)->continuationHistory)[pc][to]
+              << bonus / (1 + 3 * (i == 3) + 7 * (i == 8 && rule50count > 10));
     }
 }
 
@@ -1815,7 +1818,8 @@ void update_quiet_histories(
     Color us = pos.side_to_move();
     workerThread.mainHistory[us][move.from_to()] << bonus;
 
-    update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus);
+    update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus,
+                                  pos.rule50_count());
 
     int pIndex = pawn_structure_index(pos);
     workerThread.pawnHistory[pIndex][pos.moved_piece(move)][move.to_sq()] << bonus;
