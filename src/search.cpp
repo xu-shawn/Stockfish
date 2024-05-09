@@ -240,10 +240,10 @@ void Search::Worker::iterative_deepening() {
     // Allocate stack with extra size to allow access from (ss - 7) to (ss + 2):
     // (ss - 7) is needed for update_continuation_histories(ss - 1) which accesses (ss - 6),
     // (ss + 2) is needed for initialization of cutOffCnt and killers.
-    Stack  stack[MAX_PLY + 10] = {};
-    Stack* ss                  = stack + 7;
+    Stack  stack[MAX_PLY + 12] = {};
+    Stack* ss                  = stack + 9;
 
-    for (int i = 7; i > 0; --i)
+    for (int i = 9; i > 0; --i)
     {
         (ss - i)->continuationHistory =
           &this->continuationHistory[0][0][NO_PIECE][0];  // Use as a sentinel
@@ -1781,13 +1781,13 @@ void update_all_stats(const Position& pos,
 // by moves at ply -1, -2, -3, -4, and -6 with current move.
 void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
 
-    for (int i : {1, 2, 3, 4, 6})
+    for (int i : {1, 2, 3, 4, 6, 8})
     {
         // Only update the first 2 continuation histories if we are in check
         if (ss->inCheck && i > 2)
             break;
         if (((ss - i)->currentMove).is_ok())
-            (*(ss - i)->continuationHistory)[pc][to] << bonus / (1 + 3 * (i == 3));
+            (*(ss - i)->continuationHistory)[pc][to] << bonus / (1 + 3 * (i == 3 || i == 8));
     }
 }
 
