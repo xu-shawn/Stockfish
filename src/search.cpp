@@ -755,7 +755,10 @@ Value Search::Worker::search(
                 ? ss->staticEval > (ss - 2)->staticEval
                 : (ss - 4)->staticEval != VALUE_NONE && ss->staticEval > (ss - 4)->staticEval;
 
-    opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
+    opponentWorsening =
+      (ss - 1)->staticEval != VALUE_NONE
+        ? ss->staticEval + (ss - 1)->staticEval > 2
+        : ss->staticEval + (ss - 3)->staticEval > 2 && (ss - 3)->staticEval != VALUE_NONE;
 
     // Step 7. Razoring (~1 Elo)
     // If eval is really low check with qsearch if it can exceed alpha, if it can't,
