@@ -816,7 +816,7 @@ Value Search::Worker::search(
             thisThread->nmpMinPly = 0;
 
             if (v >= beta)
-                return nullValue;
+                return (nullValue + v) / 2;
         }
     }
 
