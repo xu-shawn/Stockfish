@@ -753,9 +753,11 @@ Value Search::Worker::search(
     // false otherwise. The improving flag is used in various pruning heuristics.
     improving = (ss - 2)->staticEval != VALUE_NONE
                 ? ss->staticEval > (ss - 2)->staticEval
-                : (ss - 4)->staticEval != VALUE_NONE && ss->staticEval > (ss - 4)->staticEval;
+                : (ss - 4)->staticEval == VALUE_NONE || ss->staticEval > (ss - 4)->staticEval;
 
-    opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
+    opponentWorsening = (ss - 1)->staticEval != VALUE_NONE
+                        ? ss->staticEval + (ss - 1)->staticEval > 2
+                        : ss->staticEval + (ss - 3)->staticEval > 2;
 
     // Step 7. Razoring (~1 Elo)
     // If eval is really low check with qsearch if it can exceed alpha, if it can't,
