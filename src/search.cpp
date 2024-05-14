@@ -1351,7 +1351,7 @@ moves_loop:  // When in check, search starts here
     Value newTTValue = bestValue == VALUE_NONE || ttValue == VALUE_NONE
                         || std::abs(bestValue) >= VALUE_TB_WIN_IN_MAX_PLY
                         || std::abs(ttValue) >= VALUE_TB_WIN_IN_MAX_PLY
-                        || tte->bound() != BOUND_EXACT || !PvNode || tte->depth() < depth
+                        || tte->bound() != BOUND_EXACT || PvNode || tte->depth() < depth
                        ? bestValue
                        : (90 * bestValue + 10 * ttValue) / 100;
 
