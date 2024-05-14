@@ -57,7 +57,7 @@ namespace {
 
 int nmpConst = 324, nmpImproving = 0, nmpCutnode = 0, nmpStatscoreDiv = 10000;
 
-TUNE(SetRange(200, 300), nmpConst);
+TUNE(SetRange(260, 370), nmpConst);
 TUNE(SetRange(-50, 50), nmpImproving, nmpCutnode);
 TUNE(SetRange(100, 40000), nmpStatscoreDiv);
 
