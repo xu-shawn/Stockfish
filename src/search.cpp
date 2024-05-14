@@ -1352,6 +1352,7 @@ moves_loop:  // When in check, search starts here
                         || std::abs(bestValue) >= VALUE_TB_WIN_IN_MAX_PLY
                         || std::abs(ttValue) >= VALUE_TB_WIN_IN_MAX_PLY
                         || tte->bound() != BOUND_EXACT || newTTBound == BOUND_EXACT
+                        || tte->depth() < depth
                        ? bestValue
                        : (90 * bestValue + 10 * ttValue) / 100;
 
