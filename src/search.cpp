@@ -1344,14 +1344,23 @@ moves_loop:  // When in check, search starts here
     if (bestValue <= alpha)
         ss->ttPv = ss->ttPv || ((ss - 1)->ttPv && depth > 3);
 
+    auto newTTBound = bestValue >= beta  ? BOUND_LOWER
+                    : PvNode && bestMove ? BOUND_EXACT
+                                         : BOUND_UPPER;
+
+    Value newTTValue = bestValue == VALUE_NONE || ttValue == VALUE_NONE
+                        || std::abs(bestValue) >= VALUE_TB_WIN_IN_MAX_PLY
+                        || std::abs(ttValue) >= VALUE_TB_WIN_IN_MAX_PLY
+                        || tte->bound() != BOUND_EXACT || newTTBound == BOUND_EXACT
+                       ? bestValue
+                       : (90 * bestValue + 10 * ttValue) / 100;
+
+
     // Write gathered information in transposition table
     // Static evaluation is saved as it was before correction history
     if (!excludedMove && !(rootNode && thisThread->pvIdx))
-        tte->save(posKey, value_to_tt(bestValue, ss->ply), ss->ttPv,
-                  bestValue >= beta    ? BOUND_LOWER
-                  : PvNode && bestMove ? BOUND_EXACT
-                                       : BOUND_UPPER,
-                  depth, bestMove, unadjustedStaticEval, tt.generation());
+        tte->save(posKey, value_to_tt(newTTValue, ss->ply), ss->ttPv, newTTBound, depth, bestMove,
+                  unadjustedStaticEval, tt.generation());
 
     // Adjust correction history
     if (!ss->inCheck && (!bestMove || !pos.capture(bestMove))
