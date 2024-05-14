@@ -42,6 +42,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "uci.h"
 #include "ucioption.h"
 
@@ -53,6 +54,12 @@ using Eval::evaluate;
 using namespace Search;
 
 namespace {
+
+int nmpConst = 324, nmpImproving = 0, nmpCutnode = 0, nmpStatscoreDiv = 40000;
+
+TUNE(SetRange(200, 300), nmpConst);
+TUNE(SetRange(-50, 50), nmpImproving, nmpCutnode);
+TUNE(SetRange(100, 40000), nmpStatscoreDiv);
 
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
@@ -780,8 +787,10 @@ Value Search::Worker::search(
 
     // Step 9. Null move search with verification search (~35 Elo)
     if (!PvNode && (ss - 1)->currentMove != Move::null() && (ss - 1)->statScore < 16079
-        && eval >= beta && ss->staticEval >= beta - 21 * depth + 324 && !excludedMove
-        && pos.non_pawn_material(us) && ss->ply >= thisThread->nmpMinPly
+        && eval >= beta
+        && ss->staticEval >= beta - 21 * depth + nmpConst + nmpImproving * improving
+                               + nmpCutnode * cutNode + (ss - 1)->statScore / nmpStatscoreDiv
+        && !excludedMove && pos.non_pawn_material(us) && ss->ply >= thisThread->nmpMinPly
         && beta > VALUE_TB_LOSS_IN_MAX_PLY)
     {
         assert(eval - beta >= 0);
