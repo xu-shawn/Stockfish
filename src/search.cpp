@@ -727,7 +727,7 @@ Value Search::Worker::search(
     }
     else
     {
-        unadjustedStaticEval = evaluate(networks, pos, refreshTable, thisThread->optimism[us]);
+        unadjustedStaticEval = qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
 
         // Static evaluation is saved as it was before adjustment by correction history
