@@ -55,11 +55,11 @@ using namespace Search;
 
 namespace {
 
-int nmpConst = 320, nmpImproving = -2, nmpCutnode = 0, nmpStatscoreDiv = 6679;
+int nmpConst = 320, nmpImproving = 0, nmpCutnode = 0, nmpStatscoreDiv = 5645;
 
 TUNE(SetRange(300, 350), nmpConst);
 TUNE(SetRange(-30, 30), nmpImproving, nmpCutnode);
-TUNE(SetRange(1000, 10000), nmpStatscoreDiv);
+TUNE(SetRange(1000, 8000), nmpStatscoreDiv);
 
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
