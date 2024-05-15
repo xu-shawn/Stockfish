@@ -58,7 +58,7 @@ namespace {
 int nmpConst = 320, nmpImproving = 0, nmpCutnode = 0, nmpStatscoreDiv = 5662;
 
 TUNE(SetRange(250, 400), nmpConst);
-TUNE(SetRange(-30, 30), nmpImproving, nmpCutnode);
+TUNE(SetRange(-60, 60), nmpImproving, nmpCutnode);
 
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
