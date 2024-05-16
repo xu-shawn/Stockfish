@@ -779,10 +779,9 @@ Value Search::Worker::search(
         return beta > VALUE_TB_LOSS_IN_MAX_PLY ? (eval + beta) / 2 : eval;
 
     // Step 9. Null move search with verification search (~35 Elo)
-    if (!PvNode && (ss - 1)->currentMove != Move::null() && (ss - 1)->statScore < 16079
-        && eval >= beta && ss->staticEval >= beta - 21 * depth + 324 && !excludedMove
-        && pos.non_pawn_material(us) && ss->ply >= thisThread->nmpMinPly
-        && beta > VALUE_TB_LOSS_IN_MAX_PLY)
+    if ((ss - 1)->currentMove != Move::null() && (ss - 1)->statScore < 16079 && eval >= beta
+        && ss->staticEval >= beta - 21 * depth + 324 && !excludedMove && pos.non_pawn_material(us)
+        && ss->ply >= thisThread->nmpMinPly && beta > VALUE_TB_LOSS_IN_MAX_PLY)
     {
         assert(eval - beta >= 0);
 
@@ -799,7 +798,7 @@ Value Search::Worker::search(
         pos.undo_null_move();
 
         // Do not return unproven mate or TB scores
-        if (nullValue >= beta && nullValue < VALUE_TB_WIN_IN_MAX_PLY)
+        if (nullValue >= beta && nullValue < VALUE_TB_WIN_IN_MAX_PLY && !PvNode)
         {
             if (thisThread->nmpMinPly || depth < 16)
                 return nullValue;
@@ -816,6 +815,10 @@ Value Search::Worker::search(
 
             if (v >= beta)
                 return nullValue;
+        }
+        else if (PvNode)
+        {
+            depth -= 2;
         }
     }
 
