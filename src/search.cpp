@@ -786,9 +786,17 @@ Value Search::Worker::search(
     {
         assert(eval - beta >= 0);
 
-        std::vector<bool> C = {
-          cutNode,   priorCapture,    ((ss + 1)->cutoffCnt > 3), ss->ttPv,
-          ss->ttHit, ttValue >= beta, ss->staticEval <= alpha,   (ss - 1)->statScore < -50000};
+        std::vector<bool> C = {cutNode,
+                               priorCapture,
+                               ((ss + 1)->cutoffCnt > 3),
+                               ss->ttPv,
+                               ss->ttHit,
+                               ttValue >= beta,
+                               ss->staticEval <= alpha,
+                               (ss - 1)->statScore < -50000,
+                               (!cutNode),
+                               improving,
+                               !improving};
 
         // Null move dynamic reduction based on depth and eval
         Depth R = std::min(int(eval - beta) / 144, 6) + depth / 3 + 4;
@@ -802,7 +810,7 @@ Value Search::Worker::search(
 
         pos.undo_null_move();
 
-        for (int i = 0; depth > 8 && i < static_cast<int>(C.size()); i++)
+        for (int i = 0; i < static_cast<int>(C.size()); i++)
         {
             // dbg_correl_of(C[i], nullValue >= beta, i);
             if (C[i])
