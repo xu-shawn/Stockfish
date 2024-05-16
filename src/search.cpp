@@ -786,6 +786,10 @@ Value Search::Worker::search(
     {
         assert(eval - beta >= 0);
 
+        std::vector<bool> C = {
+          cutNode,   priorCapture,    ((ss + 1)->cutoffCnt > 3), ss->ttPv,
+          ss->ttHit, ttValue >= beta, ss->staticEval <= alpha,   (ss - 1)->statScore < -50000};
+
         // Null move dynamic reduction based on depth and eval
         Depth R = std::min(int(eval - beta) / 144, 6) + depth / 3 + 4;
 
@@ -797,6 +801,15 @@ Value Search::Worker::search(
         Value nullValue = -search<NonPV>(pos, ss + 1, -beta, -beta + 1, depth - R, !cutNode);
 
         pos.undo_null_move();
+
+        for (int i = 0; depth > 8 && i < static_cast<int>(C.size()); i++)
+        {
+            // dbg_correl_of(C[i], nullValue >= beta, i);
+            if (C[i])
+            {
+                dbg_hit_on(nullValue >= beta, i);
+            }
+        }
 
         // Do not return unproven mate or TB scores
         if (nullValue >= beta && nullValue < VALUE_TB_WIN_IN_MAX_PLY)
