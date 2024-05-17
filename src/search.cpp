@@ -793,10 +793,12 @@ Value Search::Worker::search(
                                ss->ttHit,
                                ttValue >= beta,
                                ss->staticEval <= alpha,
+                               ss->staticEval < alpha,
                                (ss - 1)->statScore < -50000,
                                (!cutNode),
                                improving,
-                               !improving};
+                               !improving,
+                               eval < ss->staticEval};
 
         // Null move dynamic reduction based on depth and eval
         Depth R = std::min(int(eval - beta) / 144, 6) + depth / 3 + 4;
@@ -812,10 +814,9 @@ Value Search::Worker::search(
 
         for (int i = 0; i < static_cast<int>(C.size()); i++)
         {
-            // dbg_correl_of(C[i], nullValue >= beta, i);
             if (C[i])
             {
-                dbg_hit_on(nullValue >= beta, i);
+                dbg_hit_on(nullValue < beta, i);
             }
         }
 
