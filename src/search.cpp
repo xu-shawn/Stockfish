@@ -818,7 +818,7 @@ Value Search::Worker::search(
         }
         else if (PvNode && nullValue >= beta)
         {
-            depth -= 2;
+            depth -= depth / 3;
         }
     }
 
