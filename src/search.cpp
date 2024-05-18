@@ -1150,7 +1150,8 @@ moves_loop:  // When in check, search starts here
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore / (16145 - std::min(depth, 15) * 102);
 
-        if (ttMove == countermove && (ttMove == ss->killers[0] || ttMove == ss->killers[1]))
+        if (move == ttMove && ttMove == countermove
+            && (ttMove == ss->killers[0] || ttMove == ss->killers[1]))
             r = std::min(r, 0);
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
