@@ -1132,13 +1132,13 @@ moves_loop:  // When in check, search starts here
         if (PvNode)
             r--;
 
-        // Increase reduction if next ply has a lot of fail high (~5 Elo)
-        if ((ss + 1)->cutoffCnt > 3)
-            r++;
-
-        else if (move == ttMove && move == countermove
-                 && (move == ss->killers[0] || move == ss->killers[1]))
+        if (move == ttMove && move == countermove
+            && (move == ss->killers[0] || move == ss->killers[1]))
             r = std::min(r - 3, 0);
+
+        // Increase reduction if next ply has a lot of fail high (~5 Elo)
+        else if ((ss + 1)->cutoffCnt > 3)
+            r++;
 
         // Set reduction to 0 for first picked move (ttMove) (~2 Elo)
         // Nullifies all previous reduction adjustments to ttMove and leaves only history to do them
