@@ -42,6 +42,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "types.h"
 #include "uci.h"
 #include "ucioption.h"
 
@@ -1117,7 +1118,7 @@ moves_loop:  // When in check, search starts here
 
         // Decrease reduction if position is or has been on the PV (~7 Elo)
         if (ss->ttPv)
-            r -= 1 + (ttValue > alpha) + (tte->depth() >= depth);
+            r -= 1 + (ttValue > alpha && tte->bound() != BOUND_UPPER) + (tte->depth() >= depth);
 
         else if (cutNode && move != ttMove && move != ss->killers[0])
             r++;
