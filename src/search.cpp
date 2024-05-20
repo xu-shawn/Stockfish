@@ -42,6 +42,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "uci.h"
 #include "ucioption.h"
 
@@ -56,6 +57,14 @@ namespace {
 
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
+
+int nmpBase          = 5;
+int nmpEvalBetaLimit = 6;
+int nmpMultiplier    = 12;
+
+TUNE(SetRange(0, 12), nmpBase);
+TUNE(SetRange(0, 20), nmpEvalBetaLimit);
+TUNE(SetRange(0, 35), nmpMultiplier);
 
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
@@ -787,7 +796,8 @@ Value Search::Worker::search(
         assert(eval - beta >= 0);
 
         // Null move dynamic reduction based on depth and eval
-        Depth R = std::min(int(eval - beta) / 152, 6) + depth / 3 + 5;
+        Depth R =
+          std::min(int(eval - beta) / 152, nmpEvalBetaLimit) + depth * nmpMultiplier / 36 + nmpBase;
 
         ss->currentMove         = Move::null();
         ss->continuationHistory = &thisThread->continuationHistory[0][0][NO_PIECE][0];
