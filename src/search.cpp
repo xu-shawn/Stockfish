@@ -42,6 +42,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "types.h"
 #include "uci.h"
 #include "ucioption.h"
 
@@ -1816,7 +1817,8 @@ void update_quiet_histories(
     update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus);
 
     int pIndex = pawn_structure_index(pos);
-    workerThread.pawnHistory[pIndex][pos.moved_piece(move)][move.to_sq()] << bonus;
+    workerThread.pawnHistory[pIndex][pos.moved_piece(move)][move.to_sq()]
+      << bonus * (pos.count<PAWN>() + 48) / 64;
 }
 
 // Updates move sorting heuristics
