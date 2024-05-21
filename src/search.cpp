@@ -550,6 +550,7 @@ Value Search::Worker::search(
     Value    bestValue, value, ttValue, eval, maxValue, probCutBeta;
     bool     givesCheck, improving, priorCapture, opponentWorsening;
     bool     capture, moveCountPruning, ttCapture;
+    bool     extended;
     Piece    movedPiece;
     int      moveCount, captureCount, quietCount;
 
@@ -561,6 +562,7 @@ Value Search::Worker::search(
     moveCount = captureCount = quietCount = ss->moveCount = 0;
     bestValue                                             = -VALUE_INFINITE;
     maxValue                                              = VALUE_INFINITE;
+    extended                                              = false;
 
     // Check for the available remaining time
     if (is_mainthread())
@@ -1074,6 +1076,8 @@ moves_loop:  // When in check, search starts here
                               + (value < singularBeta - quadMargin);
 
                     depth += ((!PvNode) && (depth < 15));
+
+                    extended = extension > 0;
                 }
 
                 // Multi-cut pruning
@@ -1148,10 +1152,8 @@ moves_loop:  // When in check, search starts here
         if (PvNode)
             r--;
 
-        if (extension > 0 && move == ttMove)
-        {
-            r--;
-        }
+        if (extended && move != ttMove)
+            r++;
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)
