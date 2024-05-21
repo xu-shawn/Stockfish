@@ -1082,7 +1082,7 @@ moves_loop:  // When in check, search starts here
                 else if (singularBeta >= beta)
                 {
                     if (!ttCapture)
-                        update_quiet_histories(pos, ss, *this, ttMove, -stat_malus(depth) * 3 / 2);
+                        update_quiet_histories(pos, ss, *this, ttMove, -stat_malus(depth) / 2);
 
                     return singularBeta;
                 }
