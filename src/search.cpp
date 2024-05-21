@@ -1054,11 +1054,13 @@ moves_loop:  // When in check, search starts here
             {
                 Value singularBeta  = ttValue - (57 + 50 * (ss->ttPv && !PvNode)) * depth / 64;
                 Depth singularDepth = newDepth / 2;
+                int   realMoveCount = ss->moveCount;
 
                 ss->excludedMove = move;
                 value =
                   search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
                 ss->excludedMove = Move::none();
+                ss->moveCount    = realMoveCount;
 
                 if (value < singularBeta)
                 {
@@ -1145,6 +1147,11 @@ moves_loop:  // When in check, search starts here
         // Decrease reduction for PvNodes (~0 Elo on STC, ~2 Elo on LTC)
         if (PvNode)
             r--;
+
+        if (extension > 0 && move == ttMove)
+        {
+            r--;
+        }
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)
