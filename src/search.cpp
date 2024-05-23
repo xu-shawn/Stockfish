@@ -42,6 +42,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "types.h"
 #include "uci.h"
 #include "ucioption.h"
@@ -54,6 +55,12 @@ using Eval::evaluate;
 using namespace Search;
 
 namespace {
+
+int base        = 9528;
+int coefficient = 50;
+
+TUNE(SetRange(1, 20000), base);
+TUNE(SetRange(-300, 300), coefficient);
 
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
@@ -312,7 +319,7 @@ void Search::Worker::iterative_deepening() {
 
             // Reset aspiration window starting size
             Value avg = rootMoves[pvIdx].averageScore;
-            delta     = 10 + avg * avg / (9528 + 50 * rootDepth);
+            delta     = 10 + avg * avg / (base + coefficient * rootDepth);
             alpha     = std::max(avg - delta, -VALUE_INFINITE);
             beta      = std::min(avg + delta, VALUE_INFINITE);
 
