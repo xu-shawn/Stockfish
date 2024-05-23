@@ -731,7 +731,7 @@ Value Search::Worker::search(
     {
         unadjustedStaticEval = evaluate(networks, pos, refreshTable, thisThread->optimism[us]);
         ss->staticEval       = to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
-        eval                 = qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        eval = depth < 8 ? ss->staticEval : qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
 
         // Static evaluation is saved as it was before adjustment by correction history
         tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_UNSEARCHED, Move::none(),
