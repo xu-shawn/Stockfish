@@ -42,11 +42,18 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "types.h"
 #include "uci.h"
 #include "ucioption.h"
 
 namespace Stockfish {
+
+int base        = 10502;
+int coefficient = 0;
+
+TUNE(SetRange(1, 20000), base);
+TUNE(SetRange(-600, 600), coefficient);
 
 namespace TB = Tablebases;
 
@@ -312,7 +319,7 @@ void Search::Worker::iterative_deepening() {
 
             // Reset aspiration window starting size
             Value avg = rootMoves[pvIdx].averageScore;
-            delta     = 9 + avg * avg / 10502;
+            delta     = 9 + avg * avg / (base + rootDepth * coefficient);
             alpha     = std::max(avg - delta, -VALUE_INFINITE);
             beta      = std::min(avg + delta, VALUE_INFINITE);
 
