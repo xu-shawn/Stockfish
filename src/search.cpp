@@ -727,6 +727,15 @@ Value Search::Worker::search(
         if (ttValue != VALUE_NONE && (tte->bound() & (ttValue > eval ? BOUND_LOWER : BOUND_UPPER)))
             eval = ttValue;
     }
+    else if (depth > 15)
+    {
+        ss->staticEval = eval = unadjustedStaticEval =
+          qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+
+        // Static evaluation is saved as it was before adjustment by correction history
+        tte->save(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_UNSEARCHED, Move::none(),
+                  unadjustedStaticEval, tt.generation());
+    }
     else
     {
         unadjustedStaticEval = evaluate(networks, pos, refreshTable, thisThread->optimism[us]);
