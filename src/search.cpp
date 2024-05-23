@@ -823,6 +823,11 @@ Value Search::Worker::search(
 
             thisThread->nmpMinPly = 0;
 
+            auto bonus = std::clamp(int(nullValue - ss->staticEval) * (depth - R) / 8,
+                                    -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
+            thisThread->correctionHistory[us][pawn_structure_index<Correction>(pos)] << bonus;
+
+
             if (v >= beta)
                 return nullValue;
         }
