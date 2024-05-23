@@ -1062,16 +1062,7 @@ moves_loop:  // When in check, search starts here
 
                 if (value < singularBeta)
                 {
-                    int doubleMargin = 298 * PvNode - 209 * !ttCapture;
-                    int tripleMargin =
-                      117 + 252 * PvNode - 270 * !ttCapture + 111 * (ss->ttPv || !ttCapture);
-                    int quadMargin = 471 + 343 * PvNode - 281 * !ttCapture + 217 * ss->ttPv;
-
-                    extension = 1 + (value < singularBeta - doubleMargin)
-                              + (value < singularBeta - tripleMargin)
-                              + (value < singularBeta - quadMargin);
-
-                    depth += ((!PvNode) && (depth < 15));
+                    extension = 0;
                 }
 
                 // Multi-cut pruning
@@ -1103,10 +1094,10 @@ moves_loop:  // When in check, search starts here
             }
 
             // Extension for capturing the previous moved piece (~0 Elo on STC, ~1 Elo on LTC)
-            else if (PvNode && move == ttMove && move.to_sq() == prevSq
-                     && thisThread->captureHistory[movedPiece][move.to_sq()]
-                                                  [type_of(pos.piece_on(move.to_sq()))]
-                          > 3748)
+            if (PvNode && move == ttMove && move.to_sq() == prevSq
+                && thisThread->captureHistory[movedPiece][move.to_sq()]
+                                             [type_of(pos.piece_on(move.to_sq()))]
+                     > 3748)
                 extension = 1;
         }
 
