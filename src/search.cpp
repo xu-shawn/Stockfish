@@ -701,7 +701,7 @@ Value Search::Worker::search(
     if (ss->inCheck)
     {
         // Skip early pruning when in check
-        ss->staticEval = eval = VALUE_NONE;
+        ss->staticEval = eval = qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
         improving             = false;
         goto moves_loop;
     }
