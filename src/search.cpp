@@ -1121,8 +1121,8 @@ moves_loop:  // When in check, search starts here
         ss->statScore =
           2 * thisThread->mainHistory[us][move.from_to()] + (*contHist[0])[movedPiece][move.to_sq()]
           + (*contHist[1])[movedPiece][move.to_sq()]
-          + thisThread->pawnHistory[pawn_structure_index(pos)][pos.moved_piece(move)][move.to_sq()]
-          - 5869;
+          //+ thisThread->pawnHistory[pawn_structure_index(pos)][pos.moved_piece(move)][move.to_sq()]
+          - 5500;
 
         // Step 16. Make the move
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
