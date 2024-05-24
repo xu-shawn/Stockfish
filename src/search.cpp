@@ -1133,7 +1133,7 @@ moves_loop:  // When in check, search starts here
 
         // Decrease reduction for PvNodes (~0 Elo on STC, ~2 Elo on LTC)
         if (PvNode)
-            r--;
+            r -= 1 + (move == ttMove);
 
         // These reduction adjustments have no proven non-linear scaling.
 
@@ -1155,9 +1155,11 @@ moves_loop:  // When in check, search starts here
         else if (move == ttMove)
             r = 0;
 
-        ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
-                      + (*contHist[0])[movedPiece][move.to_sq()]
-                      + (*contHist[1])[movedPiece][move.to_sq()] - 5169;
+        ss->statScore =
+          2 * thisThread->mainHistory[us][move.from_to()] + (*contHist[0])[movedPiece][move.to_sq()]
+          + (*contHist[1])[movedPiece][move.to_sq()]
+          + thisThread->pawnHistory[pawn_structure_index(pos)][pos.moved_piece(move)][move.to_sq()]
+          - 4069;
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore / (12219 - std::min(depth, 13) * 120);
