@@ -1118,6 +1118,12 @@ moves_loop:  // When in check, search starts here
 
         uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
 
+        ss->statScore =
+          2 * thisThread->mainHistory[us][move.from_to()] + (*contHist[0])[movedPiece][move.to_sq()]
+          + (*contHist[1])[movedPiece][move.to_sq()]
+          + thisThread->pawnHistory[pawn_structure_index(pos)][pos.moved_piece(move)][move.to_sq()]
+          - 4069;
+
         // Step 16. Make the move
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
         pos.do_move(move, st, givesCheck);
@@ -1154,12 +1160,6 @@ moves_loop:  // When in check, search starts here
         // Nullifies all previous reduction adjustments to ttMove and leaves only history to do them
         else if (move == ttMove)
             r = 0;
-
-        ss->statScore =
-          2 * thisThread->mainHistory[us][move.from_to()] + (*contHist[0])[movedPiece][move.to_sq()]
-          + (*contHist[1])[movedPiece][move.to_sq()]
-          + thisThread->pawnHistory[pawn_structure_index(pos)][pos.moved_piece(move)][move.to_sq()]
-          - 4069;
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore / (12219 - std::min(depth, 13) * 120);
