@@ -550,7 +550,7 @@ Value Search::Worker::search(
     Depth    extension, newDepth;
     Value    bestValue, value, ttValue, eval, maxValue, probCutBeta;
     bool     givesCheck, improving, priorCapture, opponentWorsening;
-    bool     capture, moveCountPruning, ttCapture;
+    bool     capture, moveCountPruning, ttCapture, likelyZugzwang;
     Piece    movedPiece;
     int      moveCount, captureCount, quietCount;
 
@@ -562,6 +562,7 @@ Value Search::Worker::search(
     moveCount = captureCount = quietCount = ss->moveCount = 0;
     bestValue                                             = -VALUE_INFINITE;
     maxValue                                              = VALUE_INFINITE;
+    likelyZugzwang                                        = false;
 
     // Check for the available remaining time
     if (is_mainthread())
@@ -824,6 +825,8 @@ Value Search::Worker::search(
 
             if (v >= beta)
                 return nullValue;
+
+            likelyZugzwang = nullValue - v > 100 && depth - R > 0;
         }
     }
 
@@ -1095,6 +1098,9 @@ moves_loop:  // When in check, search starts here
                 else if (cutNode)
                     extension = -2;
             }
+
+            else if (likelyZugzwang && move == ttMove)
+                extension = 1;
 
             // Extension for capturing the previous moved piece (~0 Elo on STC, ~1 Elo on LTC)
             else if (PvNode && move == ttMove && move.to_sq() == prevSq
