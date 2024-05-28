@@ -796,11 +796,12 @@ Value Search::Worker::search(
 
         pos.undo_null_move();
 
-        if (!pos.non_pawn_material() && nullValue >= beta)
+        if (!pos.non_pawn_material(us) && nullValue >= beta)
             depth -= 3;
 
         // Do not return unproven mate or TB scores
-        else if (nullValue >= beta && nullValue < VALUE_TB_WIN_IN_MAX_PLY)
+        else if (nullValue >= beta && nullValue < VALUE_TB_WIN_IN_MAX_PLY
+                 && pos.non_pawn_material(us))
         {
             if (thisThread->nmpMinPly || depth < 16)
             {
