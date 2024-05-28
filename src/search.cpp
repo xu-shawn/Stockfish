@@ -42,6 +42,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "types.h"
 #include "uci.h"
 #include "ucioption.h"
@@ -54,6 +55,19 @@ using Eval::evaluate;
 using namespace Search;
 
 namespace {
+
+int mainHistoryFill         = 0;
+int correctionHistoryFill   = 0;
+int captureHistoryFill      = 0;
+int continuationHistoryFill = -60;
+int pawnHistoryFill         = -1300;
+
+TUNE(SetRange(-3000, 3000),
+     mainHistoryFill,
+     correctionHistoryFill,
+     captureHistoryFill,
+     continuationHistoryFill,
+     pawnHistoryFill);
 
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
@@ -498,16 +512,16 @@ void Search::Worker::iterative_deepening() {
 
 void Search::Worker::clear() {
     counterMoves.fill(Move::none());
-    mainHistory.fill(0);
-    captureHistory.fill(0);
-    pawnHistory.fill(-1300);
-    correctionHistory.fill(0);
+    mainHistory.fill(mainHistoryFill);
+    captureHistory.fill(captureHistoryFill);
+    pawnHistory.fill(pawnHistoryFill);
+    correctionHistory.fill(correctionHistoryFill);
 
     for (bool inCheck : {false, true})
         for (StatsType c : {NoCaptures, Captures})
             for (auto& to : continuationHistory[inCheck][c])
                 for (auto& h : to)
-                    h->fill(-60);
+                    h->fill(continuationHistoryFill);
 
     for (size_t i = 1; i < reductions.size(); ++i)
         reductions[i] = int((19.90 + std::log(size_t(options["Threads"])) / 2) * std::log(i));
