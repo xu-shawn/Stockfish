@@ -498,16 +498,16 @@ void Search::Worker::iterative_deepening() {
 
 void Search::Worker::clear() {
     counterMoves.fill(Move::none());
-    mainHistory.fill(0);
-    captureHistory.fill(0);
-    pawnHistory.fill(-1300);
-    correctionHistory.fill(0);
+    mainHistory.fill(-288);
+    captureHistory.fill(-29);
+    pawnHistory.fill(-1315);
+    correctionHistory.fill(59);
 
     for (bool inCheck : {false, true})
         for (StatsType c : {NoCaptures, Captures})
             for (auto& to : continuationHistory[inCheck][c])
                 for (auto& h : to)
-                    h->fill(-60);
+                    h->fill(40);
 
     for (size_t i = 1; i < reductions.size(); ++i)
         reductions[i] = int((19.90 + std::log(size_t(options["Threads"])) / 2) * std::log(i));
@@ -578,9 +578,10 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
-                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
-                                                        : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck)
+                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
+                              thisThread->optimism[us])
+                   : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
