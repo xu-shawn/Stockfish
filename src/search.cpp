@@ -63,7 +63,7 @@ int term10 = 0;
 int term11 = 0;
 int term12 = 0;
 
-int margin = -1000;
+int margin = 500;
 
 TUNE(SetRange(-400, 400),
      term0,
@@ -80,7 +80,7 @@ TUNE(SetRange(-400, 400),
      term11,
      term12);
 
-TUNE(SetRange(-2000, 0), margin);
+TUNE(SetRange(0, 2000), margin);
 
 namespace TB = Tablebases;
 
