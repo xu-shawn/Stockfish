@@ -1378,8 +1378,8 @@ moves_loop:  // When in check, search starts here
           (term0 + term1 * (depth > 5) + term2 * (PvNode || cutNode)
            + term3 * ((ss - 1)->statScore < -14144) + term4 * ((ss - 1)->moveCount > 9)
            + term5 * (!ss->inCheck && bestValue <= ss->staticEval - 115)
-           + term6 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 81) + term7
-           + improving + term8 * opponentWorsening + term9 * (depth > 10)
+           + term6 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 81)
+           + term7 * improving + term8 * opponentWorsening + term9 * (depth > 10)
            + term10 * (alpha - bestValue < margin) + term11 * ss->ttPv + term12 * (extension >= 2));
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       stat_bonus(depth) * bonus / 100);
