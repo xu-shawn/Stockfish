@@ -71,7 +71,7 @@ constexpr int futility_move_count(bool improving, bool opponentWorsening, Depth 
     if (improving)
     {
         if (opponentWorsening)
-            return 3 + depth * depth * 2;
+            return MAX_MOVES;
 
         return 3 + depth * depth;
     }
