@@ -42,11 +42,45 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "types.h"
 #include "uci.h"
 #include "ucioption.h"
 
 namespace Stockfish {
+
+int term0  = 0;
+int term1  = 116;
+int term2  = 115;
+int term3  = 186;
+int term4  = 121;
+int term5  = 64;
+int term6  = 137;
+int term7  = 0;
+int term8  = 0;
+int term9  = 0;
+int term10 = 0;
+int term11 = 0;
+int term12 = 0;
+
+int margin = -1000;
+
+TUNE(SetRange(-400, 400),
+     term0,
+     term1,
+     term2,
+     term3,
+     term4,
+     term5,
+     term6,
+     term7,
+     term8,
+     term9,
+     term10,
+     term11,
+     term12);
+
+TUNE(SetRange(-2000, 0), margin);
 
 namespace TB = Tablebases;
 
@@ -578,9 +612,10 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
-                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
-                                                        : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck)
+                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
+                              thisThread->optimism[us])
+                   : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -1339,10 +1374,13 @@ moves_loop:  // When in check, search starts here
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
     {
-        int bonus = (116 * (depth > 5) + 115 * (PvNode || cutNode)
-                     + 186 * ((ss - 1)->statScore < -14144) + 121 * ((ss - 1)->moveCount > 9)
-                     + 64 * (!ss->inCheck && bestValue <= ss->staticEval - 115)
-                     + 137 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 81));
+        int bonus =
+          (term0 + term1 * (depth > 5) + term2 * (PvNode || cutNode)
+           + term3 * ((ss - 1)->statScore < -14144) + term4 * ((ss - 1)->moveCount > 9)
+           + term5 * (!ss->inCheck && bestValue <= ss->staticEval - 115)
+           + term6 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 81) + term7
+           + improving + term8 * opponentWorsening + term9 * (depth > 10)
+           + term10 * (alpha - bestValue < margin) + term11 * ss->ttPv + term12 * (extension >= 2));
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       stat_bonus(depth) * bonus / 100);
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
