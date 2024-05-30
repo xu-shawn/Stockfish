@@ -42,6 +42,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "types.h"
 #include "uci.h"
 #include "ucioption.h"
@@ -54,6 +55,11 @@ using Eval::evaluate;
 using namespace Search;
 
 namespace {
+
+int a = -1;
+int b = -67;
+
+TUNE(SetRange(-200, 200), a, b);
 
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
@@ -1599,7 +1605,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
                 continue;
 
             // Do not search moves with bad enough SEE values (~5 Elo)
-            if (!pos.see_ge(move, improving ? -1 : -67))
+            if (!pos.see_ge(move, improving ? a : b))
                 continue;
         }
 
