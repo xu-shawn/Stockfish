@@ -1553,8 +1553,9 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
                 if (moveCount > 2 && move.type_of() != PROMOTION)
                     continue;
 
-                Value futilityValue = futilityBase + PieceValue[pos.piece_on(move.to_sq())]
-                                    + (move.type_of() == PROMOTION) * PieceValue[QUEEN] * 2;
+                Value futilityValue =
+                  futilityBase + PieceValue[pos.piece_on(move.to_sq())]
+                  + (move.type_of() == PROMOTION) * (PieceValue[QUEEN] + PieceValue[KNIGHT]);
 
                 // If static eval + value of piece we are going to capture is much lower
                 // than alpha we can prune this move. (~2 Elo)
