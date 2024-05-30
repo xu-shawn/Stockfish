@@ -1346,8 +1346,9 @@ moves_loop:  // When in check, search starts here
                      + 264 * ((ss - 1)->statScore < -14144) + 164 * ((ss - 1)->moveCount > 9)
                      + 68 * (!ss->inCheck && bestValue <= ss->staticEval - 115)
                      + 129 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 81)
-                     + 57 * improving + 32 * opponentWorsening - 13 * (depth > 10)
-                     - 33 * (alpha - bestValue < 508) + 22 * ss->ttPv + 23 * (extension >= 2));
+                     + 57 * (improving && !ss->inCheck) + 32 * (opponentWorsening && !ss->inCheck)
+                     - 13 * (depth > 10) - 33 * (alpha - bestValue < 508) + 22 * ss->ttPv
+                     + 23 * (extension >= 2));
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       stat_bonus(depth) * bonus / 100);
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
