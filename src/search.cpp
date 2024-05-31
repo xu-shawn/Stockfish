@@ -1604,7 +1604,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
             int seeHist = std::clamp(
               captureHistory[movedPiece][move.to_sq()][type_of(pos.piece_on(move.to_sq()))]
                 / divisor,
-              -lowerBound, upperBound);
+              lowerBound, upperBound);
 
             // Do not search moves with bad enough SEE values (~5 Elo)
             if (!pos.see_ge(move, SEEbase - seeHist))
