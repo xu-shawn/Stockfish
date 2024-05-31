@@ -42,6 +42,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "types.h"
 #include "uci.h"
 #include "ucioption.h"
@@ -54,6 +55,14 @@ using Eval::evaluate;
 using namespace Search;
 
 namespace {
+
+int divisor    = 300;
+int lowerBound = -30;
+int upperBound = 30;
+int SEEbase    = -67;
+
+TUNE(SetRange(600, 1), divisor);
+TUNE(SetRange(-300, 300), lowerBound, upperBound, SEEbase);
 
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
@@ -1593,11 +1602,12 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
             Piece movedPiece = pos.moved_piece(move);
 
             int seeHist = std::clamp(
-              captureHistory[movedPiece][move.to_sq()][type_of(pos.piece_on(move.to_sq()))] / 300,
-              -30, 30);
+              captureHistory[movedPiece][move.to_sq()][type_of(pos.piece_on(move.to_sq()))]
+                / divisor,
+              -lowerBound, upperBound);
 
             // Do not search moves with bad enough SEE values (~5 Elo)
-            if (!pos.see_ge(move, -67 - seeHist))
+            if (!pos.see_ge(move, SEEbase - seeHist))
                 continue;
         }
 
