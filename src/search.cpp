@@ -61,7 +61,7 @@ int lowerBound = -30;
 int upperBound = 30;
 int SEEbase    = -67;
 
-TUNE(SetRange(600, 1), divisor);
+TUNE(SetRange(1, 600), divisor);
 TUNE(SetRange(-300, 300), lowerBound, upperBound, SEEbase);
 
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
