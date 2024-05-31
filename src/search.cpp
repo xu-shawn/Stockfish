@@ -49,19 +49,20 @@
 
 namespace Stockfish {
 
-int term0  = 0;
-int term1  = 116;
-int term2  = 115;
-int term3  = 186;
-int term4  = 121;
-int term5  = 64;
-int term6  = 137;
-int term7  = 0;
-int term8  = 0;
-int term9  = 0;
-int term10 = 0;
-int term11 = 0;
-int term12 = 0;
+int term0   = 0;
+int term1   = 116;
+int term2   = 115;
+int term2_5 = 115;
+int term3   = 186;
+int term4   = 121;
+int term5   = 64;
+int term6   = 137;
+int term7   = 0;
+int term8   = 0;
+int term9   = 0;
+int term10  = 0;
+int term11  = 0;
+int term12  = 0;
 
 int margin = 500;
 
@@ -69,6 +70,7 @@ TUNE(SetRange(-400, 400),
      term0,
      term1,
      term2,
+     term2_5,
      term3,
      term4,
      term5,
@@ -1375,11 +1377,11 @@ moves_loop:  // When in check, search starts here
     else if (!priorCapture && prevSq != SQ_NONE)
     {
         int bonus =
-          (term0 + term1 * (depth > 5) + term2 * (PvNode || cutNode)
+          (term0 + term1 * (depth > 5) + term2 * PvNode + term2_5 * cutNode
            + term3 * ((ss - 1)->statScore < -14144) + term4 * ((ss - 1)->moveCount > 9)
            + term5 * (!ss->inCheck && bestValue <= ss->staticEval - 115)
            + term6 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 81)
-           + term7 * improving + term8 * opponentWorsening + term9 * (depth > 10)
+           + term7 * improving + term8 * (opponentWorsening && !ss->inCheck) + term9 * (depth > 10)
            + term10 * (alpha - bestValue < margin) + term11 * ss->ttPv + term12 * (extension >= 2));
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       stat_bonus(depth) * bonus / 100);
