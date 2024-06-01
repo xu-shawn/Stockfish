@@ -578,9 +578,10 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
-                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
-                                                        : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck)
+                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
+                              thisThread->optimism[us])
+                   : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -1339,10 +1340,13 @@ moves_loop:  // When in check, search starts here
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
     {
-        int bonus = (116 * (depth > 5) + 115 * (PvNode || cutNode)
-                     + 186 * ((ss - 1)->statScore < -14144) + 121 * ((ss - 1)->moveCount > 9)
-                     + 64 * (!ss->inCheck && bestValue <= ss->staticEval - 115)
-                     + 137 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 81));
+        int bonus = (2 + 92 * (depth > 5) + 148 * PvNode + 98 * cutNode
+                     + 192 * ((ss - 1)->statScore < -14144) + 135 * ((ss - 1)->moveCount > 9)
+                     + 80 * (!ss->inCheck && bestValue <= ss->staticEval - 115)
+                     + 151 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 81)
+                     + 41 * improving + 6 * (opponentWorsening && !ss->inCheck) + 9 * (depth > 10)
+                     - 10 * (alpha - bestValue < 3) + 25 * ss->ttPv + 51 * (extension >= 2));
+
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       stat_bonus(depth) * bonus / 100);
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
