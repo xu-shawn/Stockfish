@@ -61,7 +61,8 @@ int qExtFormulaTerm3          = 0;
 TUNE(SetRange(0, 500), qExtMargin, qExtSingularBetaReduction);
 TUNE(SetRange(0, 36), qExtDepthMultiplier);
 TUNE(SetRange(-20, 20), qExtDepthConstant);
-TUNE(SetRange(-200, 200), qExtResearchMargin, qExtFormulaTerm1, qExtFormulaTerm2);
+TUNE(SetRange(-200, 200), qExtFormulaTerm1, qExtFormulaTerm2);
+TUNE(SetRange(0, 200), qExtResearchMargin);
 TUNE(SetRange(-40, 40), qExtFormulaTerm3);
 
 namespace TB = Tablebases;
@@ -1098,34 +1099,27 @@ moves_loop:  // When in check, search starts here
                     extension = 1 + (value < singularBeta - doubleMargin)
                               + (value < singularBeta - tripleMargin);
 
-                    depth += ((!PvNode) && (depth < 16));
-                    // We make sure to limit the extensions in some way to avoid a search explosion
-                    if (!PvNode && ss->multipleExtensions <= 16)
+                    if (value < singularBeta - qExtMargin && !ttCapture && (ss + 1)->cutoffCnt > 3
+                        && tte->depth() >= depth - 2)
                     {
-                        extension = 2 + (value < singularBeta - 11 && !ttCapture);
+                        Value quadSingularBeta =
+                          singularBeta - qExtSingularBetaReduction
+                          + (qExtFormulaTerm1 + qExtFormulaTerm2 * (ss->ttPv && !PvNode)) * depth
+                              / 64;
+                        Depth quadSingularDepth =
+                          newDepth * qExtDepthMultiplier / 24 + qExtDepthConstant;
 
-                        if (value < singularBeta - qExtMargin && !ttCapture
-                            && (ss + 1)->cutoffCnt > 3 && tte->depth() >= depth - 2)
-                        {
-                            singularBeta -=
-                              qExtSingularBetaReduction
-                              + (qExtFormulaTerm1 + qExtFormulaTerm2 * (ss->ttPv && !PvNode)
-                                 + qExtFormulaTerm3 * ss->multipleExtensions)
-                                  * depth / 64;
-                            singularDepth = newDepth * qExtDepthMultiplier / 24 + qExtDepthConstant;
+                        ss->excludedMove  = move;
+                        int moveCountPrev = ss->moveCount;
+                        value = search<NonPV>(pos, ss, quadSingularBeta - 1, quadSingularBeta,
+                                              quadSingularDepth, cutNode);
+                        ss->excludedMove = Move::none();
+                        ss->moveCount    = moveCountPrev;
 
-                            ss->excludedMove  = move;
-                            int moveCountPrev = ss->moveCount;
-                            value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta,
-                                                  singularDepth, cutNode);
-                            ss->excludedMove = Move::none();
-                            ss->moveCount    = moveCountPrev;
-
-                            extension += value < singularBeta - qExtResearchMargin;
-                        }
-
-                        depth += depth < 14;
+                        extension += value < singularBeta - qExtResearchMargin;
                     }
+
+                    depth += ((!PvNode) && (depth < 16));
                 }
 
                 // Multi-cut pruning
