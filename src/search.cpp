@@ -1078,7 +1078,7 @@ moves_loop:  // When in check, search starts here
                 {
                     int doubleMargin = 304 * PvNode - 203 * !ttCapture;
                     int tripleMargin =
-                      116 + 259 * PvNode + delta - 296 * !ttCapture + 97 * ss->ttPv;
+                      116 + 259 * PvNode + std::min(delta, 40) - 296 * !ttCapture + 97 * ss->ttPv;
 
                     extension = 1 + (value < singularBeta - doubleMargin)
                               + (value < singularBeta - tripleMargin);
