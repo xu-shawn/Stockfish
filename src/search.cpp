@@ -1100,12 +1100,11 @@ moves_loop:  // When in check, search starts here
                               + (value < singularBeta - tripleMargin);
 
                     if (value < singularBeta - qExtMargin && !ttCapture && (ss + 1)->cutoffCnt > 3
-                        && tte->depth() >= depth - 2)
+                        && tte->depth() >= depth - 2 && !PvNode)
                     {
                         Value quadSingularBeta =
                           singularBeta - qExtSingularBetaReduction
-                          + (qExtFormulaTerm1 + qExtFormulaTerm2 * (ss->ttPv && !PvNode)) * depth
-                              / 64;
+                          + (qExtFormulaTerm1 + qExtFormulaTerm2 * ss->ttPv) * depth / 64;
                         Depth quadSingularDepth =
                           newDepth * qExtDepthMultiplier / 24 + qExtDepthConstant;
 
