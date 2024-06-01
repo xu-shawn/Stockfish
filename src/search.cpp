@@ -42,6 +42,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "types.h"
 #include "uci.h"
 #include "ucioption.h"
@@ -54,6 +55,11 @@ using Eval::evaluate;
 using namespace Search;
 
 namespace {
+
+int term1 = 501;
+int term2 = 457;
+
+TUNE(SetRange(0, 1000), term1, term2);
 
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
@@ -579,9 +585,10 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
-                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
-                                                        : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck)
+                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
+                              thisThread->optimism[us])
+                   : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -769,7 +776,7 @@ Value Search::Worker::search(
     // Step 7. Razoring (~1 Elo)
     // If eval is really low check with qsearch if it can exceed alpha, if it can't,
     // return a fail low.
-    if (eval < alpha - 501 - 305 * depth * depth)
+    if (eval < alpha - (priorCapture ? term1 : term2) - 305 * depth * depth)
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
         if (value < alpha)
