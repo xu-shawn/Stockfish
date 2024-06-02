@@ -25,6 +25,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <exception>
 #include <initializer_list>
 #include <string>
 #include <utility>
@@ -42,6 +43,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "types.h"
 #include "uci.h"
 #include "ucioption.h"
@@ -54,6 +56,16 @@ using Eval::evaluate;
 using namespace Search;
 
 namespace {
+
+int quadDepth         = 10;
+int quadEvalMargin    = 200;
+int quadSEEMargin     = 200;
+int quadHistoryMargin = 4000;
+
+TUNE(SetRange(4, 20), quadDepth);
+TUNE(SetRange(0, 400), quadEvalMargin);
+TUNE(SetRange(-400, 400), quadSEEMargin);
+TUNE(SetRange(-20000, 20000), quadHistoryMargin);
 
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
@@ -1083,8 +1095,9 @@ moves_loop:  // When in check, search starts here
                       + thisThread
                           ->pawnHistory[pawn_structure_index(pos)][movedPiece][move.to_sq()];
 
-                    if (depth >= 10 && value < singularBeta - 200 && !ttCapture && !ss->ttPv
-                        && !pos.see_ge(move, -200) && history < -4000)
+                    if (depth >= quadDepth && value < singularBeta - quadEvalMargin && !ttCapture
+                        && !ss->ttPv && !pos.see_ge(move, -quadSEEMargin)
+                        && history < -quadHistoryMargin)
                     {
                         extension++;
                     }
