@@ -1085,7 +1085,7 @@ moves_loop:  // When in check, search starts here
                           ->pawnHistory[pawn_structure_index(pos)][movedPiece][move.to_sq()];
 
                     if (depth >= 10 && value < singularBeta - 200 && !ttCapture && !ss->ttPv
-                        && !pos.see_ge(move, -200) && history < -4000
+                        && !pos.see_ge(move, -100) && history < -4000
                         && pos.count<ALL_PIECES>() < 15)
                     {
                         extension++;
