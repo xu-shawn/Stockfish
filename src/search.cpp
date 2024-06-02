@@ -1077,8 +1077,14 @@ moves_loop:  // When in check, search starts here
                     extension = 1 + (value < singularBeta - doubleMargin)
                               + (value < singularBeta - tripleMargin);
 
-                    if (value < singularBeta - 200 && !ttCapture && !ss->ttPv && ss->moveCount < 5
-                        && extension < 3)
+                    int history =
+                      (*contHist[0])[movedPiece][move.to_sq()]
+                      + (*contHist[1])[movedPiece][move.to_sq()]
+                      + thisThread
+                          ->pawnHistory[pawn_structure_index(pos)][movedPiece][move.to_sq()];
+
+                    if (depth >= 10 && value < singularBeta - 200 && !ttCapture && !ss->ttPv
+                        && !pos.see_ge(move, -200) && history < -4000)
                     {
                         extension++;
                     }
