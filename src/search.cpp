@@ -1776,8 +1776,8 @@ void update_all_stats(const Position& pos,
             update_quiet_histories(
               pos, ss, workerThread, quietsSearched[i],
               -quietMoveMalus
-                / ((quietsSearched[i] == ss->killers[0] || quietsSearched[i] == ss->killers[1])
-                     ? 4
+                * ((quietsSearched[i] == ss->killers[0] || quietsSearched[i] == ss->killers[1])
+                     ? 0
                      : 1));
     }
     else
