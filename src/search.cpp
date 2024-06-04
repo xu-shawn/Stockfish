@@ -1069,7 +1069,10 @@ moves_loop:  // When in check, search starts here
                 singularBound    = singularValue >= singularBeta ? BOUND_LOWER : BOUND_UPPER;
                 ss->excludedMove = Move::none();
 
-                if (value < singularBeta)
+                if (value < singularBeta && value <= VALUE_TB_LOSS_IN_MAX_PLY)
+                    extension = 1;
+
+                else if (value < singularBeta)
                 {
                     int doubleMargin = 304 * PvNode - 203 * !ttCapture;
                     int tripleMargin = 117 + 259 * PvNode - 296 * !ttCapture + 97 * ss->ttPv;
