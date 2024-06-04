@@ -1078,7 +1078,8 @@ moves_loop:  // When in check, search starts here
                               + (value < singularBeta - tripleMargin);
 
                     if (!ttCapture && !ss->ttPv && !PvNode && !ss->inCheck && !givesCheck
-                        && depth > 6 && value < singularBeta - 300)
+                        && depth > 6 && value < singularBeta - 300
+                        && value > VALUE_TB_LOSS_IN_MAX_PLY)
                     {
                         extension++;
                     }
