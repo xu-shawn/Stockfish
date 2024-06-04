@@ -55,6 +55,11 @@ using namespace Search;
 
 namespace {
 
+int exthistMargin  = 3988;
+int dexthistMargin = 10000;
+
+TUNE(exthistMargin, dexthistMargin);
+
 static constexpr double EvalLevel[10] = {0.981, 0.956, 0.895, 0.949, 0.913,
                                          0.942, 0.933, 0.890, 0.984, 0.941};
 
@@ -1107,12 +1112,12 @@ moves_loop:  // When in check, search starts here
             else if (PvNode && move.to_sq() == prevSq
                      && thisThread->captureHistory[movedPiece][move.to_sq()]
                                                   [type_of(pos.piece_on(move.to_sq()))]
-                          > 3988)
+                          > exthistMargin)
                 extension = 1
                           + (move == ttMove
                              && thisThread->captureHistory[movedPiece][move.to_sq()]
                                                           [type_of(pos.piece_on(move.to_sq()))]
-                                  > 10000);
+                                  > dexthistMargin);
         }
 
         // Add extension to new depth
