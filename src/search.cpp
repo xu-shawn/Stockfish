@@ -1077,10 +1077,11 @@ moves_loop:  // When in check, search starts here
                     extension = 1 + (value < singularBeta - doubleMargin)
                               + (value < singularBeta - tripleMargin);
 
-                    if (!ttCapture && !ss->ttPv && !PvNode && !ss->inCheck && !givesCheck
-                        && depth > 6 && value < singularBeta - 300)
+                    if (extension > 1)
                     {
-                        extension++;
+                        value = search<NonPV>(pos, ss, VALUE_TB_LOSS_IN_MAX_PLY,
+                                              VALUE_TB_LOSS_IN_MAX_PLY + 1, singularDepth, cutNode);
+                        extension += value <= VALUE_TB_LOSS_IN_MAX_PLY;
                     }
 
                     depth += ((!PvNode) && (depth < 16));
