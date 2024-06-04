@@ -84,8 +84,7 @@ int stat_bonus(Depth d) { return std::clamp(205 * d - 283, 18, 1544); }
 // History and stats update malus, based on depth
 int stat_malus(Depth d) { return (d < 4 ? 767 * d - 275 : 1911); }
 
-// Add a small random component to draw evaluations to avoid 3-fold blindness
-Value value_draw(size_t nodes) { return VALUE_DRAW - 1 + Value(nodes & 0x2); }
+Value value_draw() { return VALUE_DRAW; }
 
 // Skill structure is used to implement strength limit. If we have a UCI_Elo,
 // we convert it to an appropriate skill level, anchored to the Stash engine.
@@ -532,7 +531,7 @@ Value Search::Worker::search(
     // if the opponent had an alternative move earlier to this position.
     if (!rootNode && alpha < VALUE_DRAW && pos.has_game_cycle(ss->ply))
     {
-        alpha = value_draw(this->nodes);
+        alpha = value_draw();
         if (alpha >= beta)
             return alpha;
     }
@@ -579,9 +578,10 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
-                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
-                                                        : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck)
+                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
+                              thisThread->optimism[us])
+                   : value_draw();
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -1413,7 +1413,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     // the opponent had an alternative move earlier to this position. (~1 Elo)
     if (alpha < VALUE_DRAW && pos.has_game_cycle(ss->ply))
     {
-        alpha = value_draw(this->nodes);
+        alpha = value_draw();
         if (alpha >= beta)
             return alpha;
     }
