@@ -549,7 +549,7 @@ Value Search::Worker::search(
     TTEntry* tte;
     Key      posKey;
     Move     ttMove, move, excludedMove, bestMove;
-    Depth    extension, newDepth;
+    Depth    extension, newDepth, oldDepth;
     Value    bestValue, value, ttValue, eval, maxValue, probCutBeta, singularValue;
     bool     givesCheck, improving, priorCapture, opponentWorsening;
     bool     capture, moveCountPruning, ttCapture;
@@ -902,6 +902,7 @@ Value Search::Worker::search(
 
 moves_loop:  // When in check, search starts here
 
+    oldDepth = depth;
     // Step 12. A small Probcut idea, when we are in check (~4 Elo)
     probCutBeta = beta + 388;
     if (ss->inCheck && !PvNode && ttCapture && (tte->bound() & BOUND_LOWER)
@@ -1391,7 +1392,7 @@ moves_loop:  // When in check, search starts here
                   bestValue >= beta    ? BOUND_LOWER
                   : PvNode && bestMove ? BOUND_EXACT
                                        : BOUND_UPPER,
-                  depth, bestMove, unadjustedStaticEval, tt.generation());
+                  (depth + oldDepth) / 2, bestMove, unadjustedStaticEval, tt.generation());
 
     // Adjust correction history
     if (!ss->inCheck && (!bestMove || !pos.capture(bestMove))
