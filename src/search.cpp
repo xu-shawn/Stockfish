@@ -1154,9 +1154,6 @@ moves_loop:  // When in check, search starts here
         if (ttCapture)
             r++;
 
-        if ((ss + 1)->extensionCnt > 3)
-            r -= 2;
-
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)
             r++;
@@ -1309,7 +1306,7 @@ moves_loop:  // When in check, search starts here
                 {
                     // Reduce other moves if we have found at least one score improvement (~2 Elo)
                     if (depth > 2 && depth < 13 && std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY)
-                        depth -= 2;
+                        depth = std::max(depth - 2 - ((ss + 1)->extensionCnt < 2), 1);
 
                     assert(depth > 0);
                     alpha = value;  // Update alpha! Always alpha < beta
