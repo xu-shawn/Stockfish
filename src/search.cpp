@@ -1102,12 +1102,18 @@ moves_loop:  // When in check, search starts here
                     extension = -2;
             }
 
+
             // Extension for capturing the previous moved piece (~0 Elo on STC, ~1 Elo on LTC)
             else if (PvNode && move.to_sq() == prevSq
                      && thisThread->captureHistory[movedPiece][move.to_sq()]
                                                   [type_of(pos.piece_on(move.to_sq()))]
                           > 3922)
-                extension = 1;
+                extension = 1
+                          + (ttMove == move
+                             && thisThread->captureHistory[movedPiece][move.to_sq()]
+                                                          [type_of(pos.piece_on(move.to_sq()))]
+                                  > 10000
+                             && delta < 25);
         }
 
         // Add extension to new depth
