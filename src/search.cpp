@@ -1095,7 +1095,23 @@ moves_loop:  // When in check, search starts here
 
                 // If the ttMove is assumed to fail high over current beta (~7 Elo)
                 else if (ttValue >= beta)
+                {
+                    int realMc       = ss->moveCount;
+                    ss->excludedMove = move;
+                    value            = singularValue =
+                      search<NonPV>(pos, ss, beta - 1, beta, singularDepth, cutNode);
+                    singularBound    = singularValue >= singularBeta ? BOUND_LOWER : BOUND_UPPER;
+                    ss->excludedMove = Move::none();
+
+                    if (value >= beta)
+                    {
+                        return value;
+                    }
+
+                    ss->moveCount = realMc;
+
                     extension = -3;
+                }
 
                 // If we are on a cutNode but the ttMove is not assumed to fail high over current beta (~1 Elo)
                 else if (cutNode)
