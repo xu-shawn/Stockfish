@@ -91,7 +91,7 @@ MovePicker::MovePicker(const Position&              p,
                        const CapturePieceToHistory* cph,
                        const PieceToHistory**       ch,
                        const PawnHistory*           ph,
-                       const KingHistory*           kh,
+                       const CheckHistory*          ckh,
                        Move                         cm,
                        const Move*                  killers) :
     pos(p),
@@ -99,7 +99,7 @@ MovePicker::MovePicker(const Position&              p,
     captureHistory(cph),
     continuationHistory(ch),
     pawnHistory(ph),
-    kingHistory(kh),
+    checkHistory(ckh),
     ttMove(ttm),
     refutations{{killers[0], 0}, {killers[1], 0}, {cm, 0}},
     depth(d) {
@@ -116,13 +116,13 @@ MovePicker::MovePicker(const Position&              p,
                        const CapturePieceToHistory* cph,
                        const PieceToHistory**       ch,
                        const PawnHistory*           ph,
-                       const KingHistory*           kh) :
+                       const CheckHistory*          ckh) :
     pos(p),
     mainHistory(mh),
     captureHistory(cph),
     continuationHistory(ch),
     pawnHistory(ph),
-    kingHistory(kh),
+    checkHistory(ckh),
     ttMove(ttm),
     depth(d) {
     assert(d <= 0);
@@ -194,7 +194,7 @@ void MovePicker::score() {
 
             // bonus for checks
             m.value += bool(pos.check_squares(pt) & to)
-                     * (16384 + (*kingHistory)[pos.square<KING>(us)][us][pc][to] / 32);
+                     * (16384 + (*checkHistory)[pos.square<KING>(us)][us][pc][to] / 32);
 
             // bonus for escaping from capture
             m.value += threatenedPieces & from ? (pt == QUEEN && !(to & threatenedByRook)   ? 51700

@@ -503,7 +503,7 @@ void Search::Worker::clear() {
     mainHistory.fill(0);
     captureHistory.fill(0);
     pawnHistory.fill(-1193);
-    kingHistory.fill(0);
+    checkHistory.fill(0);
     correctionHistory.fill(0);
 
     for (bool inCheck : {false, true})
@@ -923,7 +923,7 @@ moves_loop:  // When in check, search starts here
       prevSq != SQ_NONE ? thisThread->counterMoves[pos.piece_on(prevSq)][prevSq] : Move::none();
 
     MovePicker mp(pos, ttMove, depth, &thisThread->mainHistory, &thisThread->captureHistory,
-                  contHist, &thisThread->pawnHistory, &thisThread->kingHistory, countermove,
+                  contHist, &thisThread->pawnHistory, &thisThread->checkHistory, countermove,
                   ss->killers);
 
     value            = bestValue;
@@ -1319,12 +1319,15 @@ moves_loop:  // When in check, search starts here
         // remember it, to update its stats later.
         if (move != bestMove && moveCount <= 32)
         {
-            if (givesCheck)
-                checksSearched[checkCount++] = move;
             if (capture)
                 capturesSearched[captureCount++] = move;
             else
+            {
+                if (givesCheck)
+                    checksSearched[checkCount++] = move;
+
                 quietsSearched[quietCount++] = move;
+            }
         }
     }
 
@@ -1540,7 +1543,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     // which would result in only a single stage of QS movegen.)
     Square     prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
     MovePicker mp(pos, ttMove, depth, &thisThread->mainHistory, &thisThread->captureHistory,
-                  contHist, &thisThread->pawnHistory, &thisThread->kingHistory);
+                  contHist, &thisThread->pawnHistory, &thisThread->checkHistory);
 
     // Step 5. Loop through all pseudo-legal moves until no moves remain or a beta cutoff occurs.
     while ((move = mp.next_move()) != Move::none())
@@ -1775,18 +1778,6 @@ void update_all_stats(const Position& pos,
     Color us         = pos.side_to_move();
     int   kingSquare = pos.square<KING>(us);
 
-    if (pos.gives_check(bestMove))
-    {
-        workerThread.kingHistory[kingSquare][us][pos.moved_piece(bestMove)][bestMove.to_sq()]
-          << quietMoveBonus / 2;
-
-        for (int i = 0; i < checkCount; ++i)
-            workerThread.kingHistory[kingSquare][us][pos.moved_piece(checksSearched[i])]
-                                    [checksSearched[i].to_sq()]
-              << -quietMoveMalus / 2;
-    }
-
-
     if (!pos.capture_stage(bestMove))
     {
         int bestMoveBonus = bestValue > beta + 164 ? quietMoveBonus      // larger bonus
@@ -1797,6 +1788,17 @@ void update_all_stats(const Position& pos,
         // Decrease stats for all non-best quiet moves
         for (int i = 0; i < quietCount; ++i)
             update_quiet_histories(pos, ss, workerThread, quietsSearched[i], -quietMoveMalus);
+
+        if (pos.gives_check(bestMove))
+        {
+            workerThread.checkHistory[kingSquare][us][pos.moved_piece(bestMove)][bestMove.to_sq()]
+              << quietMoveBonus / 2;
+
+            for (int i = 0; i < checkCount; ++i)
+                workerThread.checkHistory[kingSquare][us][pos.moved_piece(checksSearched[i])]
+                                         [checksSearched[i].to_sq()]
+                  << -quietMoveMalus / 2;
+        }
     }
     else
     {

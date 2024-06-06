@@ -138,7 +138,7 @@ using ContinuationHistory = Stats<PieceToHistory, NOT_USED, PIECE_NB, SQUARE_NB>
 using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>;
 
 // KingHistory is addressed by the king's location, color, and a move's [piece][to]
-using KingHistory = Stats<int16_t, 8192, SQUARE_NB, COLOR_NB, PIECE_NB, SQUARE_NB>;
+using CheckHistory = Stats<int16_t, 8192, SQUARE_NB, COLOR_NB, PIECE_NB, SQUARE_NB>;
 
 // CorrectionHistory is addressed by color and pawn structure
 using CorrectionHistory =
@@ -167,7 +167,7 @@ class MovePicker {
                const CapturePieceToHistory*,
                const PieceToHistory**,
                const PawnHistory*,
-               const KingHistory*,
+               const CheckHistory*,
                Move,
                const Move*);
     MovePicker(const Position&,
@@ -177,7 +177,7 @@ class MovePicker {
                const CapturePieceToHistory*,
                const PieceToHistory**,
                const PawnHistory*,
-               const KingHistory*);
+               const CheckHistory*);
     MovePicker(const Position&, Move, int, const CapturePieceToHistory*);
     Move next_move(bool skipQuiets = false);
 
@@ -194,7 +194,7 @@ class MovePicker {
     const CapturePieceToHistory* captureHistory;
     const PieceToHistory**       continuationHistory;
     const PawnHistory*           pawnHistory;
-    const KingHistory*           kingHistory;
+    const CheckHistory*          checkHistory;
     Move                         ttMove;
     ExtMove refutations[3], *cur, *endMoves, *endBadCaptures, *beginBadQuiets, *endBadQuiets;
     int     stage;
