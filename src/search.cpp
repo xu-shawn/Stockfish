@@ -498,7 +498,7 @@ void Search::Worker::iterative_deepening() {
 
 void Search::Worker::clear() {
     counterMoves.fill(Move::none());
-    mainHistory.fill(0);
+    mainHistory.fill(-1000);
     captureHistory.fill(0);
     pawnHistory.fill(-1193);
     correctionHistory.fill(0);
