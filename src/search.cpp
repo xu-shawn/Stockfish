@@ -1844,7 +1844,8 @@ void update_quiet_histories(
     update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus);
 
     int kingSquare = pos.square<KING>(us);
-    workerThread.kingHistory[kingSquare][us][pos.moved_piece(move)][move.to_sq()] << bonus / 2;
+    workerThread.kingHistory[kingSquare][us][pos.moved_piece(move)][move.to_sq()]
+      << bonus / (2 - pos.gives_check(move));
 
     int pIndex = pawn_structure_index(pos);
     workerThread.pawnHistory[pIndex][pos.moved_piece(move)][move.to_sq()] << bonus / 2;
