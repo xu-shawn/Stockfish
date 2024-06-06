@@ -131,6 +131,8 @@ void update_all_stats(const Position& pos,
                       int             quietCount,
                       Move*           capturesSearched,
                       int             captureCount,
+                      Move*           checksSearched,
+                      int             checksCount,
                       Depth           depth);
 
 }  // namespace
@@ -543,7 +545,7 @@ Value Search::Worker::search(
     assert(0 < depth && depth < MAX_PLY);
     assert(!(PvNode && cutNode));
 
-    Move      pv[MAX_PLY + 1], capturesSearched[32], quietsSearched[32];
+    Move      pv[MAX_PLY + 1], capturesSearched[32], quietsSearched[32], checksSearched[32];
     StateInfo st;
     ASSERT_ALIGNED(&st, Eval::NNUE::CacheLineSize);
 
@@ -555,7 +557,7 @@ Value Search::Worker::search(
     bool     givesCheck, improving, priorCapture, opponentWorsening;
     bool     capture, moveCountPruning, ttCapture;
     Piece    movedPiece;
-    int      moveCount, captureCount, quietCount, futilityMargin;
+    int      moveCount, captureCount, quietCount, checkCount, futilityMargin;
     Bound    singularBound;
 
     // Step 1. Initialize node
@@ -563,9 +565,9 @@ Value Search::Worker::search(
     ss->inCheck        = pos.checkers();
     priorCapture       = pos.captured_piece();
     Color us           = pos.side_to_move();
-    moveCount = captureCount = quietCount = ss->moveCount = 0;
-    bestValue                                             = -VALUE_INFINITE;
-    maxValue                                              = VALUE_INFINITE;
+    moveCount = captureCount = quietCount = checkCount = ss->moveCount = 0;
+    bestValue                                                          = -VALUE_INFINITE;
+    maxValue                                                           = VALUE_INFINITE;
 
     // Check for the available remaining time
     if (is_mainthread())
@@ -1317,6 +1319,8 @@ moves_loop:  // When in check, search starts here
         // remember it, to update its stats later.
         if (move != bestMove && moveCount <= 32)
         {
+            if (givesCheck)
+                checksSearched[checkCount++] = move;
             if (capture)
                 capturesSearched[captureCount++] = move;
             else
@@ -1342,7 +1346,8 @@ moves_loop:  // When in check, search starts here
     // If there is a move that produces search value greater than alpha we update the stats of searched moves
     else if (bestMove)
         update_all_stats(pos, ss, *this, bestMove, bestValue, beta, prevSq, quietsSearched,
-                         quietCount, capturesSearched, captureCount, depth);
+                         quietCount, capturesSearched, captureCount, checksSearched, checkCount,
+                         depth);
 
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
@@ -1756,6 +1761,8 @@ void update_all_stats(const Position& pos,
                       int             quietCount,
                       Move*           capturesSearched,
                       int             captureCount,
+                      Move*           checksSearched,
+                      int             checkCount,
                       Depth           depth) {
 
     CapturePieceToHistory& captureHistory = workerThread.captureHistory;
@@ -1764,6 +1771,20 @@ void update_all_stats(const Position& pos,
 
     int quietMoveBonus = stat_bonus(depth + 1);
     int quietMoveMalus = stat_malus(depth);
+
+    Color us         = pos.side_to_move();
+    int   kingSquare = pos.square<KING>(us);
+
+    if (pos.gives_check(bestMove))
+    {
+        workerThread.kingHistory[kingSquare][us][pos.moved_piece(bestMove)][bestMove.to_sq()]
+          << quietMoveBonus / 2;
+
+        for (int i = 0; i < checkCount; ++i)
+            workerThread.kingHistory[kingSquare][us][pos.moved_piece(bestMove)][bestMove.to_sq()]
+              << -quietMoveMalus / 2;
+    }
+
 
     if (!pos.capture_stage(bestMove))
     {
@@ -1842,10 +1863,6 @@ void update_quiet_histories(
     workerThread.mainHistory[us][move.from_to()] << bonus;
 
     update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus);
-
-    int kingSquare = pos.square<KING>(us);
-    workerThread.kingHistory[kingSquare][us][pos.moved_piece(move)][move.to_sq()]
-      << bonus * pos.gives_check(move);
 
     int pIndex = pawn_structure_index(pos);
     workerThread.pawnHistory[pIndex][pos.moved_piece(move)][move.to_sq()] << bonus / 2;
