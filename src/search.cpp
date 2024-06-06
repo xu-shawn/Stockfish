@@ -1781,7 +1781,8 @@ void update_all_stats(const Position& pos,
           << quietMoveBonus / 2;
 
         for (int i = 0; i < checkCount; ++i)
-            workerThread.kingHistory[kingSquare][us][pos.moved_piece(bestMove)][bestMove.to_sq()]
+            workerThread.kingHistory[kingSquare][us][pos.moved_piece(checksSearched[i])]
+                                    [checksSearched[i].to_sq()]
               << -quietMoveMalus / 2;
     }
 
