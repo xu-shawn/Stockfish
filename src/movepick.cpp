@@ -17,7 +17,6 @@
 */
 
 #include "movepick.h"
-#include "misc.h"
 
 #include <algorithm>
 #include <cassert>
