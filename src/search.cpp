@@ -1792,12 +1792,12 @@ void update_all_stats(const Position& pos,
         if (pos.gives_check(bestMove))
         {
             workerThread.checkHistory[kingSquare][us][pos.moved_piece(bestMove)][bestMove.to_sq()]
-              << quietMoveBonus / 2;
+              << quietMoveBonus;
 
             for (int i = 0; i < checkCount; ++i)
                 workerThread.checkHistory[kingSquare][us][pos.moved_piece(checksSearched[i])]
                                          [checksSearched[i].to_sq()]
-                  << -quietMoveMalus / 2;
+                  << -quietMoveMalus;
         }
     }
     else
