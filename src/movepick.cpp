@@ -17,6 +17,7 @@
 */
 
 #include "movepick.h"
+#include "misc.h"
 
 #include <algorithm>
 #include <cassert>
@@ -91,6 +92,7 @@ MovePicker::MovePicker(const Position&              p,
                        const CapturePieceToHistory* cph,
                        const PieceToHistory**       ch,
                        const PawnHistory*           ph,
+                       const KingHistory*           kh,
                        Move                         cm,
                        const Move*                  killers) :
     pos(p),
@@ -98,6 +100,7 @@ MovePicker::MovePicker(const Position&              p,
     captureHistory(cph),
     continuationHistory(ch),
     pawnHistory(ph),
+    kingHistory(kh),
     ttMove(ttm),
     refutations{{killers[0], 0}, {killers[1], 0}, {cm, 0}},
     depth(d) {
@@ -113,12 +116,14 @@ MovePicker::MovePicker(const Position&              p,
                        const ButterflyHistory*      mh,
                        const CapturePieceToHistory* cph,
                        const PieceToHistory**       ch,
-                       const PawnHistory*           ph) :
+                       const PawnHistory*           ph,
+                       const KingHistory*           kh) :
     pos(p),
     mainHistory(mh),
     captureHistory(cph),
     continuationHistory(ch),
     pawnHistory(ph),
+    kingHistory(kh),
     ttMove(ttm),
     depth(d) {
     assert(d <= 0);
@@ -176,10 +181,13 @@ void MovePicker::score() {
             PieceType pt   = type_of(pc);
             Square    from = m.from_sq();
             Square    to   = m.to_sq();
+            Color     us   = pos.side_to_move();
 
             // histories
-            m.value = (*mainHistory)[pos.side_to_move()][m.from_to()];
+            m.value = (*mainHistory)[us][m.from_to()];
+
             m.value += 2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to];
+            m.value += (*kingHistory)[pos.square<KING>(us)][us][pc][to];
             m.value += 2 * (*continuationHistory[0])[pc][to];
             m.value += (*continuationHistory[1])[pc][to];
             m.value += (*continuationHistory[2])[pc][to] / 3;

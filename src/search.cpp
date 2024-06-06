@@ -501,6 +501,7 @@ void Search::Worker::clear() {
     mainHistory.fill(0);
     captureHistory.fill(0);
     pawnHistory.fill(-1193);
+    kingHistory.fill(0);
     correctionHistory.fill(0);
 
     for (bool inCheck : {false, true})
@@ -920,7 +921,8 @@ moves_loop:  // When in check, search starts here
       prevSq != SQ_NONE ? thisThread->counterMoves[pos.piece_on(prevSq)][prevSq] : Move::none();
 
     MovePicker mp(pos, ttMove, depth, &thisThread->mainHistory, &thisThread->captureHistory,
-                  contHist, &thisThread->pawnHistory, countermove, ss->killers);
+                  contHist, &thisThread->pawnHistory, &thisThread->kingHistory, countermove,
+                  ss->killers);
 
     value            = bestValue;
     moveCountPruning = false;
@@ -1533,7 +1535,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     // which would result in only a single stage of QS movegen.)
     Square     prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
     MovePicker mp(pos, ttMove, depth, &thisThread->mainHistory, &thisThread->captureHistory,
-                  contHist, &thisThread->pawnHistory);
+                  contHist, &thisThread->pawnHistory, &thisThread->kingHistory);
 
     // Step 5. Loop through all pseudo-legal moves until no moves remain or a beta cutoff occurs.
     while ((move = mp.next_move()) != Move::none())
@@ -1840,6 +1842,9 @@ void update_quiet_histories(
     workerThread.mainHistory[us][move.from_to()] << bonus;
 
     update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus);
+
+    int kingSquare = pos.square<KING>(us);
+    workerThread.kingHistory[kingSquare][us][pos.moved_piece(move)][move.to_sq()] << bonus / 2;
 
     int pIndex = pawn_structure_index(pos);
     workerThread.pawnHistory[pIndex][pos.moved_piece(move)][move.to_sq()] << bonus / 2;
