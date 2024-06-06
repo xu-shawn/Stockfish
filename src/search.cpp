@@ -1162,7 +1162,7 @@ moves_loop:  // When in check, search starts here
 
         ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
                       + (*contHist[0])[movedPiece][move.to_sq()]
-                      + (*contHist[1])[movedPiece][move.to_sq()] - 4747;
+                      + (*contHist[1])[movedPiece][move.to_sq()] - 5747;
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore / 11125;
@@ -1787,7 +1787,7 @@ void update_all_stats(const Position& pos,
         && ((ss - 1)->moveCount == 1 + (ss - 1)->ttHit
             || ((ss - 1)->currentMove == (ss - 1)->killers[0]))
         && !pos.captured_piece())
-        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -quietMoveMalus);
+        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -quietMoveMalus / 2);
 
     // Decrease stats for all non-best capture moves
     for (int i = 0; i < captureCount; ++i)
