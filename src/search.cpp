@@ -1106,7 +1106,7 @@ moves_loop:  // When in check, search starts here
             else if (PvNode && move.to_sq() == prevSq
                      && thisThread->captureHistory[movedPiece][move.to_sq()]
                                                   [type_of(pos.piece_on(move.to_sq()))]
-                          > 3922)
+                          > 6922 - 3000 * (ttData.move == move))
                 extension = 1;
         }
 
