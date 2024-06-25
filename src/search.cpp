@@ -787,9 +787,14 @@ Value Search::Worker::search(
         && eval >= beta && eval < VALUE_TB_WIN_IN_MAX_PLY && (!ttData.move || ttCapture))
     {
 
-        if (beta <= VALUE_TB_LOSS_IN_MAX_PLY || (ss - 1)->excludedMove)
+        if (beta <= VALUE_TB_LOSS_IN_MAX_PLY)
         {
             return eval;
+        }
+
+        if ((ss - 1)->excludedMove)
+        {
+            return beta + 2 * (eval - beta) / 3;
         }
 
         return beta + (eval - beta) / 3;
