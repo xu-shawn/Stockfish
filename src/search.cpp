@@ -1061,7 +1061,7 @@ moves_loop:  // When in check, search starts here
                 && std::abs(ttData.value) < VALUE_TB_WIN_IN_MAX_PLY && (ttData.bound & BOUND_LOWER)
                 && ttData.depth >= depth - 3)
             {
-                Value singularBeta  = ttData.value - (52 + 80 * (ss->ttPv && !PvNode)) * depth / 64;
+                Value singularBeta  = ttData.value - (80 + 80 * (ss->ttPv && !PvNode)) * depth / 64;
                 Depth singularDepth = newDepth / 2;
 
                 ss->excludedMove = move;
@@ -1074,9 +1074,11 @@ moves_loop:  // When in check, search starts here
                 {
                     int doubleMargin = 290 * PvNode - 200 * !ttCapture;
                     int tripleMargin = 107 + 247 * PvNode - 278 * !ttCapture + 99 * ss->ttPv;
+                    int quadMargin   = 500 + 1000 * PvNode - 200 * !ttCapture + 200 * ss->ttPv;
 
                     extension = 1 + (value < singularBeta - doubleMargin)
-                              + (value < singularBeta - tripleMargin);
+                              + (value < singularBeta - tripleMargin)
+                              + (value < singularBeta - quadMargin);
 
                     depth += ((!PvNode) && (depth < 18));
                 }
