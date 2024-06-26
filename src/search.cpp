@@ -554,7 +554,7 @@ Value Search::Worker::search(
 
     Key   posKey;
     Move  move, excludedMove, bestMove;
-    Depth extension, newDepth;
+    Depth extension, permanentReduction, newDepth;
     Value bestValue, value, eval, maxValue, probCutBeta, singularValue;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, moveCountPruning, ttCapture;
@@ -924,10 +924,11 @@ moves_loop:  // When in check, search starts here
     MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->captureHistory,
                   contHist, &thisThread->pawnHistory, countermove, ss->killers);
 
-    value            = bestValue;
-    moveCountPruning = false;
-    singularValue    = VALUE_INFINITE;
-    singularBound    = BOUND_NONE;
+    value              = bestValue;
+    moveCountPruning   = false;
+    singularValue      = VALUE_INFINITE;
+    singularBound      = BOUND_NONE;
+    permanentReduction = 0;
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -970,7 +971,7 @@ moves_loop:  // When in check, search starts here
 
         int delta = beta - alpha;
 
-        Depth r = reduction(improving, depth, moveCount, delta);
+        Depth r = reduction(improving, depth, moveCount, delta) + permanentReduction;
 
         // Step 14. Pruning at shallow depth (~120 Elo).
         // Depth conditions are important for mate finding.
@@ -1311,8 +1312,9 @@ moves_loop:  // When in check, search starts here
                 else
                 {
                     // Reduce other moves if we have found at least one score improvement (~2 Elo)
-                    if (depth > 2 && depth < 13 && std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY)
-                        depth -= 2;
+                    if (depth - permanentReduction > 2 && depth < 13
+                        && std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY)
+                        permanentReduction -= 2;
 
                     assert(depth > 0);
                     alpha = value;  // Update alpha! Always alpha < beta
