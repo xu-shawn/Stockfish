@@ -515,6 +515,9 @@ void Search::Worker::clear() {
     for (size_t i = 1; i < reductions.size(); ++i)
         reductions[i] = int((19.26 + std::log(size_t(options["Threads"])) / 2) * std::log(i));
 
+    for (size_t i = 1; i < logValue.size(); ++i)
+        logValue[i] = std::log(i);
+
     refreshTable.clear(networks[numaAccessToken]);
 }
 
@@ -1152,7 +1155,7 @@ moves_loop:  // When in check, search starts here
 
         // Increase reduction if ttMove is a capture (~3 Elo)
         if (ttCapture)
-            r += std::log(moveCount);
+            r += logValue[moveCount];
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)
