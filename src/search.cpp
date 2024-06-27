@@ -1072,7 +1072,7 @@ moves_loop:  // When in check, search starts here
 
                 if (value == VALUE_NONE)
                 {
-                    extension = 1;
+                    extension = PvNode;
                 }
 
                 else if (value < singularBeta)
