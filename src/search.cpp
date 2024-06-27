@@ -1070,7 +1070,12 @@ moves_loop:  // When in check, search starts here
                 singularBound    = singularValue >= singularBeta ? BOUND_LOWER : BOUND_UPPER;
                 ss->excludedMove = Move::none();
 
-                if (value < singularBeta)
+                if (value == VALUE_NONE)
+                {
+                    extension = 1;
+                }
+
+                else if (value < singularBeta)
                 {
                     int doubleMargin = 290 * PvNode - 200 * !ttCapture;
                     int tripleMargin = 107 + 247 * PvNode - 278 * !ttCapture + 99 * ss->ttPv;
@@ -1396,7 +1401,13 @@ moves_loop:  // When in check, search starts here
         thisThread->correctionHistory[us][pawn_structure_index<Correction>(pos)] << bonus;
     }
 
-    assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
+    if (excludedMove && !moveCount)
+    {
+        bestValue = VALUE_NONE;
+    }
+
+    assert((bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE)
+           || (bestValue == VALUE_NONE && excludedMove && !moveCount));
 
     return bestValue;
 }
