@@ -1110,6 +1110,25 @@ moves_loop:  // When in check, search starts here
                                                   [type_of(pos.piece_on(move.to_sq()))]
                           > 3922)
                 extension = 1;
+
+            // Singular extension but with more strict conditions and universal double extension
+            if (!rootNode && extension < 2 && move == ttData.move && !excludedMove
+                && depth >= 9 + ss->ttPv && std::abs(ttData.value) < VALUE_TB_WIN_IN_MAX_PLY
+                && (ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 1)
+            {
+                Value singularBeta  = ttData.value - 3 * depth;
+                Depth singularDepth = newDepth / 2;
+
+                ss->excludedMove = move;
+                Value doubleValue =
+                  search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
+                ss->excludedMove = Move::none();
+
+                if (doubleValue < singularBeta - 1)
+                {
+                    extension = 2;
+                }
+            }
         }
 
         // Add extension to new depth
