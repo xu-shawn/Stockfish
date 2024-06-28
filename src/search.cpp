@@ -1555,7 +1555,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
 
         int pessimism = pos.estimate_move_value(move) - PieceValue[pos.piece_on(move.from_sq())];
 
-        if (ss->staticEval + pessimism > beta && ss->staticEval + pessimism < VALUE_MATE / 2)
+        if (ss->staticEval + pessimism > beta
+            && std::abs(ss->staticEval + pessimism) < VALUE_MATE / 2)
             return beta;
 
         givesCheck = pos.gives_check(move);
