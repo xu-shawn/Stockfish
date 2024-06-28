@@ -142,6 +142,8 @@ class Position {
     void do_null_move(StateInfo& newSt, TranspositionTable& tt);
     void undo_null_move();
 
+    Value estimate_move_value(Move m) const;
+
     // Static Exchange Evaluation
     bool see_ge(Move m, int threshold = 0) const;
 

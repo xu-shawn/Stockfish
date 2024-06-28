@@ -37,6 +37,7 @@
 #include "nnue/nnue_common.h"
 #include "syzygy/tbprobe.h"
 #include "tt.h"
+#include "types.h"
 #include "uci.h"
 
 using std::string;
@@ -1021,6 +1022,23 @@ Key Position::key_after(Move m) const {
     return (captured || type_of(pc) == PAWN) ? k : adjust_key50<true>(k);
 }
 
+Value Position::estimate_move_value(Move m) const {
+
+    assert(m.is_ok());
+
+    if (m.type_of() == CASTLING)
+        return 0;
+
+    Value value = PieceValue[piece_on(m.to_sq())];
+
+    if (m.type_of() == PROMOTION)
+        value += PieceValue[m.promotion_type()];
+
+    else if (m.type_of() == EN_PASSANT)
+        value += PawnValue;
+
+    return value;
+}
 
 // Tests if the SEE (Static Exchange Evaluation)
 // value of move is greater or equal to the given threshold. We'll use an

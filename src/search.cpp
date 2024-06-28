@@ -1553,6 +1553,11 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
         if (!pos.legal(move))
             continue;
 
+        int pessimism = pos.estimate_move_value(move) - PieceValue[pos.piece_on(move.from_sq())];
+
+        if (ss->staticEval + pessimism > beta && ss->staticEval + pessimism < VALUE_MATE / 2)
+            return beta;
+
         givesCheck = pos.gives_check(move);
         capture    = pos.capture_stage(move);
 
