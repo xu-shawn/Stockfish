@@ -1226,12 +1226,8 @@ moves_loop:  // When in check, search starts here
             {
                 Value blend = (alpha * 3 + value) / 4;
                 value       = -search<PV>(pos, ss + 1, -beta, -blend, newDepth, false);
-
-                if (value <= blend)
-                {
-                    value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
-                }
             }
+
             else
                 value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
         }
