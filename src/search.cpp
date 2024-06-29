@@ -1222,7 +1222,18 @@ moves_loop:  // When in check, search starts here
             (ss + 1)->pv    = pv;
             (ss + 1)->pv[0] = Move::none();
 
-            value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
+            if (moveCount != 1)
+            {
+                Value blend = (alpha * 3 + value) / 4;
+                value       = -search<PV>(pos, ss + 1, -beta, -blend, newDepth, false);
+
+                if (value <= blend)
+                {
+                    value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
+                }
+            }
+            else
+                value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
         }
 
         // Step 19. Undo move
