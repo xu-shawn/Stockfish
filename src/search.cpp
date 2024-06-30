@@ -1056,6 +1056,7 @@ moves_loop:  // When in check, search starts here
             // Generally, higher singularBeta (i.e closer to ttValue) and lower extension
             // margins scale well.
 
+
             if (!rootNode && move == ttData.move && !excludedMove
                 && depth >= 4 - (thisThread->completedDepth > 35) + ss->ttPv
                 && std::abs(ttData.value) < VALUE_TB_WIN_IN_MAX_PLY && (ttData.bound & BOUND_LOWER)
@@ -1102,6 +1103,26 @@ moves_loop:  // When in check, search starts here
                 // If we are on a cutNode but the ttMove is not assumed to fail high over current beta (~1 Elo)
                 else if (cutNode)
                     extension = -2;
+
+                if (!rootNode && extension >= 2 && !PvNode && move == ttData.move && !excludedMove
+                    && depth >= 8 - (thisThread->completedDepth > 35) + ss->ttPv
+                    && std::abs(ttData.value) < VALUE_TB_WIN_IN_MAX_PLY
+                    && (ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 1)
+                {
+                    singularBeta  = ttData.value - 5 * depth;
+                    singularDepth = newDepth / 2;
+
+                    ss->excludedMove = move;
+                    value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth,
+                                          cutNode);
+
+                    ss->excludedMove = Move::none();
+
+                    if (value < singularBeta)
+                    {
+                        extension = 4;
+                    }
+                }
             }
 
             // Extension for capturing the previous moved piece (~0 Elo on STC, ~1 Elo on LTC)
