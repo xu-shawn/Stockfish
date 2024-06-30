@@ -554,7 +554,7 @@ Value Search::Worker::search(
 
     Key   posKey;
     Move  move, excludedMove, bestMove;
-    Depth extension, newDepth;
+    Depth extension, pvExtension, newDepth;
     Value bestValue, value, eval, maxValue, probCutBeta, singularValue;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, moveCountPruning, ttCapture;
@@ -960,10 +960,10 @@ moves_loop:  // When in check, search starts here
         if (PvNode)
             (ss + 1)->pv = nullptr;
 
-        extension  = 0;
-        capture    = pos.capture_stage(move);
-        movedPiece = pos.moved_piece(move);
-        givesCheck = pos.gives_check(move);
+        extension = pvExtension = 0;
+        capture                 = pos.capture_stage(move);
+        movedPiece              = pos.moved_piece(move);
+        givesCheck              = pos.gives_check(move);
 
         // Calculate new depth for this move
         newDepth = depth - 1;
@@ -1072,11 +1072,17 @@ moves_loop:  // When in check, search starts here
 
                 if (value < singularBeta)
                 {
-                    int doubleMargin = 290 * PvNode - 200 * !ttCapture;
-                    int tripleMargin = 107 + 247 * PvNode - 278 * !ttCapture + 99 * ss->ttPv;
+                    int doubleMargin = -200 * !ttCapture;
+                    int tripleMargin = 107 - 278 * !ttCapture + 99 * ss->ttPv;
+
+                    int doublePvMargin = doubleMargin + 290;
+                    int triplePvMargin = tripleMargin + 247;
 
                     extension = 1 + (value < singularBeta - doubleMargin)
                               + (value < singularBeta - tripleMargin);
+
+                    pvExtension = 1 + (value < singularBeta - doublePvMargin)
+                                + (value < singularBeta - triplePvMargin);
 
                     depth += ((!PvNode) && (depth < 18));
                 }
@@ -1109,7 +1115,7 @@ moves_loop:  // When in check, search starts here
                      && thisThread->captureHistory[movedPiece][move.to_sq()]
                                                   [type_of(pos.piece_on(move.to_sq()))]
                           > 3922)
-                extension = 1;
+                extension = pvExtension = 1;
         }
 
         // Add extension to new depth
@@ -1222,7 +1228,7 @@ moves_loop:  // When in check, search starts here
             (ss + 1)->pv    = pv;
             (ss + 1)->pv[0] = Move::none();
 
-            value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
+            value = -search<PV>(pos, ss + 1, -beta, -alpha, depth - 1 + pvExtension, false);
         }
 
         // Step 19. Undo move
