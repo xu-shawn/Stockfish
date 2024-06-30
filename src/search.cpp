@@ -1109,7 +1109,7 @@ moves_loop:  // When in check, search starts here
                      && thisThread->captureHistory[movedPiece][move.to_sq()]
                                                   [type_of(pos.piece_on(move.to_sq()))]
                           > 3922)
-                extension = 1;
+                extension = 1 + (move == ttData.move);
         }
 
         // Add extension to new depth
