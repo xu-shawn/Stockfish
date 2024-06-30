@@ -48,6 +48,17 @@
 
 namespace Stockfish {
 
+
+int ra1 = 1236;
+int ra2 = 746;
+int ra3 = 1326;
+
+int rb1 = 1236;
+int rb2 = 746;
+int rb3 = 1326;
+
+TUNE(ra1, ra2, ra3, rb1, rb2, rb3);
+
 namespace TB = Tablebases;
 
 using Eval::evaluate;
@@ -970,7 +981,7 @@ moves_loop:  // When in check, search starts here
 
         int delta = beta - alpha;
 
-        Depth r = reduction(improving, depth, moveCount, delta);
+        Depth r = reduction(improving, depth, moveCount, delta, capture);
 
         // Step 14. Pruning at shallow depth (~120 Elo).
         // Depth conditions are important for mate finding.
@@ -1669,10 +1680,16 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     return bestValue;
 }
 
-Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta) const {
+Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta, bool capture) const {
     int reductionScale = reductions[d] * reductions[mn];
-    return (reductionScale + 1236 - delta * 746 / rootDelta) / 1024 + (!i && reductionScale > 1326);
+
+    if (capture)
+        return (reductionScale + ra1 - delta * ra2 / rootDelta) / 1024
+             + (!i && reductionScale > ra3);
+
+    return (reductionScale + rb1 - delta * rb2 / rootDelta) / 1024 + (!i && reductionScale > rb3);
 }
+
 
 // elapsed() returns the time elapsed since the search started. If the
 // 'nodestime' option is enabled, it will return the count of nodes searched
