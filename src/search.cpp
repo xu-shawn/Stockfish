@@ -1344,7 +1344,9 @@ moves_loop:  // When in check, search starts here
         bestValue = (bestValue * depth + beta) / (depth + 1);
 
     if (!moveCount)
-        bestValue = excludedMove ? alpha : ss->inCheck ? mated_in(ss->ply) : VALUE_DRAW;
+        bestValue = excludedMove ? VALUE_MATED_IN_MAX_PLY
+                  : ss->inCheck  ? mated_in(ss->ply)
+                                 : VALUE_DRAW;
 
     // If there is a move that produces search value greater than alpha we update the stats of searched moves
     else if (bestMove)
@@ -1389,7 +1391,7 @@ moves_loop:  // When in check, search starts here
     // Adjust correction history
     if (!ss->inCheck && (!bestMove || !pos.capture(bestMove))
         && !(bestValue >= beta && bestValue <= ss->staticEval)
-        && !(!bestMove && bestValue >= ss->staticEval))
+        && !(!bestMove && bestValue >= ss->staticEval) && !excludedMove)
     {
         auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / 8,
                                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
