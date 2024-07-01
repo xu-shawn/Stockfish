@@ -172,7 +172,7 @@ void MovePicker::score() {
               (*captureHistory)[pos.moved_piece(m)][m.to_sq()][type_of(pos.piece_on(m.to_sq()))];
 
             m.value = 7 * int(PieceValue[pos.piece_on(m.to_sq())])
-                    + (std::abs(capthist) < 800 ? capthist * 2 : capthist);
+                    + (capthist > 0 ? capthist * 2 : capthist);
         }
 
         else if constexpr (Type == QUIETS)
