@@ -884,8 +884,8 @@ Value Search::Worker::search(
 
                 // If the qsearch held, perform the regular search
                 if (value >= probCutBeta)
-                    value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, depth - 4,
-                                           !cutNode);
+                    value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1,
+                                           depth - 4 + depth / 6, !cutNode);
 
                 pos.undo_move(move);
 
@@ -893,7 +893,8 @@ Value Search::Worker::search(
                 {
                     // Save ProbCut data into transposition table
                     ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
-                                   depth - 3, move, unadjustedStaticEval, tt.generation());
+                                   depth - 3 - depth / 6, move, unadjustedStaticEval,
+                                   tt.generation());
                     return std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY ? value - (probCutBeta - beta)
                                                                      : value;
                 }
