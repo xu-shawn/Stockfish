@@ -1104,23 +1104,26 @@ moves_loop:  // When in check, search starts here
                 else if (cutNode)
                     extension = -2;
 
-                if (!rootNode && extension >= 2 && !PvNode && move == ttData.move && !excludedMove
+                if (extension == 2 && !PvNode
                     && depth >= 8 - (thisThread->completedDepth > 35) + ss->ttPv
-                    && std::abs(ttData.value) < VALUE_TB_WIN_IN_MAX_PLY
-                    && (ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 1)
+                    && ttData.depth >= depth - 1)
                 {
                     singularBeta  = ttData.value - 5 * depth;
                     singularDepth = newDepth / 2;
+
+                    int realMC = ss->moveCount;
 
                     ss->excludedMove = move;
                     value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth,
                                           cutNode);
 
+                    ss->moveCount = realMC;
+
                     ss->excludedMove = Move::none();
 
                     if (value < singularBeta)
                     {
-                        extension = 4;
+                        extension = 3;
                     }
                 }
             }
