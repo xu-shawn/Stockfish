@@ -1104,11 +1104,11 @@ moves_loop:  // When in check, search starts here
                 else if (cutNode)
                     extension = -2;
 
-                if (extension == 2 && !PvNode
+                if (extension <= 2 && !PvNode
                     && depth >= 8 - (thisThread->completedDepth > 35) + ss->ttPv
                     && ttData.depth >= depth - 1)
                 {
-                    singularBeta  = ttData.value - 5 * depth;
+                    singularBeta  = ttData.value - 3 * depth;
                     singularDepth = newDepth / 2;
 
                     int realMC = ss->moveCount;
@@ -1125,6 +1125,9 @@ moves_loop:  // When in check, search starts here
                     {
                         extension = 3;
                     }
+
+                    else if (singularBeta >= beta)
+                        return singularBeta;
                 }
             }
 
