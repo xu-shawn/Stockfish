@@ -74,7 +74,7 @@ class StatsEntry {
 
         // Make sure that bonus is in range [-D, D]
         int clampedBonus = std::clamp(bonus, -D, D);
-        entry += clampedBonus - entry * std::abs(clampedBonus) / D;
+        entry += clampedBonus - entry * std::abs(entry) * std::abs(clampedBonus) / (D * D);
 
         assert(std::abs(entry) <= D);
     }
