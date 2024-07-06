@@ -75,7 +75,7 @@ Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorseni
 }
 
 constexpr int futility_move_count(int improvementFactor, Depth depth) {
-    return (3 + depth * depth) * (25 + improvementFactor) / 50;
+    return (3 + depth * depth) * (50 + improvementFactor) / 100;
 }
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation does not hit the tablebase range
@@ -774,13 +774,13 @@ Value Search::Worker::search(
     if ((ss - 2)->staticEval != VALUE_NONE)
     {
         ss->improvementFactor = (ss - 2)->improvementFactor + ss->staticEval - (ss - 2)->staticEval;
-        ss->improvementFactor = std::clamp(ss->improvementFactor, 0, 25);
+        ss->improvementFactor = std::clamp(ss->improvementFactor, 0, 50);
     }
 
     else if ((ss - 4)->staticEval != VALUE_NONE)
     {
         ss->improvementFactor = (ss - 4)->improvementFactor + ss->staticEval - (ss - 4)->staticEval;
-        ss->improvementFactor = std::clamp(ss->improvementFactor, 0, 25);
+        ss->improvementFactor = std::clamp(ss->improvementFactor, 0, 50);
     }
 
     else
