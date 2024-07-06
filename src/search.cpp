@@ -1326,10 +1326,6 @@ moves_loop:  // When in check, search starts here
                 if (value >= beta)
                 {
                     ss->cutoffCnt += 1 + !ttData.move - (extension >= 2);
-
-                    if (mp.stage == 7)
-                        ss->killers[1] = bestMove;
-
                     assert(value >= beta);  // Fail high
                     break;
                 }
@@ -1373,8 +1369,14 @@ moves_loop:  // When in check, search starts here
 
     // If there is a move that produces search value greater than alpha we update the stats of searched moves
     else if (bestMove)
+    {
         update_all_stats(pos, ss, *this, bestMove, bestValue, beta, prevSq, quietsSearched,
                          quietCount, capturesSearched, captureCount, depth);
+
+        if (mp.stage == 7)
+            ss->killers[1] = bestMove;
+    }
+
 
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
