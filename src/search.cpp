@@ -707,7 +707,13 @@ Value Search::Worker::search(
         }
     }
 
-    // Step 6. Static evaluation of the position
+    // Step 6. A small Probcut idea (~4 Elo)
+    probCutBeta = beta + 390;
+    if ((ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 4 && ttData.value >= probCutBeta
+        && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY)
+        return probCutBeta;
+
+    // Step 7. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
     if (ss->inCheck)
     {
@@ -772,7 +778,7 @@ Value Search::Worker::search(
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
 
-    // Step 7. Razoring (~1 Elo)
+    // Step 8. Razoring (~1 Elo)
     // If eval is really low check with qsearch if it can exceed alpha, if it can't,
     // return a fail low.
     if (eval < alpha - 494 - 290 * depth * depth)
@@ -782,7 +788,7 @@ Value Search::Worker::search(
             return value;
     }
 
-    // Step 8. Futility pruning: child node (~40 Elo)
+    // Step 9. Futility pruning: child node (~40 Elo)
     // The depth condition is important for mate finding.
     if (!ss->ttPv && depth < 13
         && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
@@ -792,7 +798,7 @@ Value Search::Worker::search(
         && eval < VALUE_TB_WIN_IN_MAX_PLY)
         return beta + (eval - beta) / 3;
 
-    // Step 9. Null move search with verification search (~35 Elo)
+    // Step 10. Null move search with verification search (~35 Elo)
     if (!PvNode && (ss - 1)->currentMove != Move::null() && (ss - 1)->statScore < 14389
         && eval >= beta && ss->staticEval >= beta - 21 * depth + 390 && !excludedMove
         && pos.non_pawn_material(us) && ss->ply >= thisThread->nmpMinPly
@@ -833,7 +839,7 @@ Value Search::Worker::search(
         }
     }
 
-    // Step 10. Internal iterative reductions (~9 Elo)
+    // Step 11. Internal iterative reductions (~9 Elo)
     // For PV nodes without a ttMove, we decrease depth.
     if (PvNode && !ttData.move)
         depth -= 3;
@@ -847,7 +853,7 @@ Value Search::Worker::search(
     if (cutNode && depth >= 7 && (!ttData.move || ttData.bound == BOUND_UPPER))
         depth -= 1 + !ttData.move;
 
-    // Step 11. ProbCut (~10 Elo)
+    // Step 12. ProbCut (~10 Elo)
     // If we have a good enough capture (or queen promotion) and a reduced search returns a value
     // much above beta, we can (almost) safely prune the previous move.
     probCutBeta = beta + 184 - 53 * improving;
@@ -927,12 +933,6 @@ Value Search::Worker::search(
     }
 
 moves_loop:  // When in check, search starts here
-
-    // Step 12. A small Probcut idea (~4 Elo)
-    probCutBeta = beta + 390;
-    if ((ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 4 && ttData.value >= probCutBeta
-        && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY)
-        return probCutBeta;
 
     const PieceToHistory* contHist[] = {(ss - 1)->continuationHistory,
                                         (ss - 2)->continuationHistory,
