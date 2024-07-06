@@ -52,6 +52,12 @@
 
 namespace Stockfish {
 
+int d1 = 200, d2 = 195;
+int t1 = 60, t2 = 170, t3 = 260, t4 = 60;
+
+TUNE(d1, d2);
+TUNE(t1, t2, t3, t4);
+
 namespace TB = Tablebases;
 
 void syzygy_extend_pv(const OptionsMap&            options,
@@ -1094,8 +1100,8 @@ moves_loop:  // When in check, search starts here
 
                 if (value < singularBeta)
                 {
-                    int doubleMargin = 293 * PvNode - 195 * !ttCapture;
-                    int tripleMargin = 107 + 259 * PvNode - 260 * !ttCapture + 98 * ss->ttPv;
+                    int doubleMargin = d1 * PvNode - d2 * !ttCapture;
+                    int tripleMargin = t1 + t2 * PvNode - t3 * !ttCapture + t4 * ss->ttPv;
 
                     extension = 1 + (value < singularBeta - doubleMargin)
                               + (value < singularBeta - tripleMargin);
