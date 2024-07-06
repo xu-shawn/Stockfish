@@ -46,11 +46,19 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "types.h"
 #include "uci.h"
 #include "ucioption.h"
 
 namespace Stockfish {
+
+int a1 = 191, a2 = 285, a3 = 20, a4 = 1402;
+int b1 = 191, b2 = 285, b3 = 20, b4 = 1402;
+int c1 = 727, c2 = 260, c3 = 20, c4 = 1908;
+int d1 = 727, d2 = 260, d3 = 20, d4 = 1908;
+
+TUNE(a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4, d1, d2, d3, d4);
 
 namespace TB = Tablebases;
 
@@ -85,11 +93,14 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
     return std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
 
-// History and stats update bonus, based on depth
-int stat_bonus(Depth d) { return std::clamp(190 * d - 298, 20, 1596); }
+int stat_bonus(Depth d, bool capture) {
+    return capture ? std::clamp(a1 * d - a2, a3, a4) : std::clamp(b1 * d - b2, b3, b4);
+}
 
 // History and stats update malus, based on depth
-int stat_malus(Depth d) { return (d < 4 ? 736 * d - 268 : 2044); }
+int stat_malus(Depth d, bool capture) {
+    return capture ? std::clamp(c1 * d - c2, c3, c4) : std::clamp(d1 * d - d2, d3, d4);
+}
 
 // Add a small random component to draw evaluations to avoid 3-fold blindness
 Value value_draw(size_t nodes) { return VALUE_DRAW - 1 + Value(nodes & 0x2); }
@@ -639,13 +650,13 @@ Value Search::Worker::search(
         {
             // Bonus for a quiet ttMove that fails high (~2 Elo)
             if (!ttCapture)
-                update_quiet_stats(pos, ss, *this, ttData.move, stat_bonus(depth));
+                update_quiet_stats(pos, ss, *this, ttData.move, stat_bonus(depth, false));
 
             // Extra penalty for early quiet moves of
             // the previous ply (~1 Elo on STC, ~2 Elo on LTC)
             if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2 && !priorCapture)
                 update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                              -stat_malus(depth + 1));
+                                              -stat_malus(depth + 1, false));
         }
 
         // Partial workaround for the graph history interaction problem
@@ -900,7 +911,7 @@ Value Search::Worker::search(
                 if (value >= probCutBeta)
                 {
                     thisThread->captureHistory[movedPiece][move.to_sq()][type_of(captured)]
-                      << stat_bonus(depth - 2);
+                      << stat_bonus(depth - 2, true);
 
                     for (int i = 0; i < probcutCaptureCount; i++)
                     {
@@ -909,7 +920,7 @@ Value Search::Worker::search(
 
                         thisThread->captureHistory[movedPiece][probcutCapturesSearched[i].to_sq()]
                                                   [type_of(captured)]
-                          << -stat_malus(depth - 3);
+                          << -stat_malus(depth - 3, true);
                     }
 
                     // Save ProbCut data into transposition table
@@ -1217,8 +1228,8 @@ moves_loop:  // When in check, search starts here
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
 
                 // Post LMR continuation history updates (~1 Elo)
-                int bonus = value <= alpha ? -stat_malus(newDepth)
-                          : value >= beta  ? stat_bonus(newDepth)
+                int bonus = value <= alpha ? -stat_malus(newDepth, false)
+                          : value >= beta  ? stat_bonus(newDepth, false)
                                            : 0;
 
                 update_continuation_histories(ss, movedPiece, move.to_sq(), bonus);
@@ -1384,14 +1395,14 @@ moves_loop:  // When in check, search starts here
             bonus += std::clamp(-(ss - 1)->statScore / 103, 0, 258);
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                      stat_bonus(depth) * bonus / 100);
+                                      stat_bonus(depth, false) * bonus / 100);
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
-          << stat_bonus(depth) * bonus / 200;
+          << stat_bonus(depth, false) * bonus / 200;
 
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-              << stat_bonus(depth) * bonus / 25;
+              << stat_bonus(depth, false) * bonus / 25;
     }
 
     if (PvNode)
@@ -1793,13 +1804,20 @@ void update_all_stats(const Position& pos,
     Piece                  moved_piece    = pos.moved_piece(bestMove);
     PieceType              captured;
 
-    int quietMoveBonus = stat_bonus(depth + 1);
-    int quietMoveMalus = stat_malus(depth);
+    int quietMoveBonus = stat_bonus(depth + 1, false);
+    int quietMoveMalus = stat_malus(depth, false);
+    int captureBonus   = stat_bonus(depth + 1, true);
+    int captureMalus   = stat_bonus(depth, false);
 
     if (!pos.capture_stage(bestMove))
     {
+<<<<<<< HEAD
         int bestMoveBonus = bestValue > beta + 172 ? quietMoveBonus      // larger bonus
                                                    : stat_bonus(depth);  // smaller bonus
+=======
+        int bestMoveBonus = bestValue > beta + 166 ? quietMoveBonus             // larger bonus
+                                                   : stat_bonus(depth, false);  // smaller bonus
+>>>>>>> fe4719d4 (tune)
 
         update_quiet_stats(pos, ss, workerThread, bestMove, bestMoveBonus);
 
@@ -1811,7 +1829,7 @@ void update_all_stats(const Position& pos,
     {
         // Increase stats for the best move in case it was a capture move
         captured = type_of(pos.piece_on(bestMove.to_sq()));
-        captureHistory[moved_piece][bestMove.to_sq()][captured] << quietMoveBonus;
+        captureHistory[moved_piece][bestMove.to_sq()][captured] << captureBonus;
     }
 
     // Extra penalty for a quiet early move that was not a TT move or
@@ -1827,7 +1845,7 @@ void update_all_stats(const Position& pos,
     {
         moved_piece = pos.moved_piece(capturesSearched[i]);
         captured    = type_of(pos.piece_on(capturesSearched[i].to_sq()));
-        captureHistory[moved_piece][capturesSearched[i].to_sq()][captured] << -quietMoveMalus;
+        captureHistory[moved_piece][capturesSearched[i].to_sq()][captured] << -captureMalus;
     }
 }
 
