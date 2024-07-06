@@ -772,6 +772,9 @@ Value Search::Worker::search(
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
 
+    if (cutNode && depth >= 7 && !ttData.move)
+        depth--;
+
     // Step 7. Razoring (~1 Elo)
     // If eval is really low check with qsearch if it can exceed alpha, if it can't,
     // return a fail low.
@@ -845,7 +848,7 @@ Value Search::Worker::search(
     // For cutNodes, if depth is high enough, decrease depth by 2 if there is no ttMove, or
     // by 1 if there is a ttMove with an upper bound.
     if (cutNode && depth >= 7 && (!ttData.move || ttData.bound == BOUND_UPPER))
-        depth -= 1 + !ttData.move;
+        depth--;
 
     // Step 11. ProbCut (~10 Elo)
     // If we have a good enough capture (or queen promotion) and a reduced search returns a value
