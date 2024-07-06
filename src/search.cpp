@@ -1326,6 +1326,10 @@ moves_loop:  // When in check, search starts here
                 if (value >= beta)
                 {
                     ss->cutoffCnt += 1 + !ttData.move - (extension >= 2);
+
+                    if (mp.stage == 7)
+                        ss->killers[1] = bestMove;
+
                     assert(value >= beta);  // Fail high
                     break;
                 }
