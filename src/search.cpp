@@ -46,19 +46,11 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
-#include "tune.h"
 #include "types.h"
 #include "uci.h"
 #include "ucioption.h"
 
 namespace Stockfish {
-
-int a1 = 191, a2 = 285, a3 = 20, a4 = 1402;
-int b1 = 191, b2 = 285, b3 = 20, b4 = 1402;
-int c1 = 727, c2 = 260, c3 = 20, c4 = 1908;
-int d1 = 727, d2 = 260, d3 = 20, d4 = 1908;
-
-TUNE(a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4, d1, d2, d3, d4);
 
 namespace TB = Tablebases;
 
@@ -94,12 +86,12 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
 }
 
 int stat_bonus(Depth d, bool capture) {
-    return capture ? std::clamp(a1 * d - a2, a3, a4) : std::clamp(b1 * d - b2, b3, b4);
+    return capture ? std::clamp(187 * d - 277, 19, 1440) : std::clamp(192 * d - 295, 20, 1449);
 }
 
 // History and stats update malus, based on depth
 int stat_malus(Depth d, bool capture) {
-    return capture ? std::clamp(c1 * d - c2, c3, c4) : std::clamp(d1 * d - d2, d3, d4);
+    return capture ? std::clamp(759 * d - 249, 21, 1910) : std::clamp(720 * d - 263, 20, 2018);
 }
 
 // Add a small random component to draw evaluations to avoid 3-fold blindness
@@ -1811,13 +1803,8 @@ void update_all_stats(const Position& pos,
 
     if (!pos.capture_stage(bestMove))
     {
-<<<<<<< HEAD
-        int bestMoveBonus = bestValue > beta + 172 ? quietMoveBonus      // larger bonus
-                                                   : stat_bonus(depth);  // smaller bonus
-=======
         int bestMoveBonus = bestValue > beta + 166 ? quietMoveBonus             // larger bonus
                                                    : stat_bonus(depth, false);  // smaller bonus
->>>>>>> fe4719d4 (tune)
 
         update_quiet_stats(pos, ss, workerThread, bestMove, bestMoveBonus);
 
