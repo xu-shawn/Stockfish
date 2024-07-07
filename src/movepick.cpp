@@ -188,6 +188,9 @@ void MovePicker::score() {
             // bonus for checks
             m.value += bool(pos.check_squares(pt) & to) * 16384;
 
+            // bonus for 2nd killer
+            m.value += (m == refutations[1]) * 16384;
+
             // bonus for escaping from capture
             m.value += threatenedPieces & from ? (pt == QUEEN && !(to & threatenedByRook)   ? 51700
                                                   : pt == ROOK && !(to & threatenedByMinor) ? 25600
@@ -270,7 +273,7 @@ top:
 
         // Prepare the pointers to loop over the refutations array
         cur      = std::begin(refutations);
-        endMoves = std::end(refutations);
+        endMoves = std::end(refutations) - 1;
 
         ++stage;
         [[fallthrough]];
@@ -297,9 +300,7 @@ top:
         [[fallthrough]];
 
     case GOOD_QUIET :
-        if (!skipQuiets && select<Next>([&]() {
-                return *cur != refutations[0] && *cur != refutations[1] && *cur != refutations[2];
-            }))
+        if (!skipQuiets && select<Next>([&]() { return *cur != refutations[0]; }))
         {
             if ((cur - 1)->value > -7998 || (cur - 1)->value <= quiet_threshold(depth))
                 return *(cur - 1);
