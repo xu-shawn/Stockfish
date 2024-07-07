@@ -28,6 +28,10 @@
 
 namespace Stockfish {
 
+int h1 = 512, h2 = 1024, h3 = 1024, h4 = 512, h5 = 171, h6 = 512, h7 = 512;
+
+TUNE(h1, h2, h3, h4, h5, h6, h7);
+
 namespace {
 
 enum Stages {
@@ -177,13 +181,13 @@ void MovePicker::score() {
             Square    to   = m.to_sq();
 
             // histories
-            m.value = (*mainHistory)[pos.side_to_move()][m.from_to()];
-            m.value += 2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to];
-            m.value += 2 * (*continuationHistory[0])[pc][to];
-            m.value += (*continuationHistory[1])[pc][to];
-            m.value += (*continuationHistory[2])[pc][to] / 3;
-            m.value += (*continuationHistory[3])[pc][to];
-            m.value += (*continuationHistory[5])[pc][to];
+            m.value = h1 * (*mainHistory)[pos.side_to_move()][m.from_to()] / 512;
+            m.value += h2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to] / 512;
+            m.value += h3 * (*continuationHistory[0])[pc][to] / 512;
+            m.value += h4 * (*continuationHistory[1])[pc][to] / 512;
+            m.value += h5 * (*continuationHistory[2])[pc][to] / 512;
+            m.value += h6 * (*continuationHistory[3])[pc][to] / 512;
+            m.value += h7 * (*continuationHistory[5])[pc][to] / 512;
 
             // bonus for checks
             m.value += bool(pos.check_squares(pt) & to) * 16384;
