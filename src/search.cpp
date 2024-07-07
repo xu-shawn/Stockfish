@@ -507,7 +507,7 @@ void Search::Worker::iterative_deepening() {
 
 void Search::Worker::clear() {
     mainHistory.fill(0);
-    captureHistory.fill(-700);
+    captureHistory.fill(-500);
     pawnHistory.fill(-1188);
     correctionHistory.fill(0);
 
@@ -909,7 +909,7 @@ Value Search::Worker::search(
 
                         thisThread->captureHistory[movedPiece][probcutCapturesSearched[i].to_sq()]
                                                   [type_of(captured)]
-                          << -stat_malus(depth - 3);
+                          << -stat_malus(depth - 3) * 2;
                     }
 
                     // Save ProbCut data into transposition table
