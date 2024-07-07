@@ -25,12 +25,13 @@
 
 #include "bitboard.h"
 #include "position.h"
+#include "tune.h"
 
 namespace Stockfish {
 
 int h1 = 512, h2 = 1024, h3 = 1024, h4 = 512, h5 = 171, h6 = 512, h7 = 512;
 
-TUNE(h1, h2, h3, h4, h5, h6, h7);
+TUNE(SetRange(0, 3072), h1, h2, h3, h4, h5, h6, h7);
 
 namespace {
 
