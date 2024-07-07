@@ -613,6 +613,9 @@ Value Search::Worker::search(
     Square prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
     ss->statScore = 0;
 
+    if (!(nodes & 0x11111))
+        std::swap(ss->killers[0], ss->killers[1]);
+
     // Step 4. Transposition table lookup.
     excludedMove                   = ss->excludedMove;
     posKey                         = pos.key();
