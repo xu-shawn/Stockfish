@@ -65,6 +65,11 @@ using namespace Search;
 
 namespace {
 
+static int x1 = 0, x2 = 0, x3 = 0, x4 = 0, x5 = 0, x6 = 0;
+static int c1 = 100, c2 = 100;
+TUNE(SetRange(-100, 100), x1, x2, x3, x4, x5, x6);
+TUNE(c1, c2);
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 122 - 37 * noTtCutNode;
@@ -132,12 +137,17 @@ void update_all_stats(const Position& pos,
                       Stack*          ss,
                       Search::Worker& workerThread,
                       Move            bestMove,
+                      Value           bestValue,
+                      Value           alpha,
+                      Value           beta,
                       Square          prevSq,
                       Move*           quietsSearched,
                       int             quietCount,
                       Move*           capturesSearched,
                       int             captureCount,
-                      Depth           depth);
+                      Depth           depth,
+                      bool            cutNode,
+                      bool            PvNode);
 
 }  // namespace
 
@@ -1355,11 +1365,19 @@ moves_loop:  // When in check, search starts here
     if (!moveCount)
         bestValue = excludedMove ? alpha : ss->inCheck ? mated_in(ss->ply) : VALUE_DRAW;
 
+<<<<<<< HEAD
     // If there is a move that produces search value greater than alpha,
     // we update the stats of searched moves.
     else if (bestMove)
         update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, quietCount,
                          capturesSearched, captureCount, depth);
+=======
+    // If there is a move that produces search value greater than alpha we update the stats of searched moves
+
+    else if (bestMove)
+        update_all_stats(pos, ss, *this, bestMove, bestValue, alpha, beta, prevSq, quietsSearched,
+                         quietCount, capturesSearched, captureCount, depth, cutNode, PvNode);
+>>>>>>> 02141394 (add tunables)
 
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
@@ -1768,12 +1786,17 @@ void update_all_stats(const Position& pos,
                       Stack*          ss,
                       Search::Worker& workerThread,
                       Move            bestMove,
+                      Value           bestValue,
+                      Value           alpha,
+                      Value           beta,
                       Square          prevSq,
                       Move*           quietsSearched,
                       int             quietCount,
                       Move*           capturesSearched,
                       int             captureCount,
-                      Depth           depth) {
+                      Depth           depth,
+                      bool            cutNode,
+                      bool            PvNode) {
 
     CapturePieceToHistory& captureHistory = workerThread.captureHistory;
     Piece                  moved_piece    = pos.moved_piece(bestMove);
@@ -1782,9 +1805,19 @@ void update_all_stats(const Position& pos,
     int quietMoveBonus = stat_bonus(depth);
     int quietMoveMalus = stat_malus(depth);
 
+    quietMoveMalus = quietMoveMalus
+                   * std::clamp(c1 + x4 * cutNode + x5 * PvNode + x6 * (beta - alpha == 1), 0, 200)
+                   / 100;
+
     if (!pos.capture_stage(bestMove))
     {
-        update_quiet_stats(pos, ss, workerThread, bestMove, quietMoveBonus);
+        int bestMoveBonus = bestValue > beta + 172 ? quietMoveBonus      // larger bonus
+                                                   : stat_bonus(depth);  // smaller bonus
+        bestMoveBonus =
+          bestMoveBonus
+          * std::clamp(c2 + x1 * cutNode + x2 * PvNode + x3 * (beta - alpha == 1), 0, 200) / 100;
+
+        update_quiet_stats(pos, ss, workerThread, bestMove, bestMoveBonus);
 
         // Decrease stats for all non-best quiet moves
         for (int i = 0; i < quietCount; ++i)
