@@ -1362,7 +1362,7 @@ moves_loop:  // When in check, search starts here
     // Adjust best value for fail high cases at non-pv nodes
     if (!PvNode && bestValue >= beta && std::abs(bestValue) < VALUE_TB_WIN_IN_MAX_PLY
         && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY && std::abs(alpha) < VALUE_TB_WIN_IN_MAX_PLY)
-        bestValue = (bestValue * depth + beta) / (depth + 1);
+        bestValue = (bestValue * ss->ply + beta) / (ss->ply + 1);
 
     if (!moveCount)
         bestValue = excludedMove ? alpha : ss->inCheck ? mated_in(ss->ply) : VALUE_DRAW;
