@@ -55,7 +55,8 @@ bool Eval::use_smallnet(const Position& pos) {
 Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
                      const Position&                pos,
                      Eval::NNUE::AccumulatorCaches& caches,
-                     int                            optimism) {
+                     int                            optimism,
+                     int                            nodes) {
 
     assert(!pos.checkers());
 
@@ -86,7 +87,7 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
     v            = (nnue * (73921 + material) + optimism * (8112 + material)) / 73260;
 
     // Evaluation grain (to get more alpha-beta cuts) with randomization (for robustness)
-    v = (v / 16) * 16 - 1 + (pos.key() & 0x2);
+    v = (v / 16) * 16 - 1 + (nodes & 0x2);
 
     // Damp down the evaluation linearly when shuffling
     v -= v * pos.rule50_count() / 212;
@@ -119,7 +120,7 @@ std::string Eval::trace(Position& pos, const Eval::NNUE::Networks& networks) {
     v                       = pos.side_to_move() == WHITE ? v : -v;
     ss << "NNUE evaluation        " << 0.01 * UCIEngine::to_cp(v, pos) << " (white side)\n";
 
-    v = evaluate(networks, pos, *caches, VALUE_ZERO);
+    v = evaluate(networks, pos, *caches, VALUE_ZERO, 0);
     v = pos.side_to_move() == WHITE ? v : -v;
     ss << "Final evaluation       " << 0.01 * UCIEngine::to_cp(v, pos) << " (white side)";
     ss << " [with scaled NNUE, ...]";
