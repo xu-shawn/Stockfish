@@ -90,22 +90,14 @@ MovePicker::MovePicker(const Position&              p,
                        const CapturePieceToHistory* cph,
                        const PieceToHistory**       ch,
                        const PawnHistory*           ph,
-<<<<<<< HEAD
-                       Move                         km) :
-=======
-                       Move killer) :
->>>>>>> be0add05 (removed second killer move)
+                       Move                         killer) :
     pos(p),
     mainHistory(mh),
     captureHistory(cph),
     continuationHistory(ch),
     pawnHistory(ph),
     ttMove(ttm),
-<<<<<<< HEAD
-    killer{km, 0},
-=======
     killer{killer, 0},
->>>>>>> be0add05 (removed second killer move)
     depth(d) {
     assert(d > 0);
 
@@ -274,15 +266,12 @@ top:
                                                           : (*endBadCaptures++ = *cur, false);
             }))
             return *(cur - 1);
+
         ++stage;
         [[fallthrough]];
 
     case REFUTATION :
-        if (select<Next>([&]() {
-                return killer != Move::none() && !pos.capture_stage(killer)
-                    && pos.pseudo_legal(killer);
-            }))
-            return killer;
+        // increment it before so if we aren't stuck here indefinitely
         ++stage;
 
         if (killer != ttMove && killer != Move::none() && !pos.capture_stage(killer)
