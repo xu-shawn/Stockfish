@@ -926,13 +926,14 @@ Value Search::Worker::search(
         Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
     }
 
-moves_loop:  // When in check, search starts here
-
-    // Step 12. A small Probcut idea, when we are in check (~4 Elo)
+    // Step 12. A small Probcut idea, when we are not in check (~4 Elo)
     probCutBeta = beta + 390;
     if ((ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 4 && ttData.value >= probCutBeta
         && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY)
         return probCutBeta;
+
+moves_loop:  // When in check, search starts here
+
 
     const PieceToHistory* contHist[] = {(ss - 1)->continuationHistory,
                                         (ss - 2)->continuationHistory,
