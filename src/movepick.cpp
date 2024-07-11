@@ -314,7 +314,7 @@ top:
 
     case BAD_QUIET :
         if (!skipQuiets)
-            return select<Next>([&]() { return true; });
+            return select<Next>([]() { return true; });
 
         return Move::none();
 
