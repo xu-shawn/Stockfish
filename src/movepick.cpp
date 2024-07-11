@@ -87,12 +87,14 @@ MovePicker::MovePicker(const Position&              p,
                        Move                         ttm,
                        Depth                        d,
                        const ButterflyHistory*      mh,
+                       const LargeButterflyHistory* lh,
                        const CapturePieceToHistory* cph,
                        const PieceToHistory**       ch,
                        const PawnHistory*           ph,
                        Move                         km) :
     pos(p),
     mainHistory(mh),
+    largeHistory(lh),
     captureHistory(cph),
     continuationHistory(ch),
     pawnHistory(ph),
@@ -109,11 +111,13 @@ MovePicker::MovePicker(const Position&              p,
                        Move                         ttm,
                        Depth                        d,
                        const ButterflyHistory*      mh,
+                       const LargeButterflyHistory* lh,
                        const CapturePieceToHistory* cph,
                        const PieceToHistory**       ch,
                        const PawnHistory*           ph) :
     pos(p),
     mainHistory(mh),
+    largeHistory(lh),
     captureHistory(cph),
     continuationHistory(ch),
     pawnHistory(ph),
@@ -176,7 +180,8 @@ void MovePicker::score() {
             Square    to   = m.to_sq();
 
             // histories
-            m.value = (*mainHistory)[pos.side_to_move()][m.from_to()];
+            m.value = (*mainHistory)[pos.side_to_move()][m.from_to()] / 2;
+            m.value += (*largeHistory)[pos.side_to_move()][m.from_to()] / 4;
             m.value += 2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to];
             m.value += 2 * (*continuationHistory[0])[pc][to];
             m.value += (*continuationHistory[1])[pc][to];
