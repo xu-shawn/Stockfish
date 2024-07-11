@@ -90,7 +90,7 @@ MovePicker::MovePicker(const Position&              p,
                        const CapturePieceToHistory* cph,
                        const PieceToHistory**       ch,
                        const PawnHistory*           ph,
-                       Move                         km = Move::none()) :
+                       Move                         km) :
     pos(p),
     mainHistory(mh),
     captureHistory(cph),
