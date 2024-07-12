@@ -89,7 +89,8 @@ MovePicker::MovePicker(const Position&              p,
                        const CapturePieceToHistory* cph,
                        const PieceToHistory**       ch,
                        const PawnHistory*           ph,
-                       Move                         km) :
+                       Move                         km,
+                       Move                         nkm) :
     pos(p),
     mainHistory(mh),
     captureHistory(cph),
@@ -97,6 +98,7 @@ MovePicker::MovePicker(const Position&              p,
     pawnHistory(ph),
     ttMove(ttm),
     killer{km, 0},
+    nextKiller{nkm, 0},
     depth(d) {
     assert(d > 0);
 
@@ -163,9 +165,13 @@ void MovePicker::score() {
 
     for (auto& m : *this)
         if constexpr (Type == CAPTURES)
+        {
             m.value =
               7 * int(PieceValue[pos.piece_on(m.to_sq())])
               + (*captureHistory)[pos.moved_piece(m)][m.to_sq()][type_of(pos.piece_on(m.to_sq()))];
+
+            m.value += 2048 * (m.to_sq() == nextKiller.from_sq());
+        }
 
         else if constexpr (Type == QUIETS)
         {

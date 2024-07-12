@@ -160,6 +160,7 @@ class MovePicker {
                const CapturePieceToHistory*,
                const PieceToHistory**,
                const PawnHistory*,
+               Move,
                Move);
     MovePicker(const Position&,
                Move,
@@ -185,7 +186,7 @@ class MovePicker {
     const PieceToHistory**       continuationHistory;
     const PawnHistory*           pawnHistory;
     Move                         ttMove;
-    ExtMove killer, *cur, *endMoves, *endBadCaptures, *beginBadQuiets, *endBadQuiets;
+    ExtMove killer, nextKiller, *cur, *endMoves, *endBadCaptures, *beginBadQuiets, *endBadQuiets;
     int     stage;
     int     threshold;
     Depth   depth;
