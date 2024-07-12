@@ -1823,13 +1823,22 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
 
     bonus = bonus * 52 / 64;
 
-    for (int i : {1, 2, 3, 4, 6, 8})
+    for (int i : {1, 2, 4})
     {
         // Only update the first 2 continuation histories if we are in check
         if (ss->inCheck && i > 2)
             break;
         if (((ss - i)->currentMove).is_ok())
-            (*(ss - i)->continuationHistory)[pc][to] << bonus / (1 + (i == 3 || i == 8));
+            (*(ss - i)->continuationHistory)[pc][to] << bonus;
+    }
+
+    if (ss->inCheck)
+        return;
+
+    for (int i : {3, 6, 8})
+    {
+        if (((ss - i)->currentMove).is_ok())
+            (*(ss - i)->continuationHistory)[pc][to] << bonus / 2;
     }
 }
 
@@ -1859,7 +1868,6 @@ void update_quiet_stats(
     update_killer(ss, move);
     update_quiet_histories(pos, ss, workerThread, move, bonus);
 }
-
 }
 
 // When playing with strength handicap, choose the best move among a set of
