@@ -251,9 +251,9 @@ void Search::Worker::iterative_deepening() {
     // (ss - 7) is needed for update_continuation_histories(ss - 1) which accesses (ss - 6),
     // (ss + 2) is needed for initialization of cutOffCnt and killers.
     Stack  stack[MAX_PLY + 10] = {};
-    Stack* ss                  = stack + 7;
+    Stack* ss                  = stack + 9;
 
-    for (int i = 7; i > 0; --i)
+    for (int i = 9; i > 0; --i)
     {
         (ss - i)->continuationHistory =
           &this->continuationHistory[0][0][NO_PIECE][0];  // Use as a sentinel
@@ -930,7 +930,9 @@ moves_loop:  // When in check, search starts here
                                         (ss - 3)->continuationHistory,
                                         (ss - 4)->continuationHistory,
                                         nullptr,
-                                        (ss - 6)->continuationHistory};
+                                        (ss - 6)->continuationHistory,
+                                        nullptr,
+                                        (ss - 8)->continuationHistory};
 
 
     MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->captureHistory,
@@ -1821,13 +1823,13 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
 
     bonus = bonus * 52 / 64;
 
-    for (int i : {1, 2, 3, 4, 6})
+    for (int i : {1, 2, 3, 4, 6, 8})
     {
         // Only update the first 2 continuation histories if we are in check
         if (ss->inCheck && i > 2)
             break;
         if (((ss - i)->currentMove).is_ok())
-            (*(ss - i)->continuationHistory)[pc][to] << bonus / (1 + (i == 3));
+            (*(ss - i)->continuationHistory)[pc][to] << bonus / (1 + (i == 3 || i == 8));
     }
 }
 
