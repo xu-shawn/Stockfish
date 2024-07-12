@@ -24,8 +24,22 @@
 
 #include "bitboard.h"
 #include "position.h"
+#include "tune.h"
 
 namespace Stockfish {
+
+
+int b1 = 51700, b2 = 25600, b3 = 14450;
+int m1 = 49000, m2 = 24335, m3 = 14900;
+int h1 = 1024, h2 = 2048, h3 = 2048, h4 = 1024, h5 = 341, h6 = 1024, h7 = 1024;
+int k1   = 65536;
+int chk1 = 16384;
+
+int capture1 = 7000;
+
+
+TUNE(b1, b2, b3, m1, m2, m3, h1, h2, h3, h4, h5, h6, h7, k1, chk1, capture1);
+
 
 namespace {
 
@@ -164,7 +178,7 @@ void MovePicker::score() {
     for (auto& m : *this)
         if constexpr (Type == CAPTURES)
             m.value =
-              7 * int(PieceValue[pos.piece_on(m.to_sq())])
+              capture1 * int(PieceValue[pos.piece_on(m.to_sq())]) / 1000
               + (*captureHistory)[pos.moved_piece(m)][m.to_sq()][type_of(pos.piece_on(m.to_sq()))];
 
         else if constexpr (Type == QUIETS)
@@ -175,30 +189,32 @@ void MovePicker::score() {
             Square    to   = m.to_sq();
 
             // histories
-            m.value = (*mainHistory)[pos.side_to_move()][m.from_to()];
-            m.value += 2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to];
-            m.value += 2 * (*continuationHistory[0])[pc][to];
-            m.value += (*continuationHistory[1])[pc][to];
-            m.value += (*continuationHistory[2])[pc][to] / 3;
-            m.value += (*continuationHistory[3])[pc][to];
-            m.value += (*continuationHistory[5])[pc][to];
+            m.value = h1 * (*mainHistory)[pos.side_to_move()][m.from_to()];
+            m.value += h2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to];
+            m.value += h3 * (*continuationHistory[0])[pc][to];
+            m.value += h4 * (*continuationHistory[1])[pc][to];
+            m.value += h5 * (*continuationHistory[2])[pc][to];
+            m.value += h6 * (*continuationHistory[3])[pc][to];
+            m.value += h7 * (*continuationHistory[5])[pc][to];
 
-            m.value += (m == killer) * 65536;
+            m.value /= 1024;
+
+            m.value += (m == killer) * k1;
 
             // bonus for checks
-            m.value += bool(pos.check_squares(pt) & to) * 16384;
+            m.value += bool(pos.check_squares(pt) & to) * chk1;
 
             // bonus for escaping from capture
-            m.value += threatenedPieces & from ? (pt == QUEEN && !(to & threatenedByRook)   ? 51700
-                                                  : pt == ROOK && !(to & threatenedByMinor) ? 25600
-                                                  : !(to & threatenedByPawn)                ? 14450
+            m.value += threatenedPieces & from ? (pt == QUEEN && !(to & threatenedByRook)   ? b1
+                                                  : pt == ROOK && !(to & threatenedByMinor) ? b2
+                                                  : !(to & threatenedByPawn)                ? b3
                                                                                             : 0)
                                                : 0;
 
             // malus for putting piece en prise
-            m.value -= (pt == QUEEN  ? bool(to & threatenedByRook) * 49000
-                        : pt == ROOK ? bool(to & threatenedByMinor) * 24335
-                                     : bool(to & threatenedByPawn) * 14900);
+            m.value -= (pt == QUEEN  ? bool(to & threatenedByRook) * m1
+                        : pt == ROOK ? bool(to & threatenedByMinor) * m2
+                                     : bool(to & threatenedByPawn) * m3);
         }
 
         else  // Type == EVASIONS
