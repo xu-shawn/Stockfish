@@ -164,7 +164,7 @@ void MovePicker::score() {
     for (auto& m : *this)
         if constexpr (Type == CAPTURES)
             m.value =
-              6749 * int(PieceValue[pos.piece_on(m.to_sq())]) / 1000
+              6463 * int(PieceValue[pos.piece_on(m.to_sq())]) / 1000
               + (*captureHistory)[pos.moved_piece(m)][m.to_sq()][type_of(pos.piece_on(m.to_sq()))];
 
         else if constexpr (Type == QUIETS)
@@ -175,32 +175,32 @@ void MovePicker::score() {
             Square    to   = m.to_sq();
 
             // histories
-            m.value = 1000 * (*mainHistory)[pos.side_to_move()][m.from_to()];
-            m.value += 1924 * (*pawnHistory)[pawn_structure_index(pos)][pc][to];
-            m.value += 1894 * (*continuationHistory[0])[pc][to];
-            m.value += 1000 * (*continuationHistory[1])[pc][to];
-            m.value += 364 * (*continuationHistory[2])[pc][to];
-            m.value += 970 * (*continuationHistory[3])[pc][to];
-            m.value += 1077 * (*continuationHistory[5])[pc][to];
+            m.value = 1061 * (*mainHistory)[pos.side_to_move()][m.from_to()];
+            m.value += 2010 * (*pawnHistory)[pawn_structure_index(pos)][pc][to];
+            m.value += 1896 * (*continuationHistory[0])[pc][to];
+            m.value += 1040 * (*continuationHistory[1])[pc][to];
+            m.value += 365 * (*continuationHistory[2])[pc][to];
+            m.value += 1002 * (*continuationHistory[3])[pc][to];
+            m.value += 1046 * (*continuationHistory[5])[pc][to];
 
             m.value /= 1024;
 
-            m.value += (m == killer) * 70249;
+            m.value += (m == killer) * 66981;
 
             // bonus for checks
-            m.value += bool(pos.check_squares(pt) & to) * 15439;
+            m.value += bool(pos.check_squares(pt) & to) * 15414;
 
             // bonus for escaping from capture
-            m.value += threatenedPieces & from ? (pt == QUEEN && !(to & threatenedByRook)   ? 46292
-                                                  : pt == ROOK && !(to & threatenedByMinor) ? 25656
-                                                  : !(to & threatenedByPawn)                ? 14574
+            m.value += threatenedPieces & from ? (pt == QUEEN && !(to & threatenedByRook)   ? 47711
+                                                  : pt == ROOK && !(to & threatenedByMinor) ? 25309
+                                                  : !(to & threatenedByPawn)                ? 14403
                                                                                             : 0)
                                                : 0;
 
             // malus for putting piece en prise
-            m.value -= (pt == QUEEN  ? bool(to & threatenedByRook) * 52280
-                        : pt == ROOK ? bool(to & threatenedByMinor) * 23153
-                                     : bool(to & threatenedByPawn) * 14977);
+            m.value -= (pt == QUEEN  ? bool(to & threatenedByRook) * 54955
+                        : pt == ROOK ? bool(to & threatenedByMinor) * 23189
+                                     : bool(to & threatenedByPawn) * 14473);
         }
 
         else  // Type == EVASIONS
