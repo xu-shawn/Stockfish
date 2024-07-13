@@ -60,19 +60,19 @@ namespace Search {
 // shallower and deeper in the tree during the search. Each search thread has
 // its own array of Stack objects, indexed by the current ply.
 struct Stack {
-    Move*           pv;
-    PieceToHistory* continuationHistory;
-    int             ply;
-    Move            currentMove;
-    Move            excludedMove;
-    Move            killer;
-    Value           staticEval;
-    int             statScore;
-    int             moveCount;
-    bool            inCheck;
-    bool            ttPv;
-    bool            ttHit;
-    int             cutoffCnt;
+    Move*        pv;
+    DualHistory* continuationHistory;
+    int          ply;
+    Move         currentMove;
+    Move         excludedMove;
+    Move         killer;
+    Value        staticEval;
+    int          statScore;
+    int          moveCount;
+    bool         inCheck;
+    bool         ttPv;
+    bool         ttHit;
+    int          cutoffCnt;
 };
 
 

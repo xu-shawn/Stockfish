@@ -88,7 +88,7 @@ MovePicker::MovePicker(const Position&              p,
                        Depth                        d,
                        const ButterflyHistory*      mh,
                        const CapturePieceToHistory* cph,
-                       const PieceToHistory**       ch,
+                       const DualHistory**          ch,
                        const PawnHistory*           ph,
                        Move                         km) :
     pos(p),
@@ -110,7 +110,7 @@ MovePicker::MovePicker(const Position&              p,
                        Depth                        d,
                        const ButterflyHistory*      mh,
                        const CapturePieceToHistory* cph,
-                       const PieceToHistory**       ch,
+                       const DualHistory**          ch,
                        const PawnHistory*           ph) :
     pos(p),
     mainHistory(mh),
@@ -126,9 +126,11 @@ MovePicker::MovePicker(const Position&              p,
 
 // Constructor for ProbCut: we generate captures with SEE greater than or equal
 // to the given threshold.
-MovePicker::MovePicker(const Position& p, Move ttm, int th, const CapturePieceToHistory* cph) :
+MovePicker::MovePicker(
+  const Position& p, Move ttm, int th, const CapturePieceToHistory* cph, const DualHistory** ch) :
     pos(p),
     captureHistory(cph),
+    continuationHistory(ch),
     ttMove(ttm),
     threshold(th) {
     assert(!pos.checkers());
@@ -164,9 +166,15 @@ void MovePicker::score() {
 
     for (auto& m : *this)
         if constexpr (Type == CAPTURES)
+        {
+            Piece  pc = pos.moved_piece(m);
+            Square to = m.to_sq();
+
             m.value =
               7 * int(PieceValue[pos.piece_on(m.to_sq())])
-              + (*captureHistory)[pos.moved_piece(m)][m.to_sq()][type_of(pos.piece_on(m.to_sq()))];
+              + (*captureHistory)[pos.moved_piece(m)][m.to_sq()][type_of(pos.piece_on(m.to_sq()))]
+              + (*continuationHistory[0])[pc][to][true];
+        }
 
         else if constexpr (Type == QUIETS)
         {
@@ -178,11 +186,11 @@ void MovePicker::score() {
             // histories
             m.value = (*mainHistory)[pos.side_to_move()][m.from_to()];
             m.value += 2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to];
-            m.value += 2 * (*continuationHistory[0])[pc][to];
-            m.value += (*continuationHistory[1])[pc][to];
-            m.value += (*continuationHistory[2])[pc][to] / 3;
-            m.value += (*continuationHistory[3])[pc][to];
-            m.value += (*continuationHistory[5])[pc][to];
+            m.value += 2 * (*continuationHistory[0])[pc][to][false];
+            m.value += (*continuationHistory[1])[pc][to][false];
+            m.value += (*continuationHistory[2])[pc][to][false] / 3;
+            m.value += (*continuationHistory[3])[pc][to][false];
+            m.value += (*continuationHistory[5])[pc][to][false];
 
             // bonus for checks
             m.value += bool(pos.check_squares(pt) & to) * 16384;
@@ -207,7 +215,7 @@ void MovePicker::score() {
                   PieceValue[pos.piece_on(m.to_sq())] - type_of(pos.moved_piece(m)) + (1 << 28);
             else
                 m.value = (*mainHistory)[pos.side_to_move()][m.from_to()]
-                        + (*continuationHistory[0])[pos.moved_piece(m)][m.to_sq()]
+                        + (*continuationHistory[0])[pos.moved_piece(m)][m.to_sq()][false]
                         + (*pawnHistory)[pawn_structure_index(pos)][pos.moved_piece(m)][m.to_sq()];
         }
 }

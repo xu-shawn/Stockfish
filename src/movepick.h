@@ -124,11 +124,13 @@ using CapturePieceToHistory = Stats<int16_t, 10692, PIECE_NB, SQUARE_NB, PIECE_T
 // PieceToHistory is like ButterflyHistory but is addressed by a move's [piece][to]
 using PieceToHistory = Stats<int16_t, 29952, PIECE_NB, SQUARE_NB>;
 
+using DualHistory = Stats<int16_t, 29952, PIECE_NB, SQUARE_NB, 2>;
+
 // ContinuationHistory is the combined history of a given pair of moves, usually
 // the current one given a previous one. The nested history table is based on
 // PieceToHistory instead of ButterflyBoards.
 // (~63 elo)
-using ContinuationHistory = Stats<PieceToHistory, NOT_USED, PIECE_NB, SQUARE_NB>;
+using ContinuationHistory = Stats<DualHistory, NOT_USED, PIECE_NB, SQUARE_NB>;
 
 // PawnHistory is addressed by the pawn structure and a move's [piece][to]
 using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>;
@@ -158,7 +160,7 @@ class MovePicker {
                Depth,
                const ButterflyHistory*,
                const CapturePieceToHistory*,
-               const PieceToHistory**,
+               const DualHistory**,
                const PawnHistory*,
                Move);
     MovePicker(const Position&,
@@ -166,9 +168,9 @@ class MovePicker {
                Depth,
                const ButterflyHistory*,
                const CapturePieceToHistory*,
-               const PieceToHistory**,
+               const DualHistory**,
                const PawnHistory*);
-    MovePicker(const Position&, Move, int, const CapturePieceToHistory*);
+    MovePicker(const Position&, Move, int, const CapturePieceToHistory*, const DualHistory**);
     Move next_move(bool skipQuiets = false);
 
    private:
@@ -182,7 +184,7 @@ class MovePicker {
     const Position&              pos;
     const ButterflyHistory*      mainHistory;
     const CapturePieceToHistory* captureHistory;
-    const PieceToHistory**       continuationHistory;
+    const DualHistory**          continuationHistory;
     const PawnHistory*           pawnHistory;
     Move                         ttMove;
     ExtMove killer, *cur, *endMoves, *endBadCaptures, *beginBadQuiets, *endBadQuiets;
