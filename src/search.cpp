@@ -1838,7 +1838,7 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
     for (int i : {3, 8})
     {
         if (((ss - i)->currentMove).is_ok())
-            (*(ss - i)->continuationHistory)[pc][to] << bonus / (2 + 2 * (i == 8));
+            (*(ss - i)->continuationHistory)[pc][to] << bonus / (2 + (i == 8));
     }
 }
 
