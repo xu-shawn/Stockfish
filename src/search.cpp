@@ -708,6 +708,11 @@ Value Search::Worker::search(
         }
     }
 
+    probCutBeta = beta + 390;
+    if ((ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 4 && ttData.value >= probCutBeta
+        && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY)
+        return probCutBeta;
+
     // Step 6. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
     if (ss->inCheck)
