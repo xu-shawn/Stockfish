@@ -1792,6 +1792,8 @@ void update_all_stats(const Position& pos,
     }
     else
     {
+        update_continuation_histories(ss, pos.piece_on(bestMove.from_sq()), bestMove.to_sq(),
+                                      quietMoveBonus);
         // Increase stats for the best move in case it was a capture move
         captured = type_of(pos.piece_on(bestMove.to_sq()));
         captureHistory[moved_piece][bestMove.to_sq()][captured] << quietMoveBonus;
@@ -1808,6 +1810,8 @@ void update_all_stats(const Position& pos,
     // Decrease stats for all non-best capture moves
     for (int i = 0; i < captureCount; ++i)
     {
+        update_continuation_histories(ss, pos.piece_on(capturesSearched[i].from_sq()),
+                                      capturesSearched[i].to_sq(), quietMoveBonus);
         moved_piece = pos.moved_piece(capturesSearched[i]);
         captured    = type_of(pos.piece_on(capturesSearched[i].to_sq()));
         captureHistory[moved_piece][capturesSearched[i].to_sq()][captured] << -quietMoveMalus;
