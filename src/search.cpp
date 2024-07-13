@@ -1177,8 +1177,8 @@ moves_loop:  // When in check, search starts here
             r = std::max(0, r - 2);
 
         ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
-                      + (*contHist[0])[movedPiece][move.to_sq()][capture]
-                      + (*contHist[1])[movedPiece][move.to_sq()][capture] - 4664;
+                      + (*contHist[0])[movedPiece][move.to_sq()][false]
+                      + (*contHist[1])[movedPiece][move.to_sq()][false] - 4664;
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore / 10898;
@@ -1213,7 +1213,7 @@ moves_loop:  // When in check, search starts here
                           : value >= beta  ? stat_bonus(newDepth)
                                            : 0;
 
-                update_continuation_histories(ss, movedPiece, move.to_sq(), bonus, capture);
+                update_continuation_histories(ss, movedPiece, move.to_sq(), bonus, false);
             }
         }
 
