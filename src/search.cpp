@@ -1823,7 +1823,7 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
 
     bonus = bonus * 52 / 64;
 
-    for (int i : {1, 2, 4})
+    for (int i : {1, 2, 4, 6})
     {
         // Only update the first 2 continuation histories if we are in check
         if (ss->inCheck && i > 2)
@@ -1835,10 +1835,10 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
     if (ss->inCheck)
         return;
 
-    for (int i : {3, 6, 8})
+    for (int i : {3, 8})
     {
         if (((ss - i)->currentMove).is_ok())
-            (*(ss - i)->continuationHistory)[pc][to] << bonus / 2;
+            (*(ss - i)->continuationHistory)[pc][to] << bonus / (2 + 2 * (i == 8));
     }
 }
 
