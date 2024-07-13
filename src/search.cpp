@@ -562,7 +562,7 @@ Value Search::Worker::search(
     Move  move, excludedMove, bestMove;
     Depth extension, newDepth;
     Value bestValue, value, eval, maxValue, probCutBeta;
-    bool  givesCheck, improving, priorCapture, opponentWorsening;
+    bool  givesCheck, improving, priorCapture, opponentWorsening, singularLMR;
     bool  capture, moveCountPruning, ttCapture;
     Piece movedPiece;
     int   moveCount, captureCount, quietCount;
@@ -575,6 +575,7 @@ Value Search::Worker::search(
     moveCount = captureCount = quietCount = ss->moveCount = 0;
     bestValue                                             = -VALUE_INFINITE;
     maxValue                                              = VALUE_INFINITE;
+    singularLMR                                           = false;
 
     // Check for the available remaining time
     if (is_mainthread())
@@ -1077,6 +1078,9 @@ moves_loop:  // When in check, search starts here
                   search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
                 ss->excludedMove = Move::none();
 
+                if (value < alpha - 300)
+                    singularLMR = true;
+
                 if (value < singularBeta)
                 {
                     int doubleMargin = 293 * PvNode - 195 * !ttCapture;
@@ -1161,6 +1165,9 @@ moves_loop:  // When in check, search starts here
 
         // Increase reduction if ttMove is a capture (~3 Elo)
         if (ttCapture)
+            r++;
+
+        if (!capture && singularLMR && moveCount > 3)
             r++;
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
