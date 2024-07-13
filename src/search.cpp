@@ -65,8 +65,8 @@ using namespace Search;
 
 namespace {
 
-static int x1 = -40, x2 = 0, x3 = 0, x4 = -40, x5 = 0, x6 = 0;
-static int c1 = 100, c2 = 100;
+constexpr int x1 = -40, x2 = 0, x3 = 0, x4 = -40, x5 = 0, x6 = 0;
+constexpr int c1 = 100, c2 = 100;
 
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
@@ -1363,19 +1363,11 @@ moves_loop:  // When in check, search starts here
     if (!moveCount)
         bestValue = excludedMove ? alpha : ss->inCheck ? mated_in(ss->ply) : VALUE_DRAW;
 
-<<<<<<< HEAD
-    // If there is a move that produces search value greater than alpha,
-    // we update the stats of searched moves.
-    else if (bestMove)
-        update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, quietCount,
-                         capturesSearched, captureCount, depth);
-=======
     // If there is a move that produces search value greater than alpha we update the stats of searched moves
 
     else if (bestMove)
         update_all_stats(pos, ss, *this, bestMove, bestValue, alpha, beta, prevSq, quietsSearched,
                          quietCount, capturesSearched, captureCount, depth, cutNode, PvNode);
->>>>>>> 02141394 (add tunables)
 
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
