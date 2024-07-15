@@ -510,6 +510,7 @@ void Search::Worker::clear() {
     captureHistory.fill(-700);
     pawnHistory.fill(-1188);
     correctionHistory.fill(0);
+    historyEffect.fill(0);
 
     for (bool inCheck : {false, true})
         for (StatsType c : {NoCaptures, Captures})
@@ -1787,13 +1788,14 @@ void update_all_stats(const Position&      pos,
     {
         update_quiet_stats(pos, ss, workerThread, bestMove, quietMoveBonus);
 
-        workerThread.historyEffect[us][bestMove.from_to()] << (int) (4 - quietsSearched.size());
+        workerThread.historyEffect[us][bestMove.from_to()] << 2 * (quietsSearched.size() < 3);
 
         // Decrease stats for all non-best quiet moves
         for (Move move : quietsSearched)
         {
             update_quiet_histories(pos, ss, workerThread, move, -quietMoveMalus);
-            workerThread.historyEffect[us][bestMove.from_to()] << -(int) (quietsSearched.size());
+            workerThread.historyEffect[us][bestMove.from_to()]
+              << -(quietsSearched.size() > 2) * ((depth < 5) ? 2 : 1);
         }
     }
     else

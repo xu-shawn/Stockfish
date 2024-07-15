@@ -137,7 +137,7 @@ using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>
 using CorrectionHistory =
   Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, CORRECTION_HISTORY_SIZE>;
 
-using HistoryEffect = Stats<int16_t, 256, COLOR_NB, int(SQUARE_NB) * int(SQUARE_NB)>;
+using HistoryEffect = Stats<int16_t, 128, COLOR_NB, int(SQUARE_NB) * int(SQUARE_NB)>;
 
 // MovePicker class is used to pick one pseudo-legal move at a time from the
 // current position. The most important method is next_move(), which returns a
