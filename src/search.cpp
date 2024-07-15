@@ -934,7 +934,7 @@ moves_loop:  // When in check, search starts here
 
 
     MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->captureHistory,
-                  contHist, &thisThread->pawnHistory, ss->killer);
+                  contHist, &thisThread->pawnHistory, &thisThread->historyEffect, ss->killer);
 
     value = bestValue;
 
@@ -1556,7 +1556,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     // all evasions).
     Square     prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
     MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->captureHistory,
-                  contHist, &thisThread->pawnHistory);
+                  contHist, &thisThread->pawnHistory, &thisThread->historyEffect);
 
     // Step 5. Loop through all pseudo-legal moves until no moves remain or a beta
     // cutoff occurs.
@@ -1775,6 +1775,7 @@ void update_all_stats(const Position&      pos,
                       ValueList<Move, 32>& capturesSearched,
                       Depth                depth) {
 
+    Color                  us             = pos.side_to_move();
     CapturePieceToHistory& captureHistory = workerThread.captureHistory;
     Piece                  moved_piece    = pos.moved_piece(bestMove);
     PieceType              captured;
@@ -1786,9 +1787,14 @@ void update_all_stats(const Position&      pos,
     {
         update_quiet_stats(pos, ss, workerThread, bestMove, quietMoveBonus);
 
+        workerThread.historyEffect[us][bestMove.from_to()] << (int) (4 - quietsSearched.size());
+
         // Decrease stats for all non-best quiet moves
         for (Move move : quietsSearched)
+        {
             update_quiet_histories(pos, ss, workerThread, move, -quietMoveMalus);
+            workerThread.historyEffect[us][bestMove.from_to()] << -(int) (quietsSearched.size());
+        }
     }
     else
     {

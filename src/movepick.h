@@ -137,6 +137,8 @@ using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>
 using CorrectionHistory =
   Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, CORRECTION_HISTORY_SIZE>;
 
+using HistoryEffect = Stats<int16_t, 1024, COLOR_NB, int(SQUARE_NB) * int(SQUARE_NB)>;
+
 // MovePicker class is used to pick one pseudo-legal move at a time from the
 // current position. The most important method is next_move(), which returns a
 // new pseudo-legal move each time it is called, until there are no moves left,
@@ -160,6 +162,7 @@ class MovePicker {
                const CapturePieceToHistory*,
                const PieceToHistory**,
                const PawnHistory*,
+               const HistoryEffect*,
                Move killer = Move::none());
     MovePicker(const Position&, Move, int, const CapturePieceToHistory*);
     Move next_move(bool skipQuiets = false);
@@ -177,6 +180,7 @@ class MovePicker {
     const CapturePieceToHistory* captureHistory;
     const PieceToHistory**       continuationHistory;
     const PawnHistory*           pawnHistory;
+    const HistoryEffect*         historyEffect;
     Move                         ttMove, killer;
     ExtMove *                    cur, *endMoves, *endBadCaptures, *beginBadQuiets, *endBadQuiets;
     int                          stage;

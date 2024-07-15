@@ -89,12 +89,14 @@ MovePicker::MovePicker(const Position&              p,
                        const CapturePieceToHistory* cph,
                        const PieceToHistory**       ch,
                        const PawnHistory*           ph,
+                       const HistoryEffect*         he,
                        Move                         km) :
     pos(p),
     mainHistory(mh),
     captureHistory(cph),
     continuationHistory(ch),
     pawnHistory(ph),
+    historyEffect(he),
     ttMove(ttm),
     killer(km),
     depth(d) {
@@ -152,19 +154,24 @@ void MovePicker::score() {
 
         else if constexpr (Type == QUIETS)
         {
-            Piece     pc   = pos.moved_piece(m);
-            PieceType pt   = type_of(pc);
-            Square    from = m.from_sq();
-            Square    to   = m.to_sq();
+            Piece     pc      = pos.moved_piece(m);
+            PieceType pt      = type_of(pc);
+            Square    from    = m.from_sq();
+            Square    to      = m.to_sq();
+            Color     us      = pos.side_to_move();
+            int       from_to = m.from_to();
 
             // histories
-            m.value = (*mainHistory)[pos.side_to_move()][m.from_to()];
-            m.value += 2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to];
-            m.value += 2 * (*continuationHistory[0])[pc][to];
-            m.value += (*continuationHistory[1])[pc][to];
-            m.value += (*continuationHistory[2])[pc][to] / 3;
-            m.value += (*continuationHistory[3])[pc][to];
-            m.value += (*continuationHistory[5])[pc][to];
+            int historyValue = 0;
+            historyValue     = (*mainHistory)[us][from_to];
+            historyValue += 2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to];
+            historyValue += 2 * (*continuationHistory[0])[pc][to];
+            historyValue += (*continuationHistory[1])[pc][to];
+            historyValue += (*continuationHistory[2])[pc][to] / 3;
+            historyValue += (*continuationHistory[3])[pc][to];
+            historyValue += (*continuationHistory[5])[pc][to];
+
+            m.value += historyValue * (8192 - (*historyEffect)[us][from_to]) / 8192;
 
             m.value += (m == killer) * 65536;
 
