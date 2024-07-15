@@ -23,6 +23,7 @@
 #include <utility>
 
 #include "bitboard.h"
+#include "misc.h"
 #include "position.h"
 
 namespace Stockfish {
@@ -171,7 +172,9 @@ void MovePicker::score() {
             historyValue += (*continuationHistory[3])[pc][to];
             historyValue += (*continuationHistory[5])[pc][to];
 
-            m.value += historyValue * (8192 - (*historyEffect)[us][from_to]) / 8192;
+            dbg_mean_of((*historyEffect)[us][from_to]);
+
+            m.value = historyValue * (8192 - (*historyEffect)[us][from_to]) / 8192;
 
             m.value += (m == killer) * 65536;
 
