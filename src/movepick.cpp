@@ -171,7 +171,7 @@ void MovePicker::score() {
             historyValue += (*continuationHistory[3])[pc][to];
             historyValue += (*continuationHistory[5])[pc][to];
 
-            m.value += historyValue * (8192 - (*historyEffect)[us][from_to]) / 8192;
+            m.value = historyValue * (8192 - (*historyEffect)[us][from_to]) / 8192;
 
             m.value += (m == killer) * 65536;
 
