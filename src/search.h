@@ -252,6 +252,7 @@ class Worker {
     ContinuationHistory   continuationHistory[2][2];
     PawnHistory           pawnHistory;
     CorrectionHistory     correctionHistory;
+    KillerHistory         killerHistory;
 
    private:
     void iterative_deepening();

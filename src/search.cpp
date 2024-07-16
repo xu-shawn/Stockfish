@@ -123,9 +123,10 @@ Value value_to_tt(Value v, int ply);
 Value value_from_tt(Value v, int ply, int r50c);
 void  update_pv(Move* pv, Move move, const Move* childPv);
 void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
-void  update_killer(Stack* ss, Move move);
-void  update_quiet_histories(
+void  update_killer(
    const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus);
+void update_quiet_histories(
+  const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus);
 void update_quiet_stats(
   const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus);
 void update_all_stats(const Position&      pos,
@@ -510,6 +511,7 @@ void Search::Worker::clear() {
     captureHistory.fill(-700);
     pawnHistory.fill(-1188);
     correctionHistory.fill(0);
+    killerHistory.fill(0);
 
     for (bool inCheck : {false, true})
         for (StatsType c : {NoCaptures, Captures})
@@ -934,7 +936,7 @@ moves_loop:  // When in check, search starts here
 
 
     MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->captureHistory,
-                  contHist, &thisThread->pawnHistory, ss->killer);
+                  contHist, &thisThread->pawnHistory, &thisThread->killerHistory, ss->killer);
 
     value = bestValue;
 
@@ -1556,7 +1558,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     // all evasions).
     Square     prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
     MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->captureHistory,
-                  contHist, &thisThread->pawnHistory);
+                  contHist, &thisThread->pawnHistory, &thisThread->killerHistory);
 
     // Step 5. Loop through all pseudo-legal moves until no moves remain or a beta
     // cutoff occurs.
@@ -1832,8 +1834,11 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
 }
 
 // Updates move sorting heuristics
-void update_killer(Stack* ss, Move move) {
+void update_killer(
+  const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus) {
 
+    workerThread.killerHistory[pos.side_to_move()][ss->killer.from_to()] << -bonus;
+    workerThread.killerHistory[pos.side_to_move()][move.from_to()] << bonus;
     // Update killers
     ss->killer = move;
 }
@@ -1854,7 +1859,7 @@ void update_quiet_histories(
 void update_quiet_stats(
   const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus) {
 
-    update_killer(ss, move);
+    update_killer(pos, ss, workerThread, move, bonus);
     update_quiet_histories(pos, ss, workerThread, move, bonus);
 }
 
