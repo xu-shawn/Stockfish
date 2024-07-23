@@ -510,6 +510,7 @@ void Search::Worker::clear() {
     captureHistory.fill(-700);
     pawnHistory.fill(-1188);
     correctionHistory.fill(0);
+    averagedHistory.fill(0);
 
     for (bool inCheck : {false, true})
         for (StatsType c : {NoCaptures, Captures})
@@ -931,7 +932,7 @@ moves_loop:  // When in check, search starts here
 
 
     MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->captureHistory,
-                  contHist, &thisThread->pawnHistory, ss->killer);
+                  contHist, &thisThread->pawnHistory, &thisThread->averagedHistory, ss->killer);
 
     value = bestValue;
 
@@ -1555,7 +1556,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta,
     // all evasions).
     Square     prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
     MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->captureHistory,
-                  contHist, &thisThread->pawnHistory);
+                  contHist, &thisThread->pawnHistory, &thisThread->averagedHistory);
 
     // Step 5. Loop through all pseudo-legal moves until no moves remain or a beta
     // cutoff occurs.
@@ -1840,8 +1841,11 @@ void update_killer(Stack* ss, Move move) {
 void update_quiet_histories(
   const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus) {
 
-    Color us = pos.side_to_move();
-    workerThread.mainHistory[us][move.from_to()] << bonus;
+    Color us      = pos.side_to_move();
+    int   from_to = move.from_to();
+
+    workerThread.mainHistory[us][from_to] << bonus;
+    workerThread.averagedHistory[us][from_to] << bonus;
 
     update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus);
 
