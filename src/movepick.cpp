@@ -169,7 +169,7 @@ void MovePicker::score() {
             m.value += (*continuationHistory[2])[pc][to] / 3;
             m.value += (*continuationHistory[3])[pc][to];
             m.value += (*continuationHistory[5])[pc][to];
-            m.value += (*averagedHistory)[us][from_to];
+            m.value += (*averagedHistory)[us][from_to].scaled_value();
 
             m.value += (m == killer) * 65536;
 

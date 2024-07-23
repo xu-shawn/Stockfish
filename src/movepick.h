@@ -113,7 +113,7 @@ class AveragedStatsEntry {
     uint64_t* operator&() { return &entry; }
     uint64_t* operator->() { return &entry; }
     operator const uint64_t&() const { return entry; }
-    uint64_t scaled_value() { return entry / count; }
+    uint64_t scaled_value() const { return entry / count; }
 
     void operator<<(int bonus) { entry += bonus, count++; }
 };
