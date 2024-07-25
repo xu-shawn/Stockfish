@@ -913,6 +913,7 @@ moves_loop:  // When in check, search starts here
 
     int  moveCount        = 0;
     bool moveCountPruning = false;
+    int  illegalMoveCount = 0;
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -925,7 +926,10 @@ moves_loop:  // When in check, search starts here
 
         // Check for legality
         if (!pos.legal(move))
+        {
+            illegalMoveCount++;
             continue;
+        }
 
         // At root obey the "searchmoves" option and skip moves not listed in Root
         // Move List. In MultiPV mode we also skip PV moves that have been already
@@ -962,7 +966,9 @@ moves_loop:  // When in check, search starts here
         if (!rootNode && pos.non_pawn_material(us) && bestValue > VALUE_TB_LOSS_IN_MAX_PLY)
         {
             // Skip quiet moves if movecount exceeds our FutilityMoveCount threshold (~8 Elo)
-            moveCountPruning = moveCount >= futility_move_count(improving, depth);
+            moveCountPruning =
+              moveCount
+              >= std::max(futility_move_count(improving, depth) + 3 - illegalMoveCount / 2, 2);
 
             // Reduced depth of the next LMR search
             int lmrDepth = newDepth - r;
