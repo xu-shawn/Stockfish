@@ -746,7 +746,7 @@ Value Search::Worker::search(
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
 
-    if (ttMoveGivesCheck && depth < 2)
+    if (ttMoveGivesCheck && depth < 2 && PvNode)
     {
         goto moves_loop;
     }
