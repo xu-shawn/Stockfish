@@ -820,13 +820,79 @@ Value Search::Worker::search(
     // If we have a good enough capture (or queen promotion) and a reduced search
     // returns a value much above beta, we can (almost) safely prune the previous move.
     probCutBeta = beta + 184 - 53 * improving;
-    if (!PvNode && depth > 5
+    if (!PvNode && depth > 4
         && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY
         // If value from transposition table is lower than probCutBeta, don't attempt
         // probCut there and in further interactions with transposition table cutoff
-        // depth is set to depth - 4 because probCut search has depth set to depth - 5
-        // but we also do a move before it. So effective depth is equal to depth - 4.
-        && !(ttData.depth >= depth - 4 && ttData.value != VALUE_NONE && ttData.value < probCutBeta))
+        // depth is set to depth - 3 because probCut search has depth set to depth - 4
+        // but we also do a move before it. So effective depth is equal to depth - 3.
+        && !(ttData.depth >= depth - 3 && ttData.value != VALUE_NONE && ttData.value < probCutBeta))
+    {
+        assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
+
+        MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &thisThread->captureHistory);
+        Piece      captured;
+
+        while ((move = mp.next_move()) != Move::none())
+        {
+            assert(move.is_ok());
+
+            if (move == excludedMove)
+                continue;
+
+            if (!pos.legal(move))
+                continue;
+
+            assert(pos.capture_stage(move));
+
+            movedPiece = pos.moved_piece(move);
+            captured   = pos.piece_on(move.to_sq());
+
+
+            // Prefetch the TT entry for the resulting position
+            prefetch(tt.first_entry(pos.key_after(move)));
+
+            ss->currentMove = move;
+            ss->continuationHistory =
+              &this->continuationHistory[ss->inCheck][true][pos.moved_piece(move)][move.to_sq()];
+
+            thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
+            pos.do_move(move, st);
+
+            // Perform a preliminary qsearch to verify that the move holds
+            value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
+
+            // If the qsearch held, perform the regular search
+            if (value >= probCutBeta)
+                value =
+                  -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, depth - 4, !cutNode);
+
+            pos.undo_move(move);
+
+            if (value >= probCutBeta)
+            {
+                thisThread->captureHistory[movedPiece][move.to_sq()][type_of(captured)]
+                  << stat_bonus(depth - 3);
+
+                // Save ProbCut data into transposition table
+                ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
+                               depth - 3, move, unadjustedStaticEval, tt.generation());
+                return std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY ? value - (probCutBeta - beta)
+                                                                 : value;
+            }
+        }
+
+        Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
+    }
+
+    else if (!PvNode && depth > 8
+             && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY
+             // If value from transposition table is lower than probCutBeta, don't attempt
+             // probCut there and in further interactions with transposition table cutoff
+             // depth is set to depth - 4 because probCut search has depth set to depth - 5
+             // but we also do a move before it. So effective depth is equal to depth - 4.
+             && !(ttData.depth >= depth - 4 && ttData.value != VALUE_NONE
+                  && ttData.value < probCutBeta))
     {
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
