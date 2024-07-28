@@ -820,13 +820,13 @@ Value Search::Worker::search(
     // If we have a good enough capture (or queen promotion) and a reduced search
     // returns a value much above beta, we can (almost) safely prune the previous move.
     probCutBeta = beta + 184 - 53 * improving;
-    if (!PvNode && depth > 3
+    if (!PvNode && depth > 5
         && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY
         // If value from transposition table is lower than probCutBeta, don't attempt
         // probCut there and in further interactions with transposition table cutoff
-        // depth is set to depth - 3 because probCut search has depth set to depth - 4
-        // but we also do a move before it. So effective depth is equal to depth - 3.
-        && !(ttData.depth >= depth - 3 && ttData.value != VALUE_NONE && ttData.value < probCutBeta))
+        // depth is set to depth - 4 because probCut search has depth set to depth - 5
+        // but we also do a move before it. So effective depth is equal to depth - 4.
+        && !(ttData.depth >= depth - 4 && ttData.value != VALUE_NONE && ttData.value < probCutBeta))
     {
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
@@ -865,18 +865,18 @@ Value Search::Worker::search(
             // If the qsearch held, perform the regular search
             if (value >= probCutBeta)
                 value =
-                  -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, depth - 4, !cutNode);
+                  -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, depth - 5, !cutNode);
 
             pos.undo_move(move);
 
             if (value >= probCutBeta)
             {
                 thisThread->captureHistory[movedPiece][move.to_sq()][type_of(captured)]
-                  << stat_bonus(depth - 2);
+                  << stat_bonus(depth - 4);
 
                 // Save ProbCut data into transposition table
                 ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
-                               depth - 3, move, unadjustedStaticEval, tt.generation());
+                               depth - 4, move, unadjustedStaticEval, tt.generation());
                 return std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY ? value - (probCutBeta - beta)
                                                                  : value;
             }
