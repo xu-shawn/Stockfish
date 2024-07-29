@@ -746,8 +746,9 @@ Value Search::Worker::search(
     // search suggests we cannot exceed alpha, return a speculative fail low.
     if (eval < alpha - 494 - 290 * depth * depth)
     {
-        value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
-        if (value < alpha && std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY)
+        const int razoringAlpha = alpha + (eval - alpha) / 5;
+        value                   = qsearch<NonPV>(pos, ss, razoringAlpha - 1, razoringAlpha);
+        if (value < razoringAlpha && std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY)
             return value;
     }
 
