@@ -1096,7 +1096,7 @@ moves_loop:  // When in check, search starts here
                      && std::abs(
                           thisThread->correctionHistory[pos.side_to_move()]
                                                        [pawn_structure_index<Correction>(pos)])
-                          > CORRECTION_HISTORY_LIMIT * 7 / 8)
+                          == CORRECTION_HISTORY_LIMIT)
                 extension = 1;
         }
 
