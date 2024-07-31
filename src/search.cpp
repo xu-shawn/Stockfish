@@ -872,6 +872,7 @@ Value Search::Worker::search(
             if (value >= probCutBeta)
             {
                 thisThread->captureHistory[movedPiece][move.to_sq()][type_of(captured)]
+                                          [pos.see_ge(move, 0)]
                   << stat_bonus(depth - 2);
 
                 // Save ProbCut data into transposition table
@@ -967,7 +968,8 @@ moves_loop:  // When in check, search starts here
             {
                 Piece capturedPiece = pos.piece_on(move.to_sq());
                 int   captHist =
-                  thisThread->captureHistory[movedPiece][move.to_sq()][type_of(capturedPiece)];
+                  thisThread->captureHistory[movedPiece][move.to_sq()][type_of(capturedPiece)]
+                                            [pos.see_ge(move, 0)];
 
                 // Futility pruning for captures (~2 Elo)
                 if (!givesCheck && lmrDepth < 7 && !ss->inCheck)
@@ -1087,8 +1089,8 @@ moves_loop:  // When in check, search starts here
 
             // Extension for capturing the previous moved piece (~1 Elo at LTC)
             else if (PvNode && move.to_sq() == prevSq
-                     && thisThread->captureHistory[movedPiece][move.to_sq()]
-                                                  [type_of(pos.piece_on(move.to_sq()))]
+                     && thisThread->captureHistory[movedPiece][move.to_sq()][type_of(
+                          pos.piece_on(move.to_sq()))][pos.see_ge(move, 0)]
                           > 3994)
                 extension = 1;
         }
@@ -1760,7 +1762,8 @@ void update_all_stats(const Position&      pos,
     {
         // Increase stats for the best move in case it was a capture move
         captured = type_of(pos.piece_on(bestMove.to_sq()));
-        captureHistory[moved_piece][bestMove.to_sq()][captured] << quietMoveBonus;
+        captureHistory[moved_piece][bestMove.to_sq()][captured][pos.see_ge(bestMove, 0)]
+          << quietMoveBonus;
     }
 
     // Extra penalty for a quiet early move that was not a TT move in
@@ -1773,7 +1776,7 @@ void update_all_stats(const Position&      pos,
     {
         moved_piece = pos.moved_piece(move);
         captured    = type_of(pos.piece_on(move.to_sq()));
-        captureHistory[moved_piece][move.to_sq()][captured] << -quietMoveMalus;
+        captureHistory[moved_piece][move.to_sq()][captured][pos.see_ge(move, 0)] << -quietMoveMalus;
     }
 }
 
