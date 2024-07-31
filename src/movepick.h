@@ -110,7 +110,7 @@ class AveragedStatsEntry {
     uint64_t count;
 
    public:
-    void     operator=(const int64_t& v) { entry = v, count = 0; }
+    void     operator=(const int64_t& v) { entry = v, count = 1; }
     int64_t* operator&() { return &entry; }
     int64_t* operator->() { return &entry; }
     operator const int64_t&() const { return entry; }
