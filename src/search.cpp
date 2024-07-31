@@ -1091,6 +1091,13 @@ moves_loop:  // When in check, search starts here
                                                   [type_of(pos.piece_on(move.to_sq()))]
                           > 3994)
                 extension = 1;
+
+            else if (PvNode && move == ttData.move
+                     && std::abs(
+                          thisThread->correctionHistory[pos.side_to_move()]
+                                                       [pawn_structure_index<Correction>(pos)])
+                          > CORRECTION_HISTORY_LIMIT * 7 / 8)
+                extension = 1;
         }
 
         // Add extension to new depth
