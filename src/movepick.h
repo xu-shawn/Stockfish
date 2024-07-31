@@ -103,6 +103,40 @@ struct Stats: public std::array<Stats<T, D, Sizes...>, Size> {
 template<typename T, int D, int Size>
 struct Stats<T, D, Size>: public std::array<StatsEntry<T, D>, Size> {};
 
+
+class AveragedStatsEntry {
+
+    int64_t  entry;
+    uint64_t count;
+
+   public:
+    void     operator=(const int64_t& v) { entry = v, count = 0; }
+    int64_t* operator&() { return &entry; }
+    int64_t* operator->() { return &entry; }
+    operator const int64_t&() const { return entry; }
+    int64_t scaled_value() const { return entry / count; }
+
+    void operator<<(int bonus) { entry += bonus, count++; }
+};
+
+template<int Size, int... Sizes>
+struct AltStats: public std::array<AltStats<Sizes...>, Size> {
+    using stats = AltStats<Size, Sizes...>;
+
+    void fill(const uint64_t& v) {
+
+        // For standard-layout 'this' points to the first struct member
+        assert(std::is_standard_layout_v<stats>);
+
+        using entry = AveragedStatsEntry;
+        entry* p    = reinterpret_cast<entry*>(this);
+        std::fill(p, p + sizeof(*this) / sizeof(entry), v);
+    }
+};
+
+template<int Size>
+struct AltStats<Size>: public std::array<AveragedStatsEntry, Size> {};
+
 // In stats table, D=0 means that the template parameter is not used
 enum StatsParams {
     NOT_USED = 0
@@ -136,6 +170,7 @@ using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>
 // CorrectionHistory is addressed by color and pawn structure
 using CorrectionHistory =
   Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, CORRECTION_HISTORY_SIZE>;
+using AltCorrectionHistory = AltStats<COLOR_NB, CORRECTION_HISTORY_SIZE>;
 
 // The MovePicker class is used to pick one pseudo-legal move at a time from the
 // current position. The most important method is next_move(), which emits one
