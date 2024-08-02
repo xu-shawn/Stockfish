@@ -531,7 +531,7 @@ Value Search::Worker::search(
     Key   posKey;
     Move  move, excludedMove, bestMove;
     Depth extension, newDepth;
-    Value bestValue, value, eval, maxValue, probCutBeta;
+    Value bestValue, value, eval, maxValue, probCutBeta, futilityEval;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
     Piece movedPiece;
@@ -753,9 +753,9 @@ Value Search::Worker::search(
 
     // Step 8. Futility pruning: child node (~40 Elo)
     // The depth condition is important for mate finding.
-    const int futilityEval =
-      eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
-      - (ss - 1)->statScore / 260;
+    futilityEval = eval
+                 - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
+                 - (ss - 1)->statScore / 260;
     if (!ss->ttPv && depth < 13 && futilityEval >= beta && eval >= beta
         && (!ttData.move || ttCapture) && beta > VALUE_TB_LOSS_IN_MAX_PLY
         && eval < VALUE_TB_WIN_IN_MAX_PLY)
