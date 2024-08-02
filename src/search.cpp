@@ -46,11 +46,21 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "types.h"
 #include "uci.h"
 #include "ucioption.h"
 
 namespace Stockfish {
+
+int bmt1 = 128;
+int bmt2 = 0;
+int bmt3 = 0;
+int bmt4 = 0;
+int bmt5 = 0;
+int bmt6 = 0;
+
+TUNE(SetRange(-256, 256), bmt1, bmt2, bmt3, bmt4, bmt5, bmt6);
 
 namespace TB = Tablebases;
 
@@ -1385,7 +1395,10 @@ moves_loop:  // When in check, search starts here
         && !(bestValue >= beta && bestValue <= ss->staticEval)
         && !(!bestMove && bestValue >= ss->staticEval))
     {
-        auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / 8,
+        const int bonusMultiplier = bmt1 + bmt2 * (depth > 5) + bmt3 * PvNode + bmt4 * cutNode
+                                  + bmt5 * (move == ttData.move) + bmt6 * (extension >= 2);
+
+        auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth * bonusMultiplier / 1024,
                                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
         thisThread->correctionHistory[us][pawn_structure_index<Correction>(pos)] << bonus;
     }
