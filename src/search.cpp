@@ -1398,9 +1398,11 @@ moves_loop:  // When in check, search starts here
         const int bonusMultiplier = bmt1 + bmt2 * (depth > 5) + bmt3 * PvNode + bmt4 * cutNode
                                   + bmt5 * (move == ttData.move) + bmt6 * (extension >= 2);
 
-        auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth * bonusMultiplier / 1024,
+        auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / 8,
                                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
-        thisThread->correctionHistory[us][pawn_structure_index<Correction>(pos)] << bonus;
+
+        thisThread->correctionHistory[us][pawn_structure_index<Correction>(pos)]
+          << bonus * bonusMultiplier / 128;
     }
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
