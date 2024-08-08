@@ -100,14 +100,14 @@ void  update_pv(Move* pv, Move move, const Move* childPv);
 void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
 void  update_quiet_histories(
    const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus);
-void update_all_stats(const Position&      pos,
-                      Stack*               ss,
-                      Search::Worker&      workerThread,
-                      Move                 bestMove,
-                      Square               prevSq,
-                      ValueList<Move, 32>& quietsSearched,
-                      ValueList<Move, 32>& capturesSearched,
-                      Depth                depth);
+void update_all_stats(const Position&     pos,
+                      Stack*              ss,
+                      Search::Worker&     workerThread,
+                      Move                bestMove,
+                      Square              prevSq,
+                      ValueList<Move, 8>& quietsSearched,
+                      ValueList<Move, 8>& capturesSearched,
+                      Depth               depth);
 
 }  // namespace
 
@@ -542,8 +542,8 @@ Value Search::Worker::search(
     bool  capture, ttCapture;
     Piece movedPiece;
 
-    ValueList<Move, 32> capturesSearched;
-    ValueList<Move, 32> quietsSearched;
+    ValueList<Move, 8> capturesSearched;
+    ValueList<Move, 8> quietsSearched;
 
     // Step 1. Initialize node
     Worker* thisThread = this;
@@ -1311,7 +1311,7 @@ moves_loop:  // When in check, search starts here
 
         // If the move is worse than some previously searched move,
         // remember it, to update its stats later.
-        if (move != bestMove && moveCount <= 32)
+        if (move != bestMove && moveCount <= 8)
         {
             if (capture)
                 capturesSearched.push_back(move);
@@ -1738,14 +1738,14 @@ void update_pv(Move* pv, Move move, const Move* childPv) {
 
 
 // Updates stats at the end of search() when a bestMove is found
-void update_all_stats(const Position&      pos,
-                      Stack*               ss,
-                      Search::Worker&      workerThread,
-                      Move                 bestMove,
-                      Square               prevSq,
-                      ValueList<Move, 32>& quietsSearched,
-                      ValueList<Move, 32>& capturesSearched,
-                      Depth                depth) {
+void update_all_stats(const Position&     pos,
+                      Stack*              ss,
+                      Search::Worker&     workerThread,
+                      Move                bestMove,
+                      Square              prevSq,
+                      ValueList<Move, 8>& quietsSearched,
+                      ValueList<Move, 8>& capturesSearched,
+                      Depth               depth) {
 
     CapturePieceToHistory& captureHistory = workerThread.captureHistory;
     Piece                  moved_piece    = pos.moved_piece(bestMove);
