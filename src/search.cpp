@@ -567,10 +567,9 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
-                              thisThread->optimism[us])
-                   : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
+                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
+                                                        : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -759,13 +758,22 @@ Value Search::Worker::search(
 
     // Step 8. Futility pruning: child node (~40 Elo)
     // The depth condition is important for mate finding.
-    if (!ss->ttPv && depth < 13
-        && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
-               - (ss - 1)->statScore / 260
-             >= beta
-        && eval >= beta && (!ttData.move || ttCapture) && beta > VALUE_TB_LOSS_IN_MAX_PLY
-        && eval < VALUE_TB_WIN_IN_MAX_PLY)
-        return beta + (eval - beta) / 3;
+    if (!ss->ttPv && depth < 13 && eval < VALUE_TB_WIN_IN_MAX_PLY)
+    {
+        if (eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
+                - (ss - 1)->statScore / 260
+              >= beta
+            && eval >= beta && (!ttData.move || ttCapture) && beta > VALUE_TB_LOSS_IN_MAX_PLY)
+            return beta + (eval - beta) / 3;
+
+        else if (!cutNode && eval + 100 * depth + 200 <= alpha && !ttData.move
+                 && alpha > VALUE_TB_LOSS_IN_MAX_PLY)
+        {
+            value = qsearch<NonPV>(pos, ss, alpha, alpha + 1);
+            if (value <= alpha && std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY)
+                return value;
+        }
+    }
 
     // Step 9. Null move search with verification search (~35 Elo)
     if (cutNode && (ss - 1)->currentMove != Move::null() && (ss - 1)->statScore < 14389
