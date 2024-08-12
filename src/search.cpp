@@ -1042,7 +1042,7 @@ moves_loop:  // When in check, search starts here
             // and lower extension margins scale well.
 
             if (!rootNode && move == ttData.move && !excludedMove
-                && depth >= 4 - (thisThread->completedDepth > 36) + ss->ttPv
+                && depth >= 4 - (thisThread->completedDepth > 36) + PvNode
                 && std::abs(ttData.value) < VALUE_TB_WIN_IN_MAX_PLY && (ttData.bound & BOUND_LOWER)
                 && ttData.depth >= depth - 3)
             {
