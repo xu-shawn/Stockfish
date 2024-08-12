@@ -73,7 +73,7 @@ class StatsEntry {
         static_assert(D <= std::numeric_limits<T>::max(), "D overflows T");
 
         // Make sure that bonus is in range [-D, D]
-        int clampedBonus = std::clamp(bonus, -D, D);
+        int clampedBonus = std::clamp(bonus, -D / 4, D / 4);
         entry += clampedBonus - entry * std::abs(clampedBonus) / D;
 
         assert(std::abs(entry) <= D);
