@@ -1363,7 +1363,7 @@ moves_loop:  // When in check, search starts here
               << stat_bonus(depth) * bonus / 25;
     }
 
-    else if (moveCount > 1 && ttData.move && (cutNode || PvNode))
+    else if (moveCount > 1 && ttData.move && (cutNode || PvNode) && !ttCapture)
     {
         thisThread->mainHistory[us][ttData.move.from_to()] << stat_bonus(depth) / 4;
     }
