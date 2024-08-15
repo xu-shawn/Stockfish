@@ -487,6 +487,7 @@ void Search::Worker::clear() {
     mainHistory.fill(0);
     captureHistory.fill(-700);
     pawnHistory.fill(-1188);
+    pawnHistoryFactorizer.fill(-1188);
     correctionHistory.fill(0);
 
     for (bool inCheck : {false, true})
@@ -567,10 +568,9 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
-                              thisThread->optimism[us])
-                   : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
+                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
+                                                        : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -732,11 +732,18 @@ Value Search::Worker::search(
     // Use static evaluation difference to improve quiet move ordering (~9 Elo)
     if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture)
     {
-        int bonus = std::clamp(-10 * int((ss - 1)->staticEval + ss->staticEval), -1664, 1471) + 752;
+        const int bonus =
+          std::clamp(-10 * int((ss - 1)->staticEval + ss->staticEval), -1664, 1471) + 752;
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << bonus;
+
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
+        {
+            const int pawnHistoryBonus = bonus / 2;
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-              << bonus / 2;
+              << pawnHistoryBonus;
+            thisThread->pawnHistoryFactorizer[pawn_structure_index(pos)][~us]
+              << pawnHistoryBonus / 8;
+        }
     }
 
     // Set up the improving flag, which is true if current static evaluation is
@@ -909,7 +916,7 @@ moves_loop:  // When in check, search starts here
 
 
     MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->captureHistory,
-                  contHist, &thisThread->pawnHistory);
+                  contHist, &thisThread->pawnHistory, &thisThread->pawnHistoryFactorizer);
 
     value = bestValue;
 
@@ -994,7 +1001,9 @@ moves_loop:  // When in check, search starts here
                 int history =
                   (*contHist[0])[movedPiece][move.to_sq()]
                   + (*contHist[1])[movedPiece][move.to_sq()]
-                  + thisThread->pawnHistory[pawn_structure_index(pos)][movedPiece][move.to_sq()];
+                  + (thisThread->pawnHistory[pawn_structure_index(pos)][movedPiece][move.to_sq()]
+                     + thisThread->pawnHistoryFactorizer[pawn_structure_index(pos)][us])
+                      / 2;
 
                 // Continuation history based pruning (~2 Elo)
                 if (history < -4165 * depth)
@@ -1359,8 +1368,15 @@ moves_loop:  // When in check, search starts here
 
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
+        {
+            const int pawnHistoryBonus = stat_bonus(depth) * bonus / 25;
+
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-              << stat_bonus(depth) * bonus / 25;
+              << pawnHistoryBonus;
+
+            thisThread->pawnHistoryFactorizer[pawn_structure_index(pos)][pos.side_to_move()]
+              << pawnHistoryBonus / 8;
+        }
     }
 
     if (PvNode)
@@ -1528,7 +1544,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     // the moves. We presently use two stages of move generator in quiescence search:
     // captures, or evasions only when in check.
     MovePicker mp(pos, ttData.move, DEPTH_QS, &thisThread->mainHistory, &thisThread->captureHistory,
-                  contHist, &thisThread->pawnHistory);
+                  contHist, &thisThread->pawnHistory, &thisThread->pawnHistoryFactorizer);
 
     // Step 5. Loop through all pseudo-legal moves until no moves remain or a beta
     // cutoff occurs.
@@ -1585,8 +1601,9 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             if (!capture
                 && (*contHist[0])[pos.moved_piece(move)][move.to_sq()]
                        + (*contHist[1])[pos.moved_piece(move)][move.to_sq()]
-                       + thisThread->pawnHistory[pawn_structure_index(pos)][pos.moved_piece(move)]
-                                                [move.to_sq()]
+                       + (thisThread->pawnHistory[pawn_structure_index(pos)][pos.moved_piece(move)]
+                                                 [move.to_sq()]
+                          + thisThread->pawnHistoryFactorizer[pawn_structure_index(pos)][us])
                      <= 4643)
                 continue;
 
@@ -1810,8 +1827,10 @@ void update_quiet_histories(
 
     update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus);
 
-    int pIndex = pawn_structure_index(pos);
-    workerThread.pawnHistory[pIndex][pos.moved_piece(move)][move.to_sq()] << bonus / 2;
+    const int pIndex = pawn_structure_index(pos);
+    const int pBonus = bonus / 2;
+    workerThread.pawnHistory[pIndex][pos.moved_piece(move)][move.to_sq()] << pBonus;
+    workerThread.pawnHistoryFactorizer[pIndex][us] << pBonus / 8;
 }
 
 }

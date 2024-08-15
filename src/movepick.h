@@ -131,7 +131,8 @@ using PieceToHistory = Stats<int16_t, 29952, PIECE_NB, SQUARE_NB>;
 using ContinuationHistory = Stats<PieceToHistory, NOT_USED, PIECE_NB, SQUARE_NB>;
 
 // PawnHistory is addressed by the pawn structure and a move's [piece][to]
-using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>;
+using PawnHistory           = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>;
+using PawnHistoryFactorizer = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, COLOR_NB>;
 
 // CorrectionHistory is addressed by color and pawn structure
 using CorrectionHistory =
@@ -159,7 +160,8 @@ class MovePicker {
                const ButterflyHistory*,
                const CapturePieceToHistory*,
                const PieceToHistory**,
-               const PawnHistory*);
+               const PawnHistory*,
+               const PawnHistoryFactorizer*);
     MovePicker(const Position&, Move, int, const CapturePieceToHistory*);
     Move next_move(bool skipQuiets = false);
 
@@ -176,6 +178,7 @@ class MovePicker {
     const CapturePieceToHistory* captureHistory;
     const PieceToHistory**       continuationHistory;
     const PawnHistory*           pawnHistory;
+    const PawnHistoryFactorizer* pawnHistoryFactorizer;
     Move                         ttMove;
     ExtMove *                    cur, *endMoves, *endBadCaptures, *beginBadQuiets, *endBadQuiets;
     int                          stage;
