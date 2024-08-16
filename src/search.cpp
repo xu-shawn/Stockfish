@@ -550,7 +550,6 @@ Value Search::Worker::search(
     ss->inCheck        = pos.checkers();
     priorCapture       = pos.captured_piece();
     Color us           = pos.side_to_move();
-    ss->moveCount      = 0;
     bestValue          = -VALUE_INFINITE;
     maxValue           = VALUE_INFINITE;
 
@@ -913,7 +912,7 @@ moves_loop:  // When in check, search starts here
 
     value = bestValue;
 
-    int  moveCount        = 0;
+    ss->moveCount         = 0;
     bool moveCountPruning = false;
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
@@ -937,12 +936,12 @@ moves_loop:  // When in check, search starts here
                            thisThread->rootMoves.begin() + thisThread->pvLast, move))
             continue;
 
-        ss->moveCount = ++moveCount;
+        ++ss->moveCount;
 
         if (rootNode && is_mainthread() && nodes > 10000000)
         {
             main_manager()->updates.onIter(
-              {depth, UCIEngine::move(move, pos.is_chess960()), moveCount + thisThread->pvIdx});
+              {depth, UCIEngine::move(move, pos.is_chess960()), ss->moveCount + thisThread->pvIdx});
         }
         if (PvNode)
             (ss + 1)->pv = nullptr;
@@ -957,14 +956,14 @@ moves_loop:  // When in check, search starts here
 
         int delta = beta - alpha;
 
-        Depth r = reduction(improving, depth, moveCount, delta);
+        Depth r = reduction(improving, depth, ss->moveCount, delta);
 
         // Step 14. Pruning at shallow depth (~120 Elo).
         // Depth conditions are important for mate finding.
         if (!rootNode && pos.non_pawn_material(us) && bestValue > VALUE_TB_LOSS_IN_MAX_PLY)
         {
             // Skip quiet moves if movecount exceeds our FutilityMoveCount threshold (~8 Elo)
-            moveCountPruning = moveCount >= futility_move_count(improving, depth);
+            moveCountPruning = ss->moveCount >= futility_move_count(improving, depth);
 
             // Reduced depth of the next LMR search
             int lmrDepth = newDepth - r;
@@ -1053,6 +1052,7 @@ moves_loop:  // When in check, search starts here
                 value =
                   search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
                 ss->excludedMove = Move::none();
+                ss->moveCount    = 1;
 
                 if (value < singularBeta)
                 {
@@ -1156,7 +1156,7 @@ moves_loop:  // When in check, search starts here
         r -= ss->statScore / 10898;
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
-        if (depth >= 2 && moveCount > 1 + (rootNode && depth < 10))
+        if (depth >= 2 && ss->moveCount > 1 + (rootNode && depth < 10))
         {
             // In general we want to cap the LMR depth search at newDepth, but when
             // reduction is negative, we allow this move a limited search extension
@@ -1190,7 +1190,7 @@ moves_loop:  // When in check, search starts here
         }
 
         // Step 18. Full-depth search when LMR is skipped
-        else if (!PvNode || moveCount > 1)
+        else if (!PvNode || ss->moveCount > 1)
         {
             // Increase reduction if ttMove is not present (~6 Elo)
             if (!ttData.move)
@@ -1202,7 +1202,7 @@ moves_loop:  // When in check, search starts here
 
         // For PV nodes only, do a full PV search on the first move or after a fail high,
         // otherwise let the parent node fail low with value <= alpha and try another move.
-        if (PvNode && (moveCount == 1 || value > alpha))
+        if (PvNode && (ss->moveCount == 1 || value > alpha))
         {
             (ss + 1)->pv    = pv;
             (ss + 1)->pv[0] = Move::none();
@@ -1237,7 +1237,7 @@ moves_loop:  // When in check, search starts here
               rm.averageScore != -VALUE_INFINITE ? (value + rm.averageScore) / 2 : value;
 
             // PV move or new best move?
-            if (moveCount == 1 || value > alpha)
+            if (ss->moveCount == 1 || value > alpha)
             {
                 rm.score = rm.uciScore = value;
                 rm.selDepth            = thisThread->selDepth;
@@ -1264,7 +1264,7 @@ moves_loop:  // When in check, search starts here
                 // We record how often the best move has been changed in each iteration.
                 // This information is used for time management. In MultiPV mode,
                 // we must take care to only do this for the first PV line.
-                if (moveCount > 1 && !thisThread->pvIdx)
+                if (ss->moveCount > 1 && !thisThread->pvIdx)
                     ++thisThread->bestMoveChanges;
             }
             else
@@ -1311,7 +1311,7 @@ moves_loop:  // When in check, search starts here
 
         // If the move is worse than some previously searched move,
         // remember it, to update its stats later.
-        if (move != bestMove && moveCount <= 32)
+        if (move != bestMove && ss->moveCount <= 32)
         {
             if (capture)
                 capturesSearched.push_back(move);
@@ -1325,14 +1325,14 @@ moves_loop:  // When in check, search starts here
     // must be a mate or a stalemate. If we are in a singular extension search then
     // return a fail low score.
 
-    assert(moveCount || !ss->inCheck || excludedMove || !MoveList<LEGAL>(pos).size());
+    assert(ss->moveCount || !ss->inCheck || excludedMove || !MoveList<LEGAL>(pos).size());
 
     // Adjust best value for fail high cases at non-pv nodes
     if (!PvNode && bestValue >= beta && std::abs(bestValue) < VALUE_TB_WIN_IN_MAX_PLY
         && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY && std::abs(alpha) < VALUE_TB_WIN_IN_MAX_PLY)
         bestValue = (bestValue * depth + beta) / (depth + 1);
 
-    if (!moveCount)
+    if (!ss->moveCount)
         bestValue = excludedMove ? alpha : ss->inCheck ? mated_in(ss->ply) : VALUE_DRAW;
 
     // If there is a move that produces search value greater than alpha,
@@ -1427,7 +1427,6 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     Move  move, bestMove;
     Value bestValue, value, futilityBase;
     bool  pvHit, givesCheck, capture;
-    int   moveCount;
     Color us = pos.side_to_move();
 
     // Step 1. Initialize node
@@ -1440,7 +1439,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     Worker* thisThread = this;
     bestMove           = Move::none();
     ss->inCheck        = pos.checkers();
-    moveCount          = 0;
+    ss->moveCount      = 0;
 
     // Used to send selDepth info to GUI (selDepth counts from 1, ply from 0)
     if (PvNode && thisThread->selDepth < ss->ply + 1)
@@ -1542,7 +1541,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         givesCheck = pos.gives_check(move);
         capture    = pos.capture_stage(move);
 
-        moveCount++;
+        ss->moveCount++;
 
         // Step 6. Pruning
         if (bestValue > VALUE_TB_LOSS_IN_MAX_PLY && pos.non_pawn_material(us))
@@ -1551,7 +1550,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             if (!givesCheck && move.to_sq() != prevSq && futilityBase > VALUE_TB_LOSS_IN_MAX_PLY
                 && move.type_of() != PROMOTION)
             {
-                if (moveCount > 2)
+                if (ss->moveCount > 2)
                     continue;
 
                 Value futilityValue = futilityBase + PieceValue[pos.piece_on(move.to_sq())];
