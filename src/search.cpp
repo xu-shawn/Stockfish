@@ -1002,7 +1002,7 @@ moves_loop:  // When in check, search starts here
                 if (history < -4165 * depth)
                     continue;
 
-                history += 2 * thisThread->mainHistory[us][move.from_to()][cutNode];
+                history += 2 * thisThread->mainHistory[us][move.from_to()][cutNode] - 1600;
 
                 lmrDepth += history / 3853;
 
@@ -1152,7 +1152,7 @@ moves_loop:  // When in check, search starts here
 
         ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()][cutNode]
                       + (*contHist[0])[movedPiece][move.to_sq()]
-                      + (*contHist[1])[movedPiece][move.to_sq()] - 4664;
+                      + (*contHist[1])[movedPiece][move.to_sq()] - 6264;
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore / 10898;
