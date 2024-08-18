@@ -1139,6 +1139,10 @@ moves_loop:  // When in check, search starts here
         if (ttCapture)
             r++;
 
+        if (PvNode && bestValue < alpha && bestValue < ttData.value - 200 && ttData.move
+            && moveCount > 1 && depth >= 4 && depth > ttData.depth / 2)
+            r--;
+
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)
             r += 1 + !(PvNode || cutNode);
