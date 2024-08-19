@@ -916,6 +916,16 @@ moves_loop:  // When in check, search starts here
     int  moveCount        = 0;
     bool moveCountPruning = false;
 
+    const Bitboard threatenedByPawn = pos.attacks_by<PAWN>(~us);
+    const Bitboard threatenedByMinor =
+      pos.attacks_by<KNIGHT>(~us) | pos.attacks_by<BISHOP>(~us) | threatenedByPawn;
+    const Bitboard threatenedByRook = pos.attacks_by<ROOK>(~us) | threatenedByMinor;
+
+    // Pieces threatened by pieces of lesser material value
+    const Bitboard threatenedPieces = (pos.pieces(us, QUEEN) & threatenedByRook)
+                                    | (pos.pieces(us, ROOK) & threatenedByMinor)
+                                    | (pos.pieces(us, KNIGHT, BISHOP) & threatenedByPawn);
+
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
     while ((move = mp.next_move(moveCountPruning)) != Move::none())
@@ -951,6 +961,22 @@ moves_loop:  // When in check, search starts here
         capture    = pos.capture_stage(move);
         movedPiece = pos.moved_piece(move);
         givesCheck = pos.gives_check(move);
+
+        const PieceType movedPieceType = type_of(movedPiece);
+        const Square    from           = move.from_sq();
+        const Square    to             = move.to_sq();
+
+        // Calculate threat score
+        const int threatScore = 2662
+                              + (threatenedPieces & from
+                                   ? (movedPieceType == QUEEN && !(to & threatenedByRook)   ? 51700
+                                      : movedPieceType == ROOK && !(to & threatenedByMinor) ? 25600
+                                      : !(to & threatenedByPawn)                            ? 14450
+                                                                                            : 0)
+                                   : 0)
+                              - ((movedPieceType == QUEEN  ? bool(to & threatenedByRook) * 49000
+                                  : movedPieceType == ROOK ? bool(to & threatenedByMinor) * 24335
+                                                           : bool(to & threatenedByPawn) * 14900));
 
         // Calculate new depth for this move
         newDepth = depth - 1;
@@ -991,6 +1017,9 @@ moves_loop:  // When in check, search starts here
             }
             else
             {
+                if (threatScore < -7000 * depth)
+                    continue;
+
                 int history =
                   (*contHist[0])[movedPiece][move.to_sq()]
                   + (*contHist[1])[movedPiece][move.to_sq()]
