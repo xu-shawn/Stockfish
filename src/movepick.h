@@ -38,11 +38,29 @@ constexpr int PAWN_HISTORY_SIZE        = 512;    // has to be a power of 2
 constexpr int CORRECTION_HISTORY_SIZE  = 16384;  // has to be a power of 2
 constexpr int CORRECTION_HISTORY_LIMIT = 1024;
 
+constexpr int CORRECTION_BUCKET_SIZE = 4;
+// clang-format off
+constexpr std::array<int, 64> CORRECTION_BUCKET_SCHEME = {
+    0, 0, 0, 0, 1, 1, 1, 1,
+    2, 2, 2, 2, 2, 2, 2, 2,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+};
+// clang-format on
+
 static_assert((PAWN_HISTORY_SIZE & (PAWN_HISTORY_SIZE - 1)) == 0,
               "PAWN_HISTORY_SIZE has to be a power of 2");
 
 static_assert((CORRECTION_HISTORY_SIZE & (CORRECTION_HISTORY_SIZE - 1)) == 0,
               "CORRECTION_HISTORY_SIZE has to be a power of 2");
+
+inline constexpr int correction_history_bucket(const Square sq, const Color side) {
+    return side == WHITE ? CORRECTION_BUCKET_SCHEME[sq] : CORRECTION_BUCKET_SCHEME[flip_rank(sq)];
+}
 
 enum PawnHistoryType {
     Normal,
@@ -134,8 +152,11 @@ using ContinuationHistory = Stats<PieceToHistory, NOT_USED, PIECE_NB, SQUARE_NB>
 using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>;
 
 // CorrectionHistory is addressed by color and pawn structure
-using CorrectionHistory =
-  Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, CORRECTION_HISTORY_SIZE>;
+using CorrectionHistory = Stats<int16_t,
+                                CORRECTION_HISTORY_LIMIT,
+                                COLOR_NB,
+                                CORRECTION_BUCKET_SIZE,
+                                CORRECTION_HISTORY_SIZE>;
 
 // The MovePicker class is used to pick one pseudo-legal move at a time from the
 // current position. The most important method is next_move(), which emits one
