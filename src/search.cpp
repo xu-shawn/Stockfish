@@ -1181,11 +1181,14 @@ moves_loop:  // When in check, search starts here
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
 
                 // Post LMR continuation history updates (~1 Elo)
-                int bonus = value <= alpha ? -stat_malus(newDepth)
-                          : value >= beta  ? stat_bonus(newDepth)
-                                           : 0;
+                if (cutNode || PvNode)
+                {
+                    int bonus = value <= alpha ? -stat_malus(newDepth)
+                              : value >= beta  ? stat_bonus(newDepth)
+                                               : 0;
 
-                update_continuation_histories(ss, movedPiece, move.to_sq(), bonus);
+                    update_continuation_histories(ss, movedPiece, move.to_sq(), bonus);
+                }
             }
         }
 
