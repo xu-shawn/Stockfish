@@ -612,6 +612,11 @@ Value Search::Worker::search(
     ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
     ttCapture    = ttData.move && pos.capture_stage(ttData.move);
 
+    // Bonus for a quiet ttMove
+    if (!ttCapture)
+        update_quiet_histories(pos, ss, *this, ttData.move, stat_bonus(depth));
+
+
     // At this point, if excluded, skip straight to step 6, static eval. However,
     // to save indentation, we list the condition in all code between here and there.
 
@@ -623,10 +628,6 @@ Value Search::Worker::search(
         // If ttMove is quiet, update move sorting heuristics on TT hit (~2 Elo)
         if (ttData.move && ttData.value >= beta)
         {
-            // Bonus for a quiet ttMove that fails high (~2 Elo)
-            if (!ttCapture)
-                update_quiet_histories(pos, ss, *this, ttData.move, stat_bonus(depth));
-
             // Extra penalty for early quiet moves of
             // the previous ply (~1 Elo on STC, ~2 Elo on LTC)
             if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2 && !priorCapture)
