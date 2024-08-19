@@ -104,7 +104,6 @@ void update_all_stats(const Position&      pos,
                       Stack*               ss,
                       Search::Worker&      workerThread,
                       Move                 bestMove,
-                      Square               prevSq,
                       ValueList<Move, 32>& quietsSearched,
                       ValueList<Move, 32>& capturesSearched,
                       Depth                depth);
@@ -1338,7 +1337,7 @@ moves_loop:  // When in check, search starts here
     // If there is a move that produces search value greater than alpha,
     // we update the stats of searched moves.
     else if (bestMove)
-        update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth);
+        update_all_stats(pos, ss, *this, bestMove, quietsSearched, capturesSearched, depth);
 
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
@@ -1742,7 +1741,6 @@ void update_all_stats(const Position&      pos,
                       Stack*               ss,
                       Search::Worker&      workerThread,
                       Move                 bestMove,
-                      Square               prevSq,
                       ValueList<Move, 32>& quietsSearched,
                       ValueList<Move, 32>& capturesSearched,
                       Depth                depth) {
@@ -1768,11 +1766,6 @@ void update_all_stats(const Position&      pos,
         captured = type_of(pos.piece_on(bestMove.to_sq()));
         captureHistory[moved_piece][bestMove.to_sq()][captured] << quietMoveBonus;
     }
-
-    // Extra penalty for a quiet early move that was not a TT move in
-    // previous ply when it gets refuted.
-    if (prevSq != SQ_NONE && ((ss - 1)->moveCount == 1 + (ss - 1)->ttHit) && !pos.captured_piece())
-        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, -quietMoveMalus);
 
     // Decrease stats for all non-best capture moves
     for (Move move : capturesSearched)
