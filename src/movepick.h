@@ -106,8 +106,8 @@ struct Stats<T, D, Size>: public std::array<StatsEntry<T, D>, Size> {};
 
 class AveragedStatsEntry {
 
-    int64_t  entry;
-    uint64_t count;
+    int64_t entry;
+    int64_t count;
 
    public:
     void     operator=(const int64_t& v) { entry = v, count = 1; }
