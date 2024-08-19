@@ -605,7 +605,7 @@ Value Search::Worker::search(
     ttCapture    = ttData.move && pos.capture_stage(ttData.move);
 
     // Bonus for a quiet ttMove that fails high (~2 Elo)
-    if (!ttCapture && !excludedMove)
+    if (ttData.move && !ttCapture && !excludedMove)
         update_quiet_histories(pos, ss, *this, ttData.move, stat_bonus(depth));
 
     // At this point, if excluded, skip straight to step 6, static eval. However,
