@@ -72,6 +72,9 @@ class StatsEntry {
     void operator<<(int bonus) {
         static_assert(D <= std::numeric_limits<T>::max(), "D overflows T");
 
+        if (bonus > 0 && entry < -D * 3 / 4)
+            bonus *= 2;
+
         // Make sure that bonus is in range [-D, D]
         int clampedBonus = std::clamp(bonus, -D, D);
         entry += clampedBonus - entry * std::abs(clampedBonus) / D;
