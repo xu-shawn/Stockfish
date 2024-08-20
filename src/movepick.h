@@ -34,15 +34,15 @@
 
 namespace Stockfish {
 
-constexpr int PAWN_HISTORY_SIZE        = 512;    // has to be a power of 2
-constexpr int CORRECTION_HISTORY_SIZE  = 16384;  // has to be a power of 2
+constexpr int PAWN_HISTORY_SIZE        = 512;   // has to be a power of 2
+constexpr int CORRECTION_HISTORY_SIZE  = 4096;  // has to be a power of 2
 constexpr int CORRECTION_HISTORY_LIMIT = 1024;
 
 constexpr int CORRECTION_BUCKET_SIZE = 4;
 // clang-format off
 constexpr std::array<int, 64> CORRECTION_BUCKET_SCHEME = {
-    0, 0, 0, 0, 1, 1, 1, 1,
-    2, 2, 2, 2, 2, 2, 2, 2,
+    0, 0, 1, 1, 1, 1, 0, 0,
+    0, 2, 2, 2, 2, 2, 2, 0,
     3, 3, 3, 3, 3, 3, 3, 3,
     3, 3, 3, 3, 3, 3, 3, 3,
     3, 3, 3, 3, 3, 3, 3, 3,
