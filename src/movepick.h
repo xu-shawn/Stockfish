@@ -58,8 +58,9 @@ static_assert((PAWN_HISTORY_SIZE & (PAWN_HISTORY_SIZE - 1)) == 0,
 static_assert((CORRECTION_HISTORY_SIZE & (CORRECTION_HISTORY_SIZE - 1)) == 0,
               "CORRECTION_HISTORY_SIZE has to be a power of 2");
 
-inline constexpr int correction_history_bucket(const Square sq, const Color side) {
-    return side == WHITE ? CORRECTION_BUCKET_SCHEME[sq] : CORRECTION_BUCKET_SCHEME[flip_rank(sq)];
+inline int correction_history_bucket(const Position& pos) {
+    return CORRECTION_BUCKET_SCHEME[pos.square<KING>(WHITE)] * CORRECTION_BUCKET_SIZE
+         + CORRECTION_BUCKET_SCHEME[pos.square<KING>(BLACK)];
 }
 
 enum PawnHistoryType {
@@ -155,7 +156,7 @@ using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>
 using CorrectionHistory = Stats<int16_t,
                                 CORRECTION_HISTORY_LIMIT,
                                 COLOR_NB,
-                                CORRECTION_BUCKET_SIZE,
+                                CORRECTION_BUCKET_SIZE * CORRECTION_BUCKET_SIZE,
                                 CORRECTION_HISTORY_SIZE>;
 
 // The MovePicker class is used to pick one pseudo-legal move at a time from the
