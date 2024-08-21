@@ -567,10 +567,9 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
-                              thisThread->optimism[us])
-                   : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
+                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
+                                                        : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -1790,20 +1789,36 @@ void update_all_stats(const Position&      pos,
 // at ply -1, -2, -3, -4, and -6 with current move.
 void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
 
-    bonus = bonus * 52 / 64;
+    bonus         = bonus * 52 / 64;
+    int aggregate = 0;
 
-    for (int i : {1, 2, 3, 4, 6})
+    for (int i : {1, 2})
     {
-        // Only update the first 2 continuation histories if we are in check
-        if (ss->inCheck && i > 2)
-            break;
         if (((ss - i)->currentMove).is_ok())
-            (*(ss - i)->continuationHistory)[pc][to] << bonus / (1 + (i == 3));
+        {
+            (*(ss - i)->continuationHistory)[pc][to] << bonus;
+            aggregate += (*(ss - i)->continuationHistory)[pc][to];
+        }
     }
+
+    if (ss->inCheck)
+        return;
+
+    for (int i : {3, 4, 6})
+    {
+        if (((ss - i)->currentMove).is_ok())
+        {
+            (*(ss - i)->continuationHistory)[pc][to] << bonus / (1 + (i == 3));
+            aggregate += (*(ss - i)->continuationHistory)[pc][to];
+        }
+    }
+
+    if ((ss - 5)->currentMove.is_ok()
+        && std::abs(aggregate - (*(ss - 5)->continuationHistory)[pc][to]) > 100000)
+        (*(ss - 5)->continuationHistory)[pc][to] << bonus / 2;
 }
 
 // Updates move sorting heuristics
-
 void update_quiet_histories(
   const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus) {
 
