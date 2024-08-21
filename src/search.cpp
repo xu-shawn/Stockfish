@@ -1813,9 +1813,12 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
         }
     }
 
-    if ((ss - 5)->currentMove.is_ok()
-        && std::abs(aggregate - (*(ss - 5)->continuationHistory)[pc][to]) > 100000)
-        (*(ss - 5)->continuationHistory)[pc][to] << bonus / 2;
+    aggregate /= 5;
+
+    if ((ss - 5)->currentMove.is_ok())
+        if ((aggregate - (*(ss - 5)->continuationHistory)[pc][to] > 20000 && bonus > 0)
+            || (aggregate - (*(ss - 5)->continuationHistory)[pc][to] < -20000 && bonus < 0))
+            (*(ss - 5)->continuationHistory)[pc][to] << bonus / 2;
 }
 
 // Updates move sorting heuristics
