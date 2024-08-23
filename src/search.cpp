@@ -567,10 +567,9 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
-                              thisThread->optimism[us])
-                   : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
+                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
+                                                        : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -1626,10 +1625,17 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
                 if (PvNode)  // Update pv even in fail-high case
                     update_pv(ss->pv, move, (ss + 1)->pv);
 
-                if (value < beta)  // Update alpha here!
-                    alpha = value;
-                else
-                    break;  // Fail high
+                if (value >= beta)  // Fail high
+                {
+                    const Piece     moved_piece = pos.moved_piece(bestMove);
+                    const PieceType captured    = type_of(pos.piece_on(bestMove.to_sq()));
+                    thisThread->captureHistory[moved_piece][bestMove.to_sq()][captured]
+                      << stat_bonus(std::max(thisThread->selDepth - ss->ply, 0)) / 4;
+
+                    break;
+                }
+
+                alpha = value;  // Update alpha here!
             }
         }
     }
