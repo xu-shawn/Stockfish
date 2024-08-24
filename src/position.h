@@ -154,6 +154,7 @@ class Position {
     // Other properties of the position
     Color side_to_move() const;
     int   game_ply() const;
+    int   game_phase() const;
     bool  is_chess960() const;
     bool  is_draw(int ply) const;
     bool  upcoming_repetition(int ply) const;
@@ -197,7 +198,10 @@ class Position {
     int        gamePly;
     Color      sideToMove;
     bool       chess960;
+    int        gamePhase;
 };
+
+constexpr std::array<int, 7> PhaseIncrements = {0, 1, 1, 2, 4, 0};
 
 std::ostream& operator<<(std::ostream& os, const Position& pos);
 
@@ -305,6 +309,8 @@ inline Value Position::non_pawn_material() const {
 
 inline int Position::game_ply() const { return gamePly; }
 
+inline int Position::game_phase() const { return gamePhase; }
+
 inline int Position::rule50_count() const { return st->rule50; }
 
 inline bool Position::is_chess960() const { return chess960; }
@@ -331,6 +337,7 @@ inline void Position::put_piece(Piece pc, Square s) {
     byColorBB[color_of(pc)] |= s;
     pieceCount[pc]++;
     pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
+    gamePhase += PhaseIncrements[type_of(pc)];
 }
 
 inline void Position::remove_piece(Square s) {
@@ -342,6 +349,7 @@ inline void Position::remove_piece(Square s) {
     board[s] = NO_PIECE;
     pieceCount[pc]--;
     pieceCount[make_piece(color_of(pc), ALL_PIECES)]--;
+    gamePhase -= PhaseIncrements[type_of(pc)];
 }
 
 inline void Position::move_piece(Square from, Square to) {
