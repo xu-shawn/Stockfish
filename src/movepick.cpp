@@ -155,7 +155,8 @@ void MovePicker::score() {
 
             // histories
             m.value = (*mainHistory)[pos.side_to_move()][m.from_to()];
-            m.value += 2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to];
+            m.value += (*pawnHistory)[pawn_structure_index(pos)][pc][to];
+            m.value += (*materialHistory)[material_index(pos)][pc][to];
             m.value += 2 * (*continuationHistory[0])[pc][to];
             m.value += (*continuationHistory[1])[pc][to];
             m.value += (*continuationHistory[2])[pc][to] / 3;
@@ -186,7 +187,9 @@ void MovePicker::score() {
             else
                 m.value = (*mainHistory)[pos.side_to_move()][m.from_to()]
                         + (*continuationHistory[0])[pos.moved_piece(m)][m.to_sq()]
-                        + (*pawnHistory)[pawn_structure_index(pos)][pos.moved_piece(m)][m.to_sq()];
+                        + ((*pawnHistory)[pawn_structure_index(pos)][pos.moved_piece(m)][m.to_sq()]
+                           + (*materialHistory)[material_index(pos)][pos.moved_piece(m)][m.to_sq()])
+                            / 2;
         }
 }
 
