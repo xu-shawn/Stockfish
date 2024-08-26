@@ -35,6 +35,7 @@
 namespace Stockfish {
 
 constexpr int PAWN_HISTORY_SIZE        = 512;    // has to be a power of 2
+constexpr int MATERIAL_HISTORY_SIZE    = 1024;   // has to be a power of 2
 constexpr int CORRECTION_HISTORY_SIZE  = 16384;  // has to be a power of 2
 constexpr int CORRECTION_HISTORY_LIMIT = 1024;
 
@@ -52,6 +53,10 @@ enum PawnHistoryType {
 template<PawnHistoryType T = Normal>
 inline int pawn_structure_index(const Position& pos) {
     return pos.pawn_key() & ((T == Normal ? PAWN_HISTORY_SIZE : CORRECTION_HISTORY_SIZE) - 1);
+}
+
+inline int material_index(const Position& pos) {
+    return pos.material_key() & (MATERIAL_HISTORY_SIZE - 1);
 }
 
 // StatsEntry stores the stat table value. It is usually a number but could
@@ -133,6 +138,8 @@ using ContinuationHistory = Stats<PieceToHistory, NOT_USED, PIECE_NB, SQUARE_NB>
 // PawnHistory is addressed by the pawn structure and a move's [piece][to]
 using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>;
 
+using MaterialHistory = Stats<int16_t, 8192, MATERIAL_HISTORY_SIZE, PIECE_NB, SQUARE_NB>;
+
 // CorrectionHistory is addressed by color and pawn structure
 using CorrectionHistory =
   Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, CORRECTION_HISTORY_SIZE>;
@@ -159,7 +166,8 @@ class MovePicker {
                const ButterflyHistory*,
                const CapturePieceToHistory*,
                const PieceToHistory**,
-               const PawnHistory*);
+               const PawnHistory*,
+               const MaterialHistory*);
     MovePicker(const Position&, Move, int, const CapturePieceToHistory*);
     Move next_move(bool skipQuiets = false);
 
@@ -176,6 +184,7 @@ class MovePicker {
     const CapturePieceToHistory* captureHistory;
     const PieceToHistory**       continuationHistory;
     const PawnHistory*           pawnHistory;
+    const MaterialHistory*       materialHistory;
     Move                         ttMove;
     ExtMove *                    cur, *endMoves, *endBadCaptures, *beginBadQuiets, *endBadQuiets;
     int                          stage;
