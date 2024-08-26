@@ -281,6 +281,7 @@ class Worker {
     CapturePieceToHistory captureHistory;
     ContinuationHistory   continuationHistory[2][2];
     PawnHistory           pawnHistory;
+    MaterialHistory       materialHistory;
     CorrectionHistory     correctionHistory;
 
    private:
@@ -295,6 +296,8 @@ class Worker {
     Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta);
 
     Depth reduction(bool i, Depth d, int mn, int delta) const;
+
+    int positional_history_score(const Position& pos, Move move) const;
 
     // Pointer to the search manager, only allowed to be called by the main thread
     SearchManager* main_manager() const {
