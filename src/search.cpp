@@ -567,10 +567,9 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
-                              thisThread->optimism[us])
-                   : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
+                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
+                                                        : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -596,10 +595,10 @@ Value Search::Worker::search(
     posKey                         = pos.key();
     auto [ttHit, ttData, ttWriter] = tt.probe(posKey);
     // Need further processing of the saved data
-    ss->ttHit    = ttHit;
-    ttData.move  = rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
-                 : ttHit    ? ttData.move
-                            : Move::none();
+    ss->ttHit  = ttHit;
+    ss->ttMove = ttData.move = rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
+                             : ttHit    ? ttData.move
+                                        : Move::none();
     ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule50_count()) : VALUE_NONE;
     ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
     ttCapture    = ttData.move && pos.capture_stage(ttData.move);
@@ -763,8 +762,8 @@ Value Search::Worker::search(
         && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
                - (ss - 1)->statScore / 260
              >= beta
-        && eval >= beta && (!ttData.move || ttCapture) && beta > VALUE_TB_LOSS_IN_MAX_PLY
-        && eval < VALUE_TB_WIN_IN_MAX_PLY)
+        && eval >= beta && (!ttData.move || ttCapture) && (ss - 1)->currentMove != (ss - 1)->ttMove
+        && beta > VALUE_TB_LOSS_IN_MAX_PLY && eval < VALUE_TB_WIN_IN_MAX_PLY)
         return beta + (eval - beta) / 3;
 
     // Step 9. Null move search with verification search (~35 Elo)
