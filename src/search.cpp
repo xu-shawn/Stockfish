@@ -568,10 +568,9 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
-                              thisThread->optimism[us])
-                   : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
+                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
+                                                        : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -1173,16 +1172,26 @@ moves_loop:  // When in check, search starts here
             {
                 // Adjust full-depth search based on LMR results - if the result was
                 // good enough search deeper, if it was bad enough search shallower.
-                const bool doDeeperSearch    = value > (bestValue + 35 + 2 * newDepth);  // (~1 Elo)
-                const bool doShallowerSearch = value < bestValue + 8;                    // (~2 Elo)
+                bool doDeeperSearch    = value > (bestValue + 35 + 2 * newDepth);  // (~1 Elo)
+                bool doShallowerSearch = value < bestValue + 8;                    // (~2 Elo)
 
-                newDepth += doDeeperSearch - doShallowerSearch;
+                const Depth pvsDepth = newDepth + doDeeperSearch - doShallowerSearch;
 
-                if (newDepth > d)
-                    value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+                if (pvsDepth > d)
+                {
+                    value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, pvsDepth, !cutNode);
+
+                    if (PvNode)
+                    {
+                        doDeeperSearch    = value > (bestValue + 35 + 2 * pvsDepth);
+                        doShallowerSearch = value < bestValue + 8;
+
+                        newDepth += doDeeperSearch - doShallowerSearch;
+                    }
+                }
 
                 // Post LMR continuation history updates (~1 Elo)
-                int bonus = value >= beta ? stat_bonus(newDepth) : -stat_malus(newDepth);
+                int bonus = value >= beta ? stat_bonus(pvsDepth) : -stat_malus(pvsDepth);
 
                 update_continuation_histories(ss, movedPiece, move.to_sq(), bonus);
             }
