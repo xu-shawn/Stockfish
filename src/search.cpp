@@ -1684,7 +1684,7 @@ int Search::Worker::positional_history_score(const Position& pos, Move move) con
     const int    mIndex     = material_index(pos);
     const Piece  movedPiece = pos.moved_piece(move);
     const Square to         = move.to_sq();
-    return pawnHistory[pIndex][movedPiece][to] + materialHistory[mIndex][movedPiece][to];
+    return (3 * pawnHistory[pIndex][movedPiece][to] + materialHistory[mIndex][movedPiece][to]);
 }
 
 // elapsed() returns the time elapsed since the search started. If the
