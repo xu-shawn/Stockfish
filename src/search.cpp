@@ -568,10 +568,9 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
-                              thisThread->optimism[us])
-                   : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
+                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
+                                                        : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -1043,60 +1042,84 @@ moves_loop:  // When in check, search starts here
             // and lower extension margins scale well.
 
             if (!rootNode && move == ttData.move && !excludedMove
-                && depth >= 4 - (thisThread->completedDepth > 36) + ss->ttPv
-                && std::abs(ttData.value) < VALUE_TB_WIN_IN_MAX_PLY && (ttData.bound & BOUND_LOWER)
-                && ttData.depth >= depth - 3)
+                && std::abs(ttData.value) < VALUE_TB_WIN_IN_MAX_PLY && (ttData.bound & BOUND_LOWER))
             {
-                Value singularBeta  = ttData.value - (54 + 76 * (ss->ttPv && !PvNode)) * depth / 64;
-                Depth singularDepth = newDepth / 2;
-
-                ss->excludedMove = move;
-                value =
-                  search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
-                ss->excludedMove = Move::none();
-
-                if (value < singularBeta)
+                if (depth >= 4 - (thisThread->completedDepth > 36) + ss->ttPv
+                    && ttData.depth >= depth - 3)
                 {
-                    int doubleMargin = 293 * PvNode - 195 * !ttCapture;
-                    int tripleMargin = 107 + 259 * PvNode - 260 * !ttCapture + 98 * ss->ttPv;
+                    Value singularBeta =
+                      ttData.value - (54 + 76 * (ss->ttPv && !PvNode)) * depth / 64;
+                    Depth singularDepth = newDepth / 2;
 
-                    extension = 1 + (value < singularBeta - doubleMargin)
-                              + (value < singularBeta - tripleMargin);
+                    ss->excludedMove = move;
+                    value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth,
+                                          cutNode);
+                    ss->excludedMove = Move::none();
 
-                    depth += ((!PvNode) && (depth < 16));
+                    if (value < singularBeta)
+                    {
+                        int doubleMargin = 293 * PvNode - 195 * !ttCapture;
+                        int tripleMargin = 107 + 259 * PvNode - 260 * !ttCapture + 98 * ss->ttPv;
+
+                        extension = 1 + (value < singularBeta - doubleMargin)
+                                  + (value < singularBeta - tripleMargin);
+
+                        depth += ((!PvNode) && (depth < 16));
+                    }
+
+                    // Multi-cut pruning
+                    // Our ttMove is assumed to fail high based on the bound of the TT entry,
+                    // and if after excluding the ttMove with a reduced search we fail high
+                    // over the original beta, we assume this expected cut-node is not
+                    // singular (multiple moves fail high), and we can prune the whole
+                    // subtree by returning a softbound.
+                    else if (value >= beta && std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY)
+                        return value;
+
+                    // Negative extensions
+                    // If other moves failed high over (ttValue - margin) without the
+                    // ttMove on a reduced search, but we cannot do multi-cut because
+                    // (ttValue - margin) is lower than the original beta, we do not know
+                    // if the ttMove is singular or can do a multi-cut, so we reduce the
+                    // ttMove in favor of other moves based on some conditions:
+
+                    // If the ttMove is assumed to fail high over current beta (~7 Elo)
+                    else if (ttData.value >= beta)
+                        extension = -3;
+
+                    // If we are on a cutNode but the ttMove is not assumed to fail high
+                    // over current beta (~1 Elo)
+                    else if (cutNode)
+                        extension = -2;
                 }
 
-                // Multi-cut pruning
-                // Our ttMove is assumed to fail high based on the bound of the TT entry,
-                // and if after excluding the ttMove with a reduced search we fail high
-                // over the original beta, we assume this expected cut-node is not
-                // singular (multiple moves fail high), and we can prune the whole
-                // subtree by returning a softbound.
-                else if (value >= beta && std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY)
-                    return value;
 
-                // Negative extensions
-                // If other moves failed high over (ttValue - margin) without the
-                // ttMove on a reduced search, but we cannot do multi-cut because
-                // (ttValue - margin) is lower than the original beta, we do not know
-                // if the ttMove is singular or can do a multi-cut, so we reduce the
-                // ttMove in favor of other moves based on some conditions:
+                else
+                {
+                    if (!PvNode && depth == 2 && ttData.depth > 4 && (ss - 1)->statScore > 8000)
+                    {
+                        const Value     singularBeta  = ttData.value - 2 * rootDepth;
+                        constexpr Depth singularDepth = 1;
 
-                // If the ttMove is assumed to fail high over current beta (~7 Elo)
-                else if (ttData.value >= beta)
-                    extension = -3;
+                        ss->excludedMove = move;
+                        value            = search<NonPV>(pos, ss, singularBeta - 1, singularBeta,
+                                              singularDepth, cutNode);
+                        ss->excludedMove = Move::none();
+                        ss->moveCount    = 1;
 
-                // If we are on a cutNode but the ttMove is not assumed to fail high
-                // over current beta (~1 Elo)
-                else if (cutNode)
-                    extension = -2;
+                        if (value < singularBeta)
+                        {
+                            extension = 1;
+                        }
+                    }
+                }
             }
 
             // Extension for capturing the previous moved piece (~1 Elo at LTC)
-            else if (PvNode && move.to_sq() == prevSq
-                     && thisThread->captureHistory[movedPiece][move.to_sq()]
-                                                  [type_of(pos.piece_on(move.to_sq()))]
-                          > 3994)
+            if (PvNode && extension == 0 && move.to_sq() == prevSq
+                && thisThread->captureHistory[movedPiece][move.to_sq()]
+                                             [type_of(pos.piece_on(move.to_sq()))]
+                     > 3994)
                 extension = 1;
         }
 
