@@ -1028,6 +1028,7 @@ moves_loop:  // When in check, search starts here
         // We take care to not overdo to avoid search getting stuck.
         if (ss->ply < thisThread->rootDepth * 2)
         {
+            bool doRecaptureExtensions = true;
             // Singular extension search (~76 Elo, ~170 nElo). If all moves but one
             // fail low on a search of (alpha-s, beta-s), and just one fails high on
             // (alpha, beta), then that move is singular and should be extended. To
@@ -1047,6 +1048,7 @@ moves_loop:  // When in check, search starts here
                 if (depth >= 4 - (thisThread->completedDepth > 36) + ss->ttPv
                     && ttData.depth >= depth - 3)
                 {
+                    doRecaptureExtensions = false;
                     Value singularBeta =
                       ttData.value - (54 + 76 * (ss->ttPv && !PvNode)) * depth / 64;
                     Depth singularDepth = newDepth / 2;
@@ -1094,29 +1096,27 @@ moves_loop:  // When in check, search starts here
                 }
 
 
-                else
+                else if (!PvNode && depth == 2 && ttData.depth > 4 && (ss - 1)->statScore > 8000)
                 {
-                    if (!PvNode && depth == 2 && ttData.depth > 4 && (ss - 1)->statScore > 8000)
+                    doRecaptureExtensions         = false;
+                    const Value     singularBeta  = ttData.value - 2 * rootDepth;
+                    constexpr Depth singularDepth = 1;
+
+                    ss->excludedMove = move;
+                    value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth,
+                                          cutNode);
+                    ss->excludedMove = Move::none();
+                    ss->moveCount    = 1;
+
+                    if (value < singularBeta)
                     {
-                        const Value     singularBeta  = ttData.value - 2 * rootDepth;
-                        constexpr Depth singularDepth = 1;
-
-                        ss->excludedMove = move;
-                        value            = search<NonPV>(pos, ss, singularBeta - 1, singularBeta,
-                                              singularDepth, cutNode);
-                        ss->excludedMove = Move::none();
-                        ss->moveCount    = 1;
-
-                        if (value < singularBeta)
-                        {
-                            extension = 1;
-                        }
+                        extension = 1;
                     }
                 }
             }
 
             // Extension for capturing the previous moved piece (~1 Elo at LTC)
-            if (PvNode && extension == 0 && move.to_sq() == prevSq
+            if (PvNode && doRecaptureExtensions && move.to_sq() == prevSq
                 && thisThread->captureHistory[movedPiece][move.to_sq()]
                                              [type_of(pos.piece_on(move.to_sq()))]
                      > 3994)
