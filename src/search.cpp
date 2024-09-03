@@ -306,7 +306,9 @@ void Search::Worker::iterative_deepening() {
 
             doSingularStats = false;
 
-            search<NonPV>(rootPos, ss, alpha, alpha + 1, rootDepth + 1, false);
+            rootDelta = 1;
+            search<Root>(rootPos, ss, std::min(avg, VALUE_INFINITE - 1),
+                         std::min(avg, VALUE_INFINITE - 1) + 1, rootDepth + 1, false);
 
             doSingularStats = true;
 
