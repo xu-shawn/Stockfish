@@ -304,7 +304,7 @@ void Search::Worker::iterative_deepening() {
             optimism[us]  = 125 * avg / (std::abs(avg) + 89);
             optimism[~us] = -optimism[us];
 
-            search<NonPV>(rootPos, ss, alpha, alpha + 1, rootDepth + 1, false);
+            search<NonPV>(rootPos, ss, alpha, alpha + 1, rootDepth + 1, true);
 
             // Start with a small aspiration window and, in the case of a fail
             // high/low, re-search with a bigger window until we don't fail
