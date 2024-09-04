@@ -1178,6 +1178,10 @@ moves_loop:  // When in check, search starts here
 
                 newDepth += doDeeperSearch - doShallowerSearch;
 
+                ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
+                              + (*contHist[0])[movedPiece][move.to_sq()]
+                              + (*contHist[1])[movedPiece][move.to_sq()] - 4664;
+
                 if (newDepth > d)
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
 
@@ -1195,6 +1199,11 @@ moves_loop:  // When in check, search starts here
             if (!ttData.move)
                 r += 2;
 
+            if (!PvNode)
+                ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
+                              + (*contHist[0])[movedPiece][move.to_sq()]
+                              + (*contHist[1])[movedPiece][move.to_sq()] - 4664;
+
             // Note that if expected reduction is high, we reduce search depth by 1 here (~9 Elo)
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - (r > 3), !cutNode);
         }
@@ -1209,6 +1218,11 @@ moves_loop:  // When in check, search starts here
             // Extend move from transposition table if we are about to dive into qsearch.
             if (move == ttData.move && ss->ply <= thisThread->rootDepth * 2)
                 newDepth = std::max(newDepth, 1);
+
+            if (moveCount != 1)
+                ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
+                              + (*contHist[0])[movedPiece][move.to_sq()]
+                              + (*contHist[1])[movedPiece][move.to_sq()] - 4664;
 
             value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
         }
