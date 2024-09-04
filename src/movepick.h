@@ -119,7 +119,8 @@ enum StatsType {
 using ButterflyHistory = Stats<int16_t, 7183, COLOR_NB, int(SQUARE_NB) * int(SQUARE_NB)>;
 
 // CapturePieceToHistory is addressed by a move's [piece][to][captured piece type]
-using CapturePieceToHistory = Stats<int16_t, 10692, PIECE_NB, SQUARE_NB, PIECE_TYPE_NB>;
+using CapturePieceToHistory             = Stats<int16_t, 10692, PIECE_NB, SQUARE_NB, PIECE_TYPE_NB>;
+using CapturePieceToContinuationHistory = Stats<int16_t, 29952, PIECE_NB, SQUARE_NB, PIECE_TYPE_NB>;
 
 // PieceToHistory is like ButterflyHistory but is addressed by a move's [piece][to]
 using PieceToHistory = Stats<int16_t, 29952, PIECE_NB, SQUARE_NB>;
@@ -128,7 +129,7 @@ using PieceToHistory = Stats<int16_t, 29952, PIECE_NB, SQUARE_NB>;
 // the current one given a previous one. The nested history table is based on
 // PieceToHistory instead of ButterflyBoards.
 // (~63 elo)
-using ContinuationHistory = Stats<PieceToHistory, NOT_USED, PIECE_NB, SQUARE_NB>;
+using ContinuationHistory = Stats<CapturePieceToContinuationHistory, NOT_USED, PIECE_NB, SQUARE_NB>;
 
 // PawnHistory is addressed by the pawn structure and a move's [piece][to]
 using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>;
@@ -158,9 +159,13 @@ class MovePicker {
                Depth,
                const ButterflyHistory*,
                const CapturePieceToHistory*,
-               const PieceToHistory**,
+               const CapturePieceToContinuationHistory**,
                const PawnHistory*);
-    MovePicker(const Position&, Move, int, const CapturePieceToHistory*);
+    MovePicker(const Position&,
+               Move,
+               int,
+               const CapturePieceToHistory*,
+               const CapturePieceToContinuationHistory**);
     Move next_move(bool skipQuiets = false);
 
    private:
@@ -171,17 +176,17 @@ class MovePicker {
     ExtMove* begin() { return cur; }
     ExtMove* end() { return endMoves; }
 
-    const Position&              pos;
-    const ButterflyHistory*      mainHistory;
-    const CapturePieceToHistory* captureHistory;
-    const PieceToHistory**       continuationHistory;
-    const PawnHistory*           pawnHistory;
-    Move                         ttMove;
-    ExtMove *                    cur, *endMoves, *endBadCaptures, *beginBadQuiets, *endBadQuiets;
-    int                          stage;
-    int                          threshold;
-    Depth                        depth;
-    ExtMove                      moves[MAX_MOVES];
+    const Position&                           pos;
+    const ButterflyHistory*                   mainHistory;
+    const CapturePieceToHistory*              captureHistory;
+    const CapturePieceToContinuationHistory** continuationHistory;
+    const PawnHistory*                        pawnHistory;
+    Move                                      ttMove;
+    ExtMove *cur, *endMoves, *endBadCaptures, *beginBadQuiets, *endBadQuiets;
+    int      stage;
+    int      threshold;
+    Depth    depth;
+    ExtMove  moves[MAX_MOVES];
 };
 
 }  // namespace Stockfish
