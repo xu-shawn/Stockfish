@@ -305,7 +305,7 @@ void Search::Worker::iterative_deepening() {
             optimism[~us] = -optimism[us];
 
             rootDelta = 1;
-            search<Root>(rootPos, ss, avg, avg + 1, rootDepth + 1, false);
+            search<Root>(rootPos, ss, alpha, alpha + 1, rootDepth + 1, false);
 
             // Start with a small aspiration window and, in the case of a fail
             // high/low, re-search with a bigger window until we don't fail
