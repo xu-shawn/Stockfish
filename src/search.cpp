@@ -641,12 +641,11 @@ Value Search::Worker::search(
             if (!ttCapture)
                 update_quiet_histories(pos, ss, *this, ttData.move, stat_bonus(depth), rootNode);
 
-            // Extra penalty for early moves of
+            // Extra penalty for early quiet moves of
             // the previous ply (~1 Elo on STC, ~2 Elo on LTC)
-            if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2)
+            if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2 && !priorCapture)
                 update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                              type_of(pos.captured_piece()),
-                                              -stat_malus(depth + 1));
+                                              PieceType::NO_PIECE_TYPE, -stat_malus(depth + 1));
         }
 
         // Partial workaround for the graph history interaction problem
@@ -1813,9 +1812,9 @@ void update_all_stats(const Position&      pos,
 
     // Extra penalty for a quiet early move that was not a TT move in
     // previous ply when it gets refuted.
-    if (prevSq != SQ_NONE && ((ss - 1)->moveCount == 1 + (ss - 1)->ttHit))
+    if (prevSq != SQ_NONE && ((ss - 1)->moveCount == 1 + (ss - 1)->ttHit) && !pos.captured_piece())
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                      type_of(pos.captured_piece()), -quietMoveMalus);
+                                      PieceType::NO_PIECE_TYPE, -quietMoveMalus);
 
     Square to;
     // Decrease stats for all non-best capture moves
