@@ -976,15 +976,6 @@ moves_loop:  // When in check, search starts here
                 int   captHist =
                   thisThread->captureHistory[movedPiece][move.to_sq()][type_of(capturedPiece)];
 
-                // Futility pruning for captures (~2 Elo)
-                if (!givesCheck && lmrDepth < 7 && !ss->inCheck)
-                {
-                    Value futilityValue = ss->staticEval + 285 + 251 * lmrDepth
-                                        + PieceValue[capturedPiece] + captHist / 7;
-                    if (futilityValue <= alpha)
-                        continue;
-                }
-
                 // SEE based pruning for captures and checks (~11 Elo)
                 int seeHist = std::clamp(captHist / 32, -182 * depth, 166 * depth);
                 if (!pos.see_ge(move, -168 * depth - seeHist))
