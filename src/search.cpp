@@ -1165,6 +1165,8 @@ moves_loop:  // When in check, search starts here
             // std::clamp has been replaced by a more robust implementation.
             Depth d = std::max(1, std::min(newDepth - r, newDepth + !allNode));
 
+            const int prevHistory = thisThread->mainHistory[us][move.from_to()];
+
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
 
             // Do a full-depth search when reduced LMR search fails high
@@ -1182,7 +1184,7 @@ moves_loop:  // When in check, search starts here
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
 
                     if (!capture && value <= alpha)
-                        thisThread->mainHistory[us][move.from_to()] << -stat_malus(depth);
+                        thisThread->mainHistory[us][move.from_to()] = prevHistory;
                 }
 
                 // Post LMR continuation history updates (~1 Elo)
