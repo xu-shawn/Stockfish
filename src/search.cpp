@@ -84,7 +84,7 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
     const auto pcv =
       w.pawnCorrectionHistory[pos.side_to_move()][pawn_structure_index<Correction>(pos)];
     const auto mcv = w.materialCorrectionHistory[pos.side_to_move()][material_index(pos)];
-    const auto cv  = (2 * pcv + mcv) / 3;
+    const auto cv  = pcv + mcv / 2;
     v += 66 * cv / 512;
     return std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
@@ -572,10 +572,9 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
-                              thisThread->optimism[us])
-                   : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
+                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
+                                                        : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
