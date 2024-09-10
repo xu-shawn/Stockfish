@@ -1053,27 +1053,23 @@ moves_loop:  // When in check, search starts here
                 Value singularBeta  = ttData.value - (54 + 76 * (ss->ttPv && !PvNode)) * depth / 64;
                 Depth singularDepth = newDepth / 2;
 
-                const int nodesBegin = thisThread->nodes.load(std::memory_order_relaxed);
-                ss->excludedMove     = move;
+                const uint64_t nodesBegin = thisThread->nodes.load(std::memory_order_relaxed);
+                ss->excludedMove          = move;
                 value =
                   search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
-                ss->excludedMove   = Move::none();
-                const int nodesEnd = thisThread->nodes.load(std::memory_order_relaxed);
-
-                if (value < singularBeta)
-                {
-                    dbg_mean_of(nodesEnd - nodesBegin, depth);
-                    dbg_extremes_of(nodesEnd - nodesBegin, depth);
-                    dbg_hit_on(nodesEnd == nodesBegin, depth);
-                }
+                ss->excludedMove = Move::none();
+                const int nodesDelta =
+                  thisThread->nodes.load(std::memory_order_relaxed) - nodesBegin;
 
                 if (value < singularBeta)
                 {
                     int doubleMargin = 293 * PvNode - 195 * !ttCapture;
                     int tripleMargin = 107 + 259 * PvNode - 260 * !ttCapture + 98 * ss->ttPv;
 
+                    bool quadExtension = (nodesDelta && nodesDelta >= depth * 2);
+
                     extension = 1 + (value < singularBeta - doubleMargin)
-                              + (value < singularBeta - tripleMargin);
+                              + (value < singularBeta - tripleMargin) * (1 + quadExtension);
 
                     depth += ((!PvNode) && (depth < 16));
                 }
