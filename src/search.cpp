@@ -1180,15 +1180,8 @@ moves_loop:  // When in check, search starts here
 
                 newDepth += doDeeperSearch - doShallowerSearch;
 
-                const uint64_t nds = nodes.load(std::memory_order_relaxed);
                 if (newDepth > d)
-                {
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
-
-                    if (depth >= 9 && nds == nodes.load(std::memory_order_relaxed))
-                        value =
-                          -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth + 1, !cutNode);
-                }
 
                 // Post LMR continuation history updates (~1 Elo)
                 int bonus = value >= beta ? stat_bonus(newDepth) : -stat_malus(newDepth);
@@ -1219,7 +1212,12 @@ moves_loop:  // When in check, search starts here
             if (move == ttData.move && ss->ply <= thisThread->rootDepth * 2)
                 newDepth = std::max(newDepth, 1);
 
+            const uint64_t nds = nodes.load(std::memory_order_relaxed);
+
             value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
+
+            if (nds == nodes.load(std::memory_order_relaxed))
+                value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth + 1, false);
         }
 
         // Step 19. Undo move
