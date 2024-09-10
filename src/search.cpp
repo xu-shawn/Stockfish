@@ -1054,10 +1054,15 @@ moves_loop:  // When in check, search starts here
                 Value singularBeta  = ttData.value - (54 + 76 * (ss->ttPv && !PvNode)) * depth / 64;
                 Depth singularDepth = newDepth / 2;
 
-                ss->excludedMove = move;
+                const int nodesBegin = thisThread->nodes.load(std::memory_order_relaxed);
+                ss->excludedMove     = move;
                 value =
                   search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
-                ss->excludedMove = Move::none();
+                ss->excludedMove   = Move::none();
+                const int nodesEnd = thisThread->nodes.load(std::memory_order_relaxed);
+
+                dbg_mean_of(nodesEnd - nodesBegin, depth);
+                dbg_extremes_of(nodesEnd - nodesBegin, depth);
 
                 if (value < singularBeta)
                 {
