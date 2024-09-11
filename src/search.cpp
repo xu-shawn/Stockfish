@@ -572,10 +572,9 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
-                              thisThread->optimism[us])
-                   : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
+                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
+                                                        : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -697,7 +696,6 @@ Value Search::Worker::search(
         // Skip early pruning when in check
         ss->staticEval = eval = (ss - 2)->staticEval;
         improving             = false;
-        goto moves_loop;
     }
     else if (excludedMove)
     {
@@ -734,168 +732,177 @@ Value Search::Worker::search(
                        unadjustedStaticEval, tt.generation());
     }
 
-    // Use static evaluation difference to improve quiet move ordering (~9 Elo)
-    if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture)
+    if (!ss->inCheck)
     {
-        int bonus = std::clamp(-10 * int((ss - 1)->staticEval + ss->staticEval), -1664, 1471) + 752;
-        thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << bonus;
-        if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
-            thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
-              << bonus / 2;
-    }
-
-    // Set up the improving flag, which is true if current static evaluation is
-    // bigger than the previous static evaluation at our turn (if we were in
-    // check at our previous move we go back until we weren't in check) and is
-    // false otherwise. The improving flag is used in various pruning heuristics.
-    improving = ss->staticEval > (ss - 2)->staticEval;
-
-    opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
-
-    // Step 7. Razoring (~1 Elo)
-    // If eval is really low, check with qsearch if we can exceed alpha. If the
-    // search suggests we cannot exceed alpha, return a speculative fail low.
-    if (eval < alpha - 494 - 290 * depth * depth)
-    {
-        value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
-        if (value < alpha && std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY)
-            return value;
-    }
-
-    // Step 8. Futility pruning: child node (~40 Elo)
-    // The depth condition is important for mate finding.
-    if (!ss->ttPv && depth < 13
-        && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
-               - (ss - 1)->statScore / 260
-             >= beta
-        && eval >= beta && (!ttData.move || ttCapture) && beta > VALUE_TB_LOSS_IN_MAX_PLY
-        && eval < VALUE_TB_WIN_IN_MAX_PLY)
-        return beta + (eval - beta) / 3;
-
-    // Step 9. Null move search with verification search (~35 Elo)
-    if (cutNode && (ss - 1)->currentMove != Move::null() && eval >= beta
-        && ss->staticEval >= beta - 21 * depth + 390 && !excludedMove && pos.non_pawn_material(us)
-        && ss->ply >= thisThread->nmpMinPly && beta > VALUE_TB_LOSS_IN_MAX_PLY)
-    {
-        assert(eval - beta >= 0);
-
-        // Null move dynamic reduction based on depth and eval
-        Depth R = std::min(int(eval - beta) / 202, 6) + depth / 3 + 5;
-
-        ss->currentMove         = Move::null();
-        ss->continuationHistory = &thisThread->continuationHistory[0][0][NO_PIECE][0];
-
-        pos.do_null_move(st, tt);
-
-        Value nullValue = -search<NonPV>(pos, ss + 1, -beta, -beta + 1, depth - R, false);
-
-        pos.undo_null_move();
-
-        // Do not return unproven mate or TB scores
-        if (nullValue >= beta && nullValue < VALUE_TB_WIN_IN_MAX_PLY)
+        // Use static evaluation difference to improve quiet move ordering (~9 Elo)
+        if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture)
         {
-            if (thisThread->nmpMinPly || depth < 16)
-                return nullValue;
-
-            assert(!thisThread->nmpMinPly);  // Recursive verification is not allowed
-
-            // Do verification search at high depths, with null move pruning disabled
-            // until ply exceeds nmpMinPly.
-            thisThread->nmpMinPly = ss->ply + 3 * (depth - R) / 4;
-
-            Value v = search<NonPV>(pos, ss, beta - 1, beta, depth - R, false);
-
-            thisThread->nmpMinPly = 0;
-
-            if (v >= beta)
-                return nullValue;
+            int bonus =
+              std::clamp(-10 * int((ss - 1)->staticEval + ss->staticEval), -1664, 1471) + 752;
+            thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << bonus;
+            if (type_of(pos.piece_on(prevSq)) != PAWN
+                && ((ss - 1)->currentMove).type_of() != PROMOTION)
+                thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
+                  << bonus / 2;
         }
-    }
 
-    // Step 10. Internal iterative reductions (~9 Elo)
-    // For PV nodes without a ttMove, we decrease depth.
-    if (PvNode && !ttData.move)
-        depth -= 3;
+        // Set up the improving flag, which is true if current static evaluation is
+        // bigger than the previous static evaluation at our turn (if we were in
+        // check at our previous move we go back until we weren't in check) and is
+        // false otherwise. The improving flag is used in various pruning heuristics.
+        improving = ss->staticEval > (ss - 2)->staticEval;
 
-    // Use qsearch if depth <= 0
-    if (depth <= 0)
-        return qsearch<PV>(pos, ss, alpha, beta);
+        opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
 
-    // For cutNodes, if depth is high enough, decrease depth by 2 if there is no ttMove,
-    // or by 1 if there is a ttMove with an upper bound.
-    if (cutNode && depth >= 7 && (!ttData.move || ttData.bound == BOUND_UPPER))
-        depth -= 1 + !ttData.move;
-
-    // Step 11. ProbCut (~10 Elo)
-    // If we have a good enough capture (or queen promotion) and a reduced search
-    // returns a value much above beta, we can (almost) safely prune the previous move.
-    probCutBeta = beta + 184 - 53 * improving;
-    if (!PvNode && depth > 3
-        && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY
-        // If value from transposition table is lower than probCutBeta, don't attempt
-        // probCut there and in further interactions with transposition table cutoff
-        // depth is set to depth - 3 because probCut search has depth set to depth - 4
-        // but we also do a move before it. So effective depth is equal to depth - 3.
-        && !(ttData.depth >= depth - 3 && ttData.value != VALUE_NONE && ttData.value < probCutBeta))
-    {
-        assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
-
-        MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &thisThread->captureHistory);
-        Piece      captured;
-
-        while ((move = mp.next_move()) != Move::none())
+        // Step 7. Razoring (~1 Elo)
+        // If eval is really low, check with qsearch if we can exceed alpha. If the
+        // search suggests we cannot exceed alpha, return a speculative fail low.
+        if (eval < alpha - 494 - 290 * depth * depth)
         {
-            assert(move.is_ok());
+            value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
+            if (value < alpha && std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY)
+                return value;
+        }
 
-            if (move == excludedMove)
-                continue;
+        // Step 8. Futility pruning: child node (~40 Elo)
+        // The depth condition is important for mate finding.
+        if (!ss->ttPv && depth < 13
+            && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
+                   - (ss - 1)->statScore / 260
+                 >= beta
+            && eval >= beta && (!ttData.move || ttCapture) && beta > VALUE_TB_LOSS_IN_MAX_PLY
+            && eval < VALUE_TB_WIN_IN_MAX_PLY)
+            return beta + (eval - beta) / 3;
 
-            if (!pos.legal(move))
-                continue;
+        // Step 9. Null move search with verification search (~35 Elo)
+        if (cutNode && (ss - 1)->currentMove != Move::null() && eval >= beta
+            && ss->staticEval >= beta - 21 * depth + 390 && !excludedMove
+            && pos.non_pawn_material(us) && ss->ply >= thisThread->nmpMinPly
+            && beta > VALUE_TB_LOSS_IN_MAX_PLY)
+        {
+            assert(eval - beta >= 0);
 
-            assert(pos.capture_stage(move));
+            // Null move dynamic reduction based on depth and eval
+            Depth R = std::min(int(eval - beta) / 202, 6) + depth / 3 + 5;
 
-            movedPiece = pos.moved_piece(move);
-            captured   = pos.piece_on(move.to_sq());
+            ss->currentMove         = Move::null();
+            ss->continuationHistory = &thisThread->continuationHistory[0][0][NO_PIECE][0];
 
+            pos.do_null_move(st, tt);
 
-            // Prefetch the TT entry for the resulting position
-            prefetch(tt.first_entry(pos.key_after(move)));
+            Value nullValue = -search<NonPV>(pos, ss + 1, -beta, -beta + 1, depth - R, false);
 
-            ss->currentMove = move;
-            ss->continuationHistory =
-              &this->continuationHistory[ss->inCheck][true][pos.moved_piece(move)][move.to_sq()];
+            pos.undo_null_move();
 
-            thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
-            pos.do_move(move, st);
-
-            // Perform a preliminary qsearch to verify that the move holds
-            value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
-
-            // If the qsearch held, perform the regular search
-            if (value >= probCutBeta)
-                value =
-                  -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, depth - 4, !cutNode);
-
-            pos.undo_move(move);
-
-            if (value >= probCutBeta)
+            // Do not return unproven mate or TB scores
+            if (nullValue >= beta && nullValue < VALUE_TB_WIN_IN_MAX_PLY)
             {
-                thisThread->captureHistory[movedPiece][move.to_sq()][type_of(captured)]
-                  << stat_bonus(depth - 2);
+                if (thisThread->nmpMinPly || depth < 16)
+                    return nullValue;
 
-                // Save ProbCut data into transposition table
-                ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
-                               depth - 3, move, unadjustedStaticEval, tt.generation());
-                return std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY ? value - (probCutBeta - beta)
-                                                                 : value;
+                assert(!thisThread->nmpMinPly);  // Recursive verification is not allowed
+
+                // Do verification search at high depths, with null move pruning disabled
+                // until ply exceeds nmpMinPly.
+                thisThread->nmpMinPly = ss->ply + 3 * (depth - R) / 4;
+
+                Value v = search<NonPV>(pos, ss, beta - 1, beta, depth - R, false);
+
+                thisThread->nmpMinPly = 0;
+
+                if (v >= beta)
+                    return nullValue;
             }
         }
 
-        Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
+        // Step 10. Internal iterative reductions (~9 Elo)
+        // For PV nodes without a ttMove, we decrease depth.
+        if (PvNode && !ttData.move)
+            depth -= 3;
+
+        // Use qsearch if depth <= 0
+        if (depth <= 0)
+            return qsearch<PV>(pos, ss, alpha, beta);
+
+        // For cutNodes, if depth is high enough, decrease depth by 2 if there is no ttMove,
+        // or by 1 if there is a ttMove with an upper bound.
+        if (cutNode && depth >= 7 && (!ttData.move || ttData.bound == BOUND_UPPER))
+            depth -= 1 + !ttData.move;
+
+        // Step 11. ProbCut (~10 Elo)
+        // If we have a good enough capture (or queen promotion) and a reduced search
+        // returns a value much above beta, we can (almost) safely prune the previous move.
+        probCutBeta = beta + 184 - 53 * improving;
+        if (!PvNode && depth > 3
+            && std::abs(beta) < VALUE_TB_WIN_IN_MAX_PLY
+            // If value from transposition table is lower than probCutBeta, don't attempt
+            // probCut there and in further interactions with transposition table cutoff
+            // depth is set to depth - 3 because probCut search has depth set to depth - 4
+            // but we also do a move before it. So effective depth is equal to depth - 3.
+            && !(ttData.depth >= depth - 3 && ttData.value != VALUE_NONE
+                 && ttData.value < probCutBeta))
+        {
+            assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
+
+            MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval,
+                          &thisThread->captureHistory);
+            Piece      captured;
+
+            while ((move = mp.next_move()) != Move::none())
+            {
+                assert(move.is_ok());
+
+                if (move == excludedMove)
+                    continue;
+
+                if (!pos.legal(move))
+                    continue;
+
+                assert(pos.capture_stage(move));
+
+                movedPiece = pos.moved_piece(move);
+                captured   = pos.piece_on(move.to_sq());
+
+
+                // Prefetch the TT entry for the resulting position
+                prefetch(tt.first_entry(pos.key_after(move)));
+
+                ss->currentMove = move;
+                ss->continuationHistory =
+                  &this
+                     ->continuationHistory[ss->inCheck][true][pos.moved_piece(move)][move.to_sq()];
+
+                thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
+                pos.do_move(move, st);
+
+                // Perform a preliminary qsearch to verify that the move holds
+                value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
+
+                // If the qsearch held, perform the regular search
+                if (value >= probCutBeta)
+                    value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, depth - 4,
+                                           !cutNode);
+
+                pos.undo_move(move);
+
+                if (value >= probCutBeta)
+                {
+                    thisThread->captureHistory[movedPiece][move.to_sq()][type_of(captured)]
+                      << stat_bonus(depth - 2);
+
+                    // Save ProbCut data into transposition table
+                    ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
+                                   depth - 3, move, unadjustedStaticEval, tt.generation());
+                    return std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY ? value - (probCutBeta - beta)
+                                                                     : value;
+                }
+            }
+
+            Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
+        }
     }
 
-moves_loop:  // When in check, search starts here
+    // When in check, search starts here
 
     // Step 12. A small Probcut idea (~4 Elo)
     probCutBeta = beta + 390;
