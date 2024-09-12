@@ -279,7 +279,7 @@ class Worker {
     // Public because they need to be updatable by the stats
     ButterflyHistory          mainHistory;
     CapturePieceToHistory     captureHistory;
-    ContinuationHistory       continuationHistory[2][2];
+    ContinuationHistory       continuationHistory[2][2][2];
     PawnHistory               pawnHistory;
     PawnCorrectionHistory     pawnCorrectionHistory;
     MaterialCorrectionHistory materialCorrectionHistory;
@@ -293,7 +293,7 @@ class Worker {
 
     // Quiescence search function, which is called by the main search
     template<NodeType nodeType>
-    Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta);
+    Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, bool cutNode);
 
     Depth reduction(bool i, Depth d, int mn, int delta) const;
 

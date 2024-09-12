@@ -235,7 +235,7 @@ void Search::Worker::iterative_deepening() {
     for (int i = 7; i > 0; --i)
     {
         (ss - i)->continuationHistory =
-          &this->continuationHistory[0][0][NO_PIECE][0];  // Use as a sentinel
+          &this->continuationHistory[0][0][0][NO_PIECE][0];  // Use as a sentinel
         (ss - i)->staticEval = VALUE_NONE;
     }
 
@@ -495,9 +495,10 @@ void Search::Worker::clear() {
 
     for (bool inCheck : {false, true})
         for (StatsType c : {NoCaptures, Captures})
-            for (auto& to : continuationHistory[inCheck][c])
-                for (auto& h : to)
-                    h->fill(-658);
+            for (bool cutnode : {false, true})
+                for (auto& to : continuationHistory[inCheck][c][cutnode])
+                    for (auto& h : to)
+                        h->fill(-658);
 
     for (size_t i = 1; i < reductions.size(); ++i)
         reductions[i] = int((18.62 + std::log(size_t(options["Threads"])) / 2) * std::log(i));
@@ -517,7 +518,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta, !PvNode && cutNode);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -757,7 +758,7 @@ Value Search::Worker::search(
     // search suggests we cannot exceed alpha, return a speculative fail low.
     if (eval < alpha - 494 - 290 * depth * depth)
     {
-        value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
+        value = qsearch<NonPV>(pos, ss, alpha - 1, alpha, cutNode);
         if (value < alpha && std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY)
             return value;
     }
@@ -783,7 +784,7 @@ Value Search::Worker::search(
         Depth R = std::min(int(eval - beta) / 202, 6) + depth / 3 + 5;
 
         ss->currentMove         = Move::null();
-        ss->continuationHistory = &thisThread->continuationHistory[0][0][NO_PIECE][0];
+        ss->continuationHistory = &thisThread->continuationHistory[0][0][0][NO_PIECE][0];
 
         pos.do_null_move(st, tt);
 
@@ -819,7 +820,7 @@ Value Search::Worker::search(
 
     // Use qsearch if depth <= 0
     if (depth <= 0)
-        return qsearch<PV>(pos, ss, alpha, beta);
+        return qsearch<PV>(pos, ss, alpha, beta, false);
 
     // For cutNodes, if depth is high enough, decrease depth by 2 if there is no ttMove,
     // or by 1 if there is a ttMove with an upper bound.
@@ -842,6 +843,7 @@ Value Search::Worker::search(
 
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &thisThread->captureHistory);
         Piece      captured;
+        int        moveCount = 0;
 
         while ((move = mp.next_move()) != Move::none())
         {
@@ -857,6 +859,7 @@ Value Search::Worker::search(
 
             movedPiece = pos.moved_piece(move);
             captured   = pos.piece_on(move.to_sq());
+            moveCount++;
 
 
             // Prefetch the TT entry for the resulting position
@@ -864,13 +867,14 @@ Value Search::Worker::search(
 
             ss->currentMove = move;
             ss->continuationHistory =
-              &this->continuationHistory[ss->inCheck][true][pos.moved_piece(move)][move.to_sq()];
+              &this->continuationHistory[ss->inCheck][true][cutNode][pos.moved_piece(move)]
+                                        [move.to_sq()];
 
             thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
             pos.do_move(move, st);
 
             // Perform a preliminary qsearch to verify that the move holds
-            value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
+            value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, moveCount != 0);
 
             // If the qsearch held, perform the regular search
             if (value >= probCutBeta)
@@ -1112,7 +1116,7 @@ moves_loop:  // When in check, search starts here
         // Update the current move (this must be done after singular extension search)
         ss->currentMove = move;
         ss->continuationHistory =
-          &thisThread->continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
+          &thisThread->continuationHistory[ss->inCheck][capture][cutNode][movedPiece][move.to_sq()];
 
         uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
 
@@ -1409,7 +1413,7 @@ moves_loop:  // When in check, search starts here
 // See https://www.chessprogramming.org/Horizon_Effect
 // and https://www.chessprogramming.org/Quiescence_Search
 template<NodeType nodeType>
-Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta) {
+Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta, bool cutNode) {
 
     static_assert(nodeType != Root);
     constexpr bool PvNode = nodeType == PV;
@@ -1607,13 +1611,13 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         // Update the current move
         ss->currentMove = move;
         ss->continuationHistory =
-          &thisThread
-             ->continuationHistory[ss->inCheck][capture][pos.moved_piece(move)][move.to_sq()];
+          &thisThread->continuationHistory[ss->inCheck][capture][false][pos.moved_piece(move)]
+                                          [move.to_sq()];
 
         // Step 7. Make and search the move
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
         pos.do_move(move, st, givesCheck);
-        value = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha);
+        value = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha, !cutNode);
         pos.undo_move(move);
 
         assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
