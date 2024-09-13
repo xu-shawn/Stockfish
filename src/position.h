@@ -24,6 +24,7 @@
 #include <iosfwd>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "bitboard.h"
 #include "nnue/nnue_accumulator.h"
@@ -43,6 +44,7 @@ struct StateInfo {
     // Copied when making a move
     Key    materialKey;
     Key    pawnKey;
+    Key    nonPawnKey[COLOR_NB];
     Value  nonPawnMaterial[COLOR_NB];
     int    castlingRights;
     int    rule50;
@@ -151,6 +153,7 @@ class Position {
     Key key_after(Move m) const;
     Key material_key() const;
     Key pawn_key() const;
+    Key non_pawn_key(Color c) const;
 
     // Other properties of the position
     Color side_to_move() const;
@@ -297,6 +300,8 @@ inline Key Position::adjust_key50(Key k) const {
 inline Key Position::pawn_key() const { return st->pawnKey; }
 
 inline Key Position::material_key() const { return st->materialKey; }
+
+inline Key Position::non_pawn_key(Color c) const { return st->nonPawnKey[c]; }
 
 inline Value Position::non_pawn_material(Color c) const { return st->nonPawnMaterial[c]; }
 

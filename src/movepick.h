@@ -37,6 +37,7 @@ namespace Stockfish {
 constexpr int PAWN_HISTORY_SIZE                = 512;    // has to be a power of 2
 constexpr int PAWN_CORRECTION_HISTORY_SIZE     = 16384;  // has to be a power of 2
 constexpr int MATERIAL_CORRECTION_HISTORY_SIZE = 32768;  // has to be a power of 2
+constexpr int NON_PAWN_CORRECTION_HISTORY_SIZE = 32768;  // has to be a power of 2
 constexpr int CORRECTION_HISTORY_LIMIT         = 1024;
 
 static_assert((PAWN_HISTORY_SIZE & (PAWN_HISTORY_SIZE - 1)) == 0,
@@ -57,6 +58,11 @@ inline int pawn_structure_index(const Position& pos) {
 
 inline int material_index(const Position& pos) {
     return pos.material_key() & (MATERIAL_CORRECTION_HISTORY_SIZE - 1);
+}
+
+template<Color c>
+inline int non_pawn_index(const Position& pos) {
+    return pos.non_pawn_key(c) & (NON_PAWN_CORRECTION_HISTORY_SIZE - 1);
 }
 
 // StatsEntry stores the stat table value. It is usually a number but could
@@ -150,6 +156,10 @@ using PawnCorrectionHistory =
 // MaterialCorrectionHistory is addressed by color and material configuration
 using MaterialCorrectionHistory =
   Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, MATERIAL_CORRECTION_HISTORY_SIZE>;
+
+// NonPawnCorrectionHistory
+using NonPawnCorrectionHistory =
+  Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, COLOR_NB, NON_PAWN_CORRECTION_HISTORY_SIZE>;
 
 // The MovePicker class is used to pick one pseudo-legal move at a time from the
 // current position. The most important method is next_move(), which emits one
