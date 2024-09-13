@@ -83,10 +83,9 @@ constexpr int futility_move_count(bool improving, Depth depth) {
 Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
     const Color us   = pos.side_to_move();
     const auto  pcv  = w.pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)];
-    const auto  mcv  = w.materialCorrectionHistory[us][material_index(pos)];
     const auto  macv = w.majorPieceCorrectionHistory[us][major_piece_index(pos)];
     const auto  micv = w.minorPieceCorrectionHistory[us][minor_piece_index(pos)];
-    const auto  cv   = (2 * pcv + mcv + macv + micv) / 5;
+    const auto  cv   = (2 * pcv + macv + micv) / 4;
     v += 66 * cv / 512;
     return std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
@@ -1394,7 +1393,6 @@ moves_loop:  // When in check, search starts here
         auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / 8,
                                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
         thisThread->pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)] << bonus;
-        thisThread->materialCorrectionHistory[us][material_index(pos)] << bonus;
         thisThread->majorPieceCorrectionHistory[us][major_piece_index(pos)] << bonus;
         thisThread->minorPieceCorrectionHistory[us][minor_piece_index(pos)] << bonus;
     }
