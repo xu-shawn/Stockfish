@@ -494,6 +494,8 @@ void Search::Worker::clear() {
     pawnHistory.fill(-1188);
     pawnCorrectionHistory.fill(0);
     materialCorrectionHistory.fill(0);
+    majorPieceCorrectionHistory.fill(0);
+    minorPieceCorrectionHistory.fill(0);
 
     for (bool inCheck : {false, true})
         for (StatsType c : {NoCaptures, Captures})
