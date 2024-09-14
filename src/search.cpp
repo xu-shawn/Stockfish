@@ -86,7 +86,7 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
     const auto  mcv  = w.materialCorrectionHistory[us][material_index(pos)];
     const auto  macv = w.majorPieceCorrectionHistory[us][major_piece_index(pos)];
     const auto  micv = w.minorPieceCorrectionHistory[us][minor_piece_index(pos)];
-    const auto  cv   = (2 * pcv + mcv + macv + micv) / 5;
+    const auto  cv   = (4 * pcv + 2 * mcv + macv + micv) / 8;
     v += 66 * cv / 512;
     return std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
