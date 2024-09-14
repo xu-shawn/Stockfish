@@ -100,7 +100,6 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
     const auto  cv    = (pcvWeight * pcv + mcvWeight * mcv + macvWeight * macv + micvWeight * micv
                      + npcvWeight * wnpcv + npcvWeight * bnpcv)
                   / 8192;
-    // const auto cv = (2 * pcv + mcv + macv + micv) / 5;
     v += 74 * cv / 512;
     return std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }

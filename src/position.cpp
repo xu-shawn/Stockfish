@@ -863,7 +863,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
     else
     {
-        st->nonPawnMaterial[us] ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
+        st->nonPawnKey[us] ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
 
         if (type_of(pc) == KING)
         {
