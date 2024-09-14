@@ -53,13 +53,11 @@
 
 namespace Stockfish {
 
-int pcvWeight  = 2048;
-int mcvWeight  = 2048;
-int macvWeight = 1024;
-int micvWeight = 1024;
-int npcvWeight = 1024;
-
-TUNE(pcvWeight, mcvWeight, macvWeight, micvWeight, npcvWeight, SetRange(0, 4096));
+constexpr int pcvWeight  = 2467;
+constexpr int mcvWeight  = 2327;
+constexpr int macvWeight = 1225;
+constexpr int micvWeight = 1669;
+constexpr int npcvWeight = 1584;
 
 namespace TB = Tablebases;
 
@@ -591,9 +589,10 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
-                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
-                                                        : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck)
+                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
+                              thisThread->optimism[us])
+                   : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
