@@ -59,11 +59,11 @@ int macvWeight = 1370;
 int micvWeight = 1748;
 int npcvWeight = 1985;
 
-TUNE(pcvWeight, SetRange(0, 8192));
-TUNE(mcvWeight, SetRange(0, 8192));
-TUNE(macvWeight, SetRange(0, 8192));
-TUNE(micvWeight, SetRange(0, 8192));
-TUNE(npcvWeight, SetRange(0, 8192));
+TUNE(SetRange(0, 8192), pcvWeight);
+TUNE(SetRange(0, 8192), mcvWeight);
+TUNE(SetRange(0, 8192), macvWeight);
+TUNE(SetRange(0, 8192), micvWeight);
+TUNE(SetRange(0, 8192), npcvWeight);
 
 namespace TB = Tablebases;
 
