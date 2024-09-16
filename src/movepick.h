@@ -136,7 +136,7 @@ enum StatsType {
 // ButterflyHistory records how often quiet moves have been successful or unsuccessful
 // during the current search, and is used for reduction and move ordering decisions.
 // It uses 2 tables (one for each color) indexed by the move's from and to squares,
-// see www.chessprogramming.org/Butterfly_Boards (~11 elo)
+// see https://www.chessprogramming.org/Butterfly_Boards (~11 elo)
 using ButterflyHistory = Stats<int16_t, 7183, COLOR_NB, int(SQUARE_NB) * int(SQUARE_NB)>;
 
 // CapturePieceToHistory is addressed by a move's [piece][to][captured piece type]
@@ -154,10 +154,10 @@ using ContinuationHistory = Stats<PieceToHistory, NOT_USED, PIECE_NB, SQUARE_NB>
 // PawnHistory is addressed by the pawn structure and a move's [piece][to]
 using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>;
 
-
 // Correction histories record differences between the static evaluation of
 // positions and their search score. It is used to improve the static evaluation
 // used by some search heuristics.
+// see https://www.chessprogramming.org/Static_Evaluation_Correction_History
 
 // PawnCorrectionHistory is addressed by color and pawn structure
 using PawnCorrectionHistory =
@@ -167,14 +167,15 @@ using PawnCorrectionHistory =
 using MaterialCorrectionHistory =
   Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, MATERIAL_CORRECTION_HISTORY_SIZE>;
 
-// MaterialCorrectionHistory is addressed by color and material configuration
+// MajorPieceCorrectionHistory is addressed by color and king/major piece (Queen, Rook) positions
 using MajorPieceCorrectionHistory =
   Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, MAJOR_PIECE_CORRECTION_HISTORY_SIZE>;
 
-// MaterialCorrectionHistory is addressed by color and material configuration
+// MinorPieceCorrectionHistory is addressed by color and king/minor piece (Knight, Bishop) positions
 using MinorPieceCorrectionHistory =
   Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, MINOR_PIECE_CORRECTION_HISTORY_SIZE>;
 
+// NonPawnCorrectionHistory is addressed by color and non-pawn material positions
 using NonPawnCorrectionHistory =
   Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, NON_PAWN_CORRECTION_HISTORY_SIZE>;
 

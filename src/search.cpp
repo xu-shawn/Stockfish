@@ -46,24 +46,10 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
-#include "tune.h"
-#include "types.h"
 #include "uci.h"
 #include "ucioption.h"
 
 namespace Stockfish {
-
-int pcvWeight  = 2378;
-int mcvWeight  = 2089;
-int macvWeight = 1370;
-int micvWeight = 1748;
-int npcvWeight = 1985;
-
-TUNE(SetRange(0, 8192), pcvWeight);
-TUNE(SetRange(0, 8192), mcvWeight);
-TUNE(SetRange(0, 8192), macvWeight);
-TUNE(SetRange(0, 8192), micvWeight);
-TUNE(SetRange(0, 8192), npcvWeight);
 
 namespace TB = Tablebases;
 
@@ -101,10 +87,9 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
     const auto  micv  = w.minorPieceCorrectionHistory[us][minor_piece_index(pos)];
     const auto  wnpcv = w.nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)];
     const auto  bnpcv = w.nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)];
-    const auto  cv    = (pcvWeight * pcv + mcvWeight * mcv + macvWeight * macv + micvWeight * micv
-                     + npcvWeight * wnpcv + npcvWeight * bnpcv)
-                  / 8192;
-    v += 74 * cv / 512;
+    const auto  cv =
+      (98198 * pcv + 68968 * mcv + 54353 * macv + 85174 * micv + 85581 * (wnpcv + bnpcv)) / 2097152;
+    v += cv;
     return std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
 
