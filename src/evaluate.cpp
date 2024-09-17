@@ -59,6 +59,18 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
 
     assert(!pos.checkers());
 
+    int vv = pos.count<PAWN>(WHITE) - pos.count<PAWN>(BLACK)
+           + (pos.count<BISHOP>(WHITE) - pos.count<BISHOP>(BLACK)) * 3
+           + (pos.count<KNIGHT>(WHITE) - pos.count<KNIGHT>(BLACK)) * 3
+           + (pos.count<ROOK>(WHITE) - pos.count<ROOK>(BLACK)) * 5
+           + (pos.count<QUEEN>(WHITE) - pos.count<QUEEN>(BLACK)) * 9;
+
+    vv *= PawnValue;
+
+    vv += Value(2 * (pos.key() & 3) - 3);
+
+    return Value(pos.side_to_move() == WHITE ? vv : -vv);
+
     bool smallNet = use_smallnet(pos);
     int  v;
 
