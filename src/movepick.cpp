@@ -36,9 +36,9 @@ int captureValueMultiplier = 2340;
 int concapthistFactor = 32768;
 int pieceValueFactor  = 32768;
 
-TUNE(captureValueDelta);
+TUNE(SetRange(-20000, 20000), captureValueDelta);
 TUNE(SetRange(0, 30000), captureValueMultiplier);
-TUNE(concapthistFactor);
+TUNE(SetRange(0, 131072), concapthistFactor);
 TUNE(pieceValueFactor);
 
 namespace {
