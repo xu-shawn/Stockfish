@@ -53,15 +53,15 @@
 
 namespace Stockfish {
 
-int pcvWeight  = 98198;
-int mcvWeight  = 68968;
-int macvWeight = 54353;
-int micvWeight = 85174;
-int npcvWeight = 85581;
-int picvWeight = 1024;
+int pcvWeight  = 90379;
+int mcvWeight  = 61237;
+int macvWeight = 56044;
+int micvWeight = 89374;
+int npcvWeight = 88735;
+int picvWeight = 1536;
 
 TUNE(SetRange(0, 200000), pcvWeight, mcvWeight, macvWeight, micvWeight, npcvWeight);
-TUNE(SetRange(0, 16384), picvWeight);
+TUNE(SetRange(0, 32768), picvWeight);
 
 namespace TB = Tablebases;
 
@@ -121,7 +121,7 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
 
     v += cv;
 
-    v += Value(picv * picvWeight / 524288);
+    v += Value(picv * picvWeight / 1048576);
 
     return std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
@@ -568,7 +568,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
