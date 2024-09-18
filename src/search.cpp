@@ -33,6 +33,7 @@
 #include <string>
 #include <utility>
 
+#include "bitboard.h"
 #include "evaluate.h"
 #include "misc.h"
 #include "movegen.h"
@@ -46,10 +47,21 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "uci.h"
 #include "ucioption.h"
 
 namespace Stockfish {
+
+int pcvWeight  = 98198;
+int mcvWeight  = 68968;
+int macvWeight = 54353;
+int micvWeight = 85174;
+int npcvWeight = 85581;
+int picvWeight = 1024;
+
+TUNE(SetRange(0, 200000), pcvWeight, mcvWeight, macvWeight, micvWeight, npcvWeight);
+TUNE(SetRange(0, 16384), picvWeight);
 
 namespace TB = Tablebases;
 
@@ -87,9 +99,30 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
     const auto  micv  = w.minorPieceCorrectionHistory[us][minor_piece_index(pos)];
     const auto  wnpcv = w.nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)];
     const auto  bnpcv = w.nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)];
-    const auto  cv =
-      (98198 * pcv + 68968 * mcv + 54353 * macv + 85174 * micv + 85581 * (wnpcv + bnpcv)) / 2097152;
+    const auto  cv    = (pcvWeight * pcv + mcvWeight * mcv + macvWeight * macv + micvWeight * micv
+                     + npcvWeight * (wnpcv + bnpcv))
+                  / 2097152;
+
+    int      picv = 0;
+    Bitboard occ;
+
+    for (Color color : {WHITE, BLACK})
+    {
+        for (PieceType pt : {PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING})
+        {
+            occ = pos.pieces(color, pt);
+
+            while (occ)
+            {
+                picv += w.pieceRelativeCorrectionHistory[us][color][pt][pop_lsb(occ)];
+            }
+        }
+    }
+
     v += cv;
+
+    v += Value(picv * picvWeight / 524288);
+
     return std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
 
@@ -500,12 +533,14 @@ void Search::Worker::iterative_deepening() {
 void Search::Worker::clear() {
     mainHistory.fill(0);
     rootHistory.fill(0);
-    captureHistory.fill(-753);
     pawnHistory.fill(-1152);
+    captureHistory.fill(-753);
+
     pawnCorrectionHistory.fill(0);
     materialCorrectionHistory.fill(0);
     majorPieceCorrectionHistory.fill(0);
     minorPieceCorrectionHistory.fill(0);
+    pieceRelativeCorrectionHistory.fill(0);
     nonPawnCorrectionHistory[WHITE].fill(0);
     nonPawnCorrectionHistory[BLACK].fill(0);
 
@@ -1415,6 +1450,22 @@ moves_loop:  // When in check, search starts here
         thisThread->minorPieceCorrectionHistory[us][minor_piece_index(pos)] << bonus;
         thisThread->nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)] << bonus;
         thisThread->nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)] << bonus;
+
+        Bitboard occ;
+
+        for (Color color : {WHITE, BLACK})
+        {
+            for (PieceType pt : {PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING})
+            {
+                occ = pos.pieces(color, pt);
+
+                while (occ)
+                {
+                    thisThread->pieceRelativeCorrectionHistory[us][color][pt][pop_lsb(occ)]
+                      << bonus;
+                }
+            }
+        }
     }
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
