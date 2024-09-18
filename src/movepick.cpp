@@ -37,7 +37,7 @@ int concapthistFactor = 32768;
 int pieceValueFactor  = 32768;
 
 TUNE(captureValueDelta);
-TUNE(captureValueMultiplier);
+TUNE(SetRange(0, 30000), captureValueMultiplier);
 TUNE(concapthistFactor);
 TUNE(pieceValueFactor);
 
