@@ -25,21 +25,14 @@
 #include "bitboard.h"
 #include "misc.h"
 #include "position.h"
-#include "tune.h"
-#include "types.h"
 
 namespace Stockfish {
 
-int captureValueDelta      = 4200;
-int captureValueMultiplier = 2340;
+constexpr int captureValueDelta      = 4596;
+constexpr int captureValueMultiplier = 2361;
 
-int concapthistFactor = 32768;
-int pieceValueFactor  = 32768;
-
-TUNE(SetRange(-20000, 20000), captureValueDelta);
-TUNE(SetRange(0, 30000), captureValueMultiplier);
-TUNE(SetRange(0, 131072), concapthistFactor);
-TUNE(pieceValueFactor);
+constexpr int concapthistFactor = 46309;
+constexpr int pieceValueFactor  = 33239;
 
 namespace {
 
