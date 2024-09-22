@@ -164,7 +164,7 @@ void MovePicker::score() {
             m.value = m.SEEValue =
               int(PieceValue[captured]) * 7 + (*captureHistory)[pc][to][captured];
 
-            m.value += (*continuationHistory[0])[pc][to][captured];
+            m.value += (*continuationHistory[0])[true][pc][to][captured];
         }
 
         else if constexpr (Type == QUIETS)
@@ -177,11 +177,11 @@ void MovePicker::score() {
             // histories
             m.value = (*mainHistory)[pos.side_to_move()][m.from_to()];
             m.value += 2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to];
-            m.value += 2 * (*continuationHistory[0])[pc][to][PieceType::NO_PIECE_TYPE];
-            m.value += (*continuationHistory[1])[pc][to][PieceType::NO_PIECE_TYPE];
-            m.value += (*continuationHistory[2])[pc][to][PieceType::NO_PIECE_TYPE] / 3;
-            m.value += (*continuationHistory[3])[pc][to][PieceType::NO_PIECE_TYPE];
-            m.value += (*continuationHistory[5])[pc][to][PieceType::NO_PIECE_TYPE];
+            m.value += 2 * (*continuationHistory[0])[false][pc][to][PieceType::NO_PIECE_TYPE];
+            m.value += (*continuationHistory[1])[false][pc][to][PieceType::NO_PIECE_TYPE];
+            m.value += (*continuationHistory[2])[false][pc][to][PieceType::NO_PIECE_TYPE] / 3;
+            m.value += (*continuationHistory[3])[false][pc][to][PieceType::NO_PIECE_TYPE];
+            m.value += (*continuationHistory[5])[false][pc][to][PieceType::NO_PIECE_TYPE];
 
             // bonus for checks
             m.value += bool(pos.check_squares(pt) & to) * 16384;
@@ -209,7 +209,7 @@ void MovePicker::score() {
                   PieceValue[pos.piece_on(m.to_sq())] - type_of(pos.moved_piece(m)) + (1 << 28);
             else
                 m.value = (*mainHistory)[pos.side_to_move()][m.from_to()]
-                        + (*continuationHistory[0])[pos.moved_piece(m)][m.to_sq()]
+                        + (*continuationHistory[0])[false][pos.moved_piece(m)][m.to_sq()]
                                                    [PieceType::NO_PIECE_TYPE]
                         + (*pawnHistory)[pawn_structure_index(pos)][pos.moved_piece(m)][m.to_sq()];
         }

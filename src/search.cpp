@@ -104,22 +104,23 @@ Value value_draw(size_t nodes) { return VALUE_DRAW - 1 + Value(nodes & 0x2); }
 Value value_to_tt(Value v, int ply);
 Value value_from_tt(Value v, int ply, int r50c);
 void  update_pv(Move* pv, Move move, const Move* childPv);
-void  update_continuation_histories(Stack* ss, Piece pc, Square to, PieceType captured, int bonus);
-void  update_quiet_histories(const Position& pos,
-                             Stack*          ss,
-                             Search::Worker& workerThread,
-                             Move            move,
-                             int             bonus,
-                             bool            rootNode);
-void  update_all_stats(const Position&      pos,
-                       Stack*               ss,
-                       Search::Worker&      workerThread,
-                       Move                 bestMove,
-                       Square               prevSq,
-                       ValueList<Move, 32>& quietsSearched,
-                       ValueList<Move, 32>& capturesSearched,
-                       Depth                depth,
-                       bool                 rootNode);
+void  update_continuation_histories(
+   Stack* ss, Piece pc, Square to, bool capture, PieceType captured, int bonus);
+void update_quiet_histories(const Position& pos,
+                            Stack*          ss,
+                            Search::Worker& workerThread,
+                            Move            move,
+                            int             bonus,
+                            bool            rootNode);
+void update_all_stats(const Position&      pos,
+                      Stack*               ss,
+                      Search::Worker&      workerThread,
+                      Move                 bestMove,
+                      Square               prevSq,
+                      ValueList<Move, 32>& quietsSearched,
+                      ValueList<Move, 32>& capturesSearched,
+                      Depth                depth,
+                      bool                 rootNode);
 
 }  // namespace
 
@@ -555,14 +556,13 @@ Value Search::Worker::search(
     StateInfo st;
     ASSERT_ALIGNED(&st, Eval::NNUE::CacheLineSize);
 
-    Key       posKey;
-    Move      move, excludedMove, bestMove;
-    Depth     extension, newDepth;
-    Value     bestValue, value, eval, maxValue, probCutBeta;
-    bool      givesCheck, improving, priorCapture, opponentWorsening;
-    bool      capture, ttCapture;
-    Piece     movedPiece;
-    PieceType capturedPieceType;
+    Key   posKey;
+    Move  move, excludedMove, bestMove;
+    Depth extension, newDepth;
+    Value bestValue, value, eval, maxValue, probCutBeta;
+    bool  givesCheck, improving, priorCapture, opponentWorsening;
+    bool  capture, ttCapture;
+    Piece movedPiece;
 
     ValueList<Move, 32> capturesSearched;
     ValueList<Move, 32> quietsSearched;
@@ -589,9 +589,10 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
-                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
-                                                        : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck)
+                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
+                              thisThread->optimism[us])
+                   : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -643,7 +644,7 @@ Value Search::Worker::search(
             // Extra penalty for early quiet moves of
             // the previous ply (~1 Elo on STC, ~2 Elo on LTC)
             if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2 && !priorCapture)
-                update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
+                update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, false,
                                               PieceType::NO_PIECE_TYPE, -stat_malus(depth + 1));
         }
 
@@ -972,11 +973,10 @@ moves_loop:  // When in check, search starts here
         if (PvNode)
             (ss + 1)->pv = nullptr;
 
-        extension         = 0;
-        capture           = pos.capture_stage(move);
-        capturedPieceType = type_of(pos.piece_on(move.to_sq()));
-        movedPiece        = pos.moved_piece(move);
-        givesCheck        = pos.gives_check(move);
+        extension  = 0;
+        capture    = pos.capture_stage(move);
+        movedPiece = pos.moved_piece(move);
+        givesCheck = pos.gives_check(move);
 
         // Calculate new depth for this move
         newDepth = depth - 1;
@@ -1018,8 +1018,8 @@ moves_loop:  // When in check, search starts here
             else
             {
                 int history =
-                  (*contHist[0])[movedPiece][move.to_sq()][capturedPieceType]
-                  + (*contHist[1])[movedPiece][move.to_sq()][capturedPieceType]
+                  (*contHist[0])[capture][movedPiece][move.to_sq()][NO_PIECE_TYPE]
+                  + (*contHist[1])[capture][movedPiece][move.to_sq()][NO_PIECE_TYPE]
                   + thisThread->pawnHistory[pawn_structure_index(pos)][movedPiece][move.to_sq()];
 
                 // Continuation history based pruning (~2 Elo)
@@ -1174,8 +1174,8 @@ moves_loop:  // When in check, search starts here
             r -= 2;
 
         ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
-                      + (*contHist[0])[movedPiece][move.to_sq()][capturedPieceType]
-                      + (*contHist[1])[movedPiece][move.to_sq()][capturedPieceType] - 4410;
+                      + (*contHist[0])[false][movedPiece][move.to_sq()][NO_PIECE_TYPE]
+                      + (*contHist[1])[false][movedPiece][move.to_sq()][NO_PIECE_TYPE] - 4410;
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore / 11016;
@@ -1208,7 +1208,7 @@ moves_loop:  // When in check, search starts here
                 // Post LMR continuation history updates (~1 Elo)
                 int bonus = value >= beta ? stat_bonus(newDepth) : -stat_malus(newDepth);
 
-                update_continuation_histories(ss, movedPiece, move.to_sq(),
+                update_continuation_histories(ss, movedPiece, move.to_sq(), false,
                                               PieceType::NO_PIECE_TYPE, bonus);
             }
         }
@@ -1377,7 +1377,7 @@ moves_loop:  // When in check, search starts here
 
         bonus = std::max(bonus, 0);
 
-        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
+        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, false,
                                       PieceType::NO_PIECE_TYPE, stat_bonus(depth) * bonus / 107);
 
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()]
@@ -1619,8 +1619,9 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
             // Continuation history based pruning (~3 Elo)
             if (!capture
-                && (*contHist[0])[pos.moved_piece(move)][move.to_sq()][PieceType::NO_PIECE_TYPE]
-                       + (*contHist[1])[pos.moved_piece(move)][move.to_sq()]
+                && (*contHist[0])[false][pos.moved_piece(move)][move.to_sq()]
+                                 [PieceType::NO_PIECE_TYPE]
+                       + (*contHist[1])[false][pos.moved_piece(move)][move.to_sq()]
                                        [PieceType::NO_PIECE_TYPE]
                        + thisThread->pawnHistory[pawn_structure_index(pos)][pos.moved_piece(move)]
                                                 [move.to_sq()]
@@ -1806,13 +1807,13 @@ void update_all_stats(const Position&      pos,
         // Increase stats for the best move in case it was a capture move
         captured = type_of(pos.piece_on(to));
         captureHistory[moved_piece][to][captured] << quietMoveBonus;
-        update_continuation_histories(ss, moved_piece, to, captured, quietMoveBonus);
+        update_continuation_histories(ss, moved_piece, to, true, captured, quietMoveBonus);
     }
 
     // Extra penalty for a quiet early move that was not a TT move in
     // previous ply when it gets refuted.
     if (prevSq != SQ_NONE && ((ss - 1)->moveCount == 1 + (ss - 1)->ttHit) && !pos.captured_piece())
-        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
+        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, false,
                                       PieceType::NO_PIECE_TYPE, -quietMoveMalus);
 
     Square to;
@@ -1824,24 +1825,25 @@ void update_all_stats(const Position&      pos,
         captured    = type_of(pos.piece_on(to));
 
         captureHistory[moved_piece][to][captured] << -quietMoveMalus;
-        update_continuation_histories(ss, moved_piece, to, captured, -quietMoveMalus);
+        update_continuation_histories(ss, moved_piece, to, true, captured, -quietMoveMalus);
     }
 }
 
 
 // Updates histories of the move pairs formed by moves
 // at ply -1, -2, -3, -4, and -6 with current move.
-void update_continuation_histories(Stack* ss, Piece pc, Square to, PieceType captured, int bonus) {
+void update_continuation_histories(
+  Stack* ss, Piece pc, Square to, bool capture, PieceType captured, int bonus) {
 
     bonus = bonus * 53 / 64;
 
     for (int i : {1, 2, 3, 4, 6})
     {
         // Only update the first 2 continuation histories if we are in check
-        if ((ss->inCheck || captured) && i > 2)
+        if ((ss->inCheck || capture) && i > 2)
             break;
         if (((ss - i)->currentMove).is_ok())
-            (*(ss - i)->continuationHistory)[pc][to][captured] << bonus / (1 + (i == 3));
+            (*(ss - i)->continuationHistory)[capture][pc][to][captured] << bonus / (1 + (i == 3));
     }
 }
 
@@ -1859,8 +1861,8 @@ void update_quiet_histories(const Position& pos,
     if (rootNode)
         workerThread.rootHistory[us][move.from_to()] << bonus;
 
-    update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), PieceType::NO_PIECE_TYPE,
-                                  bonus);
+    update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), false,
+                                  PieceType::NO_PIECE_TYPE, bonus);
 
     int pIndex = pawn_structure_index(pos);
     workerThread.pawnHistory[pIndex][pos.moved_piece(move)][move.to_sq()] << bonus / 2;

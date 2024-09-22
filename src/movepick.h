@@ -140,8 +140,9 @@ enum StatsType {
 using ButterflyHistory = Stats<int16_t, 7183, COLOR_NB, int(SQUARE_NB) * int(SQUARE_NB)>;
 
 // CapturePieceToHistory is addressed by a move's [piece][to][captured piece type]
-using CapturePieceToHistory             = Stats<int16_t, 10692, PIECE_NB, SQUARE_NB, PIECE_TYPE_NB>;
-using CapturePieceToContinuationHistory = Stats<int16_t, 29952, PIECE_NB, SQUARE_NB, PIECE_TYPE_NB>;
+using CapturePieceToHistory = Stats<int16_t, 10692, PIECE_NB, SQUARE_NB, PIECE_TYPE_NB>;
+using CapturePieceToContinuationHistory =
+  Stats<int16_t, 29952, 2, PIECE_NB, SQUARE_NB, PIECE_TYPE_NB>;
 
 // PieceToHistory is like ButterflyHistory but is addressed by a move's [piece][to]
 using PieceToHistory = Stats<int16_t, 29952, PIECE_NB, SQUARE_NB>;
