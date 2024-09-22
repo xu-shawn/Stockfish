@@ -59,8 +59,7 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
 
     assert(!pos.checkers());
 
-
-    return (pos.key() ^ nodes ^ (nodes << 5)) & 255 - 128;
+    return 0;
 }
 
 // Like evaluate(), but instead of returning a value, it returns
