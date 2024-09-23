@@ -533,7 +533,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -1382,8 +1382,15 @@ moves_loop:  // When in check, search starts here
     }
 
     // Bonus when search fails low and there is a TT move
-    else if (ttData.move && !allNode)
-        thisThread->mainHistory[us][ttData.move.from_to()] << stat_bonus(depth) / 4;
+    else
+    {
+        if (priorCapture && prevSq != SQ_NONE)
+            thisThread->captureHistory[pos.piece_on(prevSq)][prevSq][type_of(pos.captured_piece())]
+              << stat_bonus(depth);
+
+        if (ttData.move && !allNode)
+            thisThread->mainHistory[us][ttData.move.from_to()] << stat_bonus(depth) / 4;
+    }
 
     if (PvNode)
         bestValue = std::min(bestValue, maxValue);
