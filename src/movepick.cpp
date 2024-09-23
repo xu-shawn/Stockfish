@@ -28,12 +28,6 @@
 
 namespace Stockfish {
 
-constexpr int captureValueDelta      = 4596;
-constexpr int captureValueMultiplier = 2361;
-
-constexpr int concapthistFactor = 46309;
-constexpr int pieceValueFactor  = 33239;
-
 namespace {
 
 enum Stages {
@@ -164,7 +158,7 @@ void MovePicker::score() {
             m.value = m.SEEValue =
               int(PieceValue[captured]) * 7 + (*captureHistory)[pc][to][captured];
 
-            m.value += (*continuationHistory[0])[true][pc][to][captured];
+            m.value += (*continuationHistory[0])[true][pc][to][captured] / 4;
         }
 
         else if constexpr (Type == QUIETS)
