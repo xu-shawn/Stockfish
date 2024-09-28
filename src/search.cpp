@@ -46,10 +46,53 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "uci.h"
 #include "ucioption.h"
 
 namespace Stockfish {
+
+int pcvWeight      = 6245;
+int mcvWeight      = 3442;
+int macvWeight     = 3471;
+int micvWeight     = 5958;
+int stmnpcvWeight  = 6566;
+int xstmnpcvWeight = 6566;
+int tcvWeight      = 4000;
+int p1ccvWeight    = 4000;
+int p2ccvWeight    = 2000;
+
+int pcUpdateWeight      = 101;
+int mcUpdateWeight      = 99;
+int macUpdateWeight     = 157;
+int micUpdateWeight     = 153;
+int stmnpcUpdateWeight  = 140;
+int xstmnpcUpdateWeight = 140;
+int tcUpdateWeight      = 128;
+int p1ccUpdateWeight    = 128;
+int p2ccUpdateWeight    = 128;
+
+TUNE(SetRange(0, 90000),
+     pcvWeight,
+     mcvWeight,
+     macvWeight,
+     micvWeight,
+     stmnpcvWeight,
+     xstmnpcvWeight,
+     tcvWeight,
+     p1ccvWeight,
+     p2ccvWeight);
+
+TUNE(SetRange(0, 1000),
+     pcUpdateWeight,
+     mcUpdateWeight,
+     macUpdateWeight,
+     micUpdateWeight,
+     stmnpcUpdateWeight,
+     xstmnpcUpdateWeight,
+     tcUpdateWeight,
+     p1ccUpdateWeight,
+     p2ccUpdateWeight);
 
 namespace TB = Tablebases;
 
@@ -79,16 +122,21 @@ constexpr int futility_move_count(bool improving, Depth depth) {
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation
 // does not hit the tablebase range.
-Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos) {
-    const Color us    = pos.side_to_move();
-    const auto  pcv   = w.pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)];
-    const auto  mcv   = w.materialCorrectionHistory[us][material_index(pos)];
-    const auto  macv  = w.majorPieceCorrectionHistory[us][major_piece_index(pos)];
-    const auto  micv  = w.minorPieceCorrectionHistory[us][minor_piece_index(pos)];
-    const auto  wnpcv = w.nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)];
-    const auto  bnpcv = w.nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)];
-    const auto  cv =
-      (6245 * pcv + 3442 * mcv + 3471 * macv + 5958 * micv + 6566 * (wnpcv + bnpcv)) / 131072;
+Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos, Stack* ss) {
+    const Color us       = pos.side_to_move();
+    const auto  pcv      = w.pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)];
+    const auto  mcv      = w.materialCorrectionHistory[us][material_index(pos)];
+    const auto  macv     = w.majorPieceCorrectionHistory[us][major_piece_index(pos)];
+    const auto  micv     = w.minorPieceCorrectionHistory[us][minor_piece_index(pos)];
+    const auto  stmnpcv  = w.nonPawnCorrectionHistory[us][us][non_pawn_index(pos, us)];
+    const auto  xstmnpcv = w.nonPawnCorrectionHistory[~us][us][non_pawn_index(pos, ~us)];
+    const auto  tcv      = w.threatsCorrectionHistory[us][threats_index(pos)];
+    const auto  p1ccv    = *(ss - 1)->continuationCorrectionHistory;
+    const auto  p2ccv    = *(ss - 2)->continuationCorrectionHistory;
+    const auto  cv = (pcvWeight * pcv + mcvWeight * mcv + macvWeight * macv + micvWeight * micv
+                     + stmnpcvWeight * stmnpcv + xstmnpcvWeight * xstmnpcv + tcvWeight * tcv
+                     + p1ccvWeight * p1ccv + p2ccvWeight * p2ccv)
+                  / 131072;
     v += cv;
     return std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
@@ -245,6 +293,8 @@ void Search::Worker::iterative_deepening() {
     {
         (ss - i)->continuationHistory =
           &this->continuationHistory[0][0][NO_PIECE][0];  // Use as a sentinel
+        (ss - i)->continuationCorrectionHistory =
+          this->continuationCorrectionHistory[NO_PIECE][0].self();
         (ss - i)->staticEval = VALUE_NONE;
     }
 
@@ -503,9 +553,11 @@ void Search::Worker::clear() {
     captureHistory.fill(-753);
     pawnHistory.fill(-1152);
     pawnCorrectionHistory.fill(0);
+    threatsCorrectionHistory.fill(0);
     materialCorrectionHistory.fill(0);
     majorPieceCorrectionHistory.fill(0);
     minorPieceCorrectionHistory.fill(0);
+    continuationCorrectionHistory.fill(0);
     nonPawnCorrectionHistory[WHITE].fill(0);
     nonPawnCorrectionHistory[BLACK].fill(0);
 
@@ -533,7 +585,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -732,7 +784,8 @@ Value Search::Worker::search(
         else if (PvNode)
             Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
 
-        ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
+        ss->staticEval = eval =
+          to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
 
         // ttValue can be used as a better position evaluation (~7 Elo)
         if (ttData.value != VALUE_NONE
@@ -743,7 +796,8 @@ Value Search::Worker::search(
     {
         unadjustedStaticEval =
           evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
-        ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
+        ss->staticEval = eval =
+          to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
 
         // Static evaluation is saved as it was before adjustment by correction history
         ttWriter.write(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_UNSEARCHED, Move::none(),
@@ -800,6 +854,8 @@ Value Search::Worker::search(
 
         ss->currentMove         = Move::null();
         ss->continuationHistory = &thisThread->continuationHistory[0][0][NO_PIECE][0];
+        ss->continuationCorrectionHistory =
+          thisThread->continuationCorrectionHistory[NO_PIECE][0].self();
 
         pos.do_null_move(st, tt);
 
@@ -881,6 +937,8 @@ Value Search::Worker::search(
             ss->currentMove = move;
             ss->continuationHistory =
               &this->continuationHistory[ss->inCheck][true][pos.moved_piece(move)][move.to_sq()];
+            ss->continuationCorrectionHistory =
+              this->continuationCorrectionHistory[pos.moved_piece(move)][move.from_to()].self();
 
             thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
             pos.do_move(move, st);
@@ -1129,6 +1187,8 @@ moves_loop:  // When in check, search starts here
         ss->currentMove = move;
         ss->continuationHistory =
           &thisThread->continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
+        ss->continuationCorrectionHistory =
+          thisThread->continuationCorrectionHistory[movedPiece][move.from_to()].self();
 
         uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
 
@@ -1410,14 +1470,21 @@ moves_loop:  // When in check, search starts here
         auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / 8,
                                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
         thisThread->pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)]
-          << bonus * 101 / 128;
-        thisThread->materialCorrectionHistory[us][material_index(pos)] << bonus * 99 / 128;
-        thisThread->majorPieceCorrectionHistory[us][major_piece_index(pos)] << bonus * 157 / 128;
-        thisThread->minorPieceCorrectionHistory[us][minor_piece_index(pos)] << bonus * 153 / 128;
-        thisThread->nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)]
-          << bonus * 123 / 128;
-        thisThread->nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)]
-          << bonus * 165 / 128;
+          << bonus * pcUpdateWeight / 128;
+        thisThread->materialCorrectionHistory[us][material_index(pos)]
+          << bonus * mcUpdateWeight / 128;
+        thisThread->majorPieceCorrectionHistory[us][major_piece_index(pos)]
+          << bonus * macUpdateWeight / 128;
+        thisThread->minorPieceCorrectionHistory[us][minor_piece_index(pos)]
+          << bonus * micUpdateWeight / 128;
+        thisThread->nonPawnCorrectionHistory[us][us][non_pawn_index(pos, us)]
+          << bonus * stmnpcUpdateWeight / 128;
+        thisThread->nonPawnCorrectionHistory[~us][us][non_pawn_index(pos, ~us)]
+          << bonus * xstmnpcUpdateWeight / 128;
+        thisThread->threatsCorrectionHistory[us][threats_index(pos)]
+          << bonus * tcUpdateWeight / 128;
+        *(ss - 1)->continuationCorrectionHistory << bonus * p1ccUpdateWeight / 128;
+        *(ss - 2)->continuationCorrectionHistory << bonus * p2ccUpdateWeight / 128;
     }
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
@@ -1513,7 +1580,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
                 unadjustedStaticEval =
                   evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
             ss->staticEval = bestValue =
-              to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
+              to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
 
             // ttValue can be used as a better position evaluation (~13 Elo)
             if (std::abs(ttData.value) < VALUE_TB_WIN_IN_MAX_PLY
@@ -1528,7 +1595,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
                 ? evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
                 : -(ss - 1)->staticEval;
             ss->staticEval = bestValue =
-              to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos);
+              to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
         }
 
         // Stand pat. Return immediately if static value is at least beta
@@ -1634,6 +1701,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         ss->continuationHistory =
           &thisThread
              ->continuationHistory[ss->inCheck][capture][pos.moved_piece(move)][move.to_sq()];
+        ss->continuationCorrectionHistory =
+          thisThread->continuationCorrectionHistory[pos.moved_piece(move)][move.from_to()].self();
 
         // Step 7. Make and search the move
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
