@@ -66,9 +66,12 @@ inline int minor_piece_index(const Position& pos) {
     return pos.minor_piece_key() & (CORRECTION_HISTORY_SIZE - 1);
 }
 
-template<Color c>
-inline int non_pawn_index(const Position& pos) {
+inline int non_pawn_index(const Position& pos, Color c) {
     return pos.non_pawn_key(c) & (CORRECTION_HISTORY_SIZE - 1);
+}
+
+inline int threats_index(const Position& pos) {
+    return pos.threat_key() & (CORRECTION_HISTORY_SIZE - 1);
 }
 
 // StatsEntry stores the stat table value. It is usually a number but could
@@ -95,6 +98,8 @@ class StatsEntry {
 
         assert(std::abs(entry) <= D);
     }
+
+    StatsEntry* self() { return this; }
 };
 
 // Stats is a generic N-dimensional array used to store various statistics.
@@ -154,6 +159,7 @@ using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>
 // positions and their search score. It is used to improve the static evaluation
 // used by some search heuristics.
 // see https://www.chessprogramming.org/Static_Evaluation_Correction_History
+using CorrectionHistoryEntry = StatsEntry<int16_t, CORRECTION_HISTORY_LIMIT>;
 
 // PawnCorrectionHistory is addressed by color and pawn structure
 using PawnCorrectionHistory =
@@ -173,6 +179,12 @@ using MinorPieceCorrectionHistory =
 
 // NonPawnCorrectionHistory is addressed by color and non-pawn material positions
 using NonPawnCorrectionHistory =
+  Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, CORRECTION_HISTORY_SIZE>;
+
+using ContinuationCorrectionHistory =
+  Stats<int16_t, CORRECTION_HISTORY_LIMIT, PIECE_NB, int(SQUARE_NB) * int(SQUARE_NB)>;
+
+using ThreatsCorrectionHistory =
   Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, CORRECTION_HISTORY_SIZE>;
 
 // The MovePicker class is used to pick one pseudo-legal move at a time from the
