@@ -60,6 +60,7 @@ struct StateInfo {
     Bitboard   blockersForKing[COLOR_NB];
     Bitboard   pinners[COLOR_NB];
     Bitboard   checkSquares[PIECE_TYPE_NB];
+    Bitboard   threats;
     Piece      capturedPiece;
     int        repetition;
 
@@ -122,6 +123,7 @@ class Position {
     Bitboard blockers_for_king(Color c) const;
     Bitboard check_squares(PieceType pt) const;
     Bitboard pinners(Color c) const;
+    Bitboard threats() const;
 
     // Attacks to/from a given square
     Bitboard attackers_to(Square s) const;
@@ -129,6 +131,9 @@ class Position {
     void     update_slider_blockers(Color c) const;
     template<PieceType Pt>
     Bitboard attacks_by(Color c) const;
+
+    // Attacks on all squares
+    void update_threats() const;
 
     // Properties of moves
     bool  legal(Move m) const;
@@ -157,6 +162,7 @@ class Position {
     Key major_piece_key() const;
     Key minor_piece_key() const;
     Key non_pawn_key(Color c) const;
+    Key threat_key() const;
 
     // Other properties of the position
     Color side_to_move() const;
@@ -293,6 +299,8 @@ inline Bitboard Position::pinners(Color c) const { return st->pinners[c]; }
 
 inline Bitboard Position::check_squares(PieceType pt) const { return st->checkSquares[pt]; }
 
+inline Bitboard Position::threats() const { return st->threats; }
+
 inline Key Position::key() const { return adjust_key50<false>(st->key); }
 
 template<bool AfterMove>
@@ -309,6 +317,17 @@ inline Key Position::major_piece_key() const { return st->majorPieceKey; }
 inline Key Position::minor_piece_key() const { return st->minorPieceKey; }
 
 inline Key Position::non_pawn_key(Color c) const { return st->nonPawnKey[c]; }
+
+inline Key Position::threat_key() const {
+    // MurmurHash3
+    Key key = st->threats;
+    key ^= key >> 33;
+    key *= 0xff51afd7ed558ccd;
+    key ^= key >> 33;
+    key *= 0xc4ceb9fe1a85ec53;
+    key ^= key >> 33;
+    return key;
+}
 
 inline Value Position::non_pawn_material(Color c) const { return st->nonPawnMaterial[c]; }
 
