@@ -534,7 +534,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -1018,8 +1018,8 @@ moves_loop:  // When in check, search starts here
             else
             {
                 int history =
-                  (*contHist[0])[capture][movedPiece][move.to_sq()][NO_PIECE_TYPE]
-                  + (*contHist[1])[capture][movedPiece][move.to_sq()][NO_PIECE_TYPE]
+                  (*contHist[0])[capture][NO_PIECE_TYPE][movedPiece][move.to_sq()]
+                  + (*contHist[1])[capture][NO_PIECE_TYPE][movedPiece][move.to_sq()]
                   + thisThread->pawnHistory[pawn_structure_index(pos)][movedPiece][move.to_sq()];
 
                 // Continuation history based pruning (~2 Elo)
@@ -1174,8 +1174,8 @@ moves_loop:  // When in check, search starts here
             r -= 2;
 
         ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
-                      + (*contHist[0])[false][movedPiece][move.to_sq()][NO_PIECE_TYPE]
-                      + (*contHist[1])[false][movedPiece][move.to_sq()][NO_PIECE_TYPE] - 4410;
+                      + (*contHist[0])[false][NO_PIECE_TYPE][movedPiece][move.to_sq()]
+                      + (*contHist[1])[false][NO_PIECE_TYPE][movedPiece][move.to_sq()] - 4410;
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore / 11016;
@@ -1615,10 +1615,10 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
             // Continuation history based pruning (~3 Elo)
             if (!capture
-                && (*contHist[0])[false][pos.moved_piece(move)][move.to_sq()]
-                                 [PieceType::NO_PIECE_TYPE]
-                       + (*contHist[1])[false][pos.moved_piece(move)][move.to_sq()]
-                                       [PieceType::NO_PIECE_TYPE]
+                && (*contHist[0])[false][PieceType::NO_PIECE_TYPE][pos.moved_piece(move)]
+                                 [move.to_sq()]
+                       + (*contHist[1])[false][PieceType::NO_PIECE_TYPE][pos.moved_piece(move)]
+                                       [move.to_sq()]
                        + thisThread->pawnHistory[pawn_structure_index(pos)][pos.moved_piece(move)]
                                                 [move.to_sq()]
                      <= 5036)
@@ -1839,7 +1839,7 @@ void update_continuation_histories(
         if ((ss->inCheck || capture) && i > 2)
             break;
         if (((ss - i)->currentMove).is_ok())
-            (*(ss - i)->continuationHistory)[capture][pc][to][captured] << bonus / (1 + (i == 3));
+            (*(ss - i)->continuationHistory)[capture][captured][pc][to] << bonus / (1 + (i == 3));
     }
 }
 
