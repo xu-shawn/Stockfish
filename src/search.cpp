@@ -52,47 +52,25 @@
 
 namespace Stockfish {
 
-int pcvWeight      = 6245;
-int mcvWeight      = 3442;
-int macvWeight     = 3471;
-int micvWeight     = 5958;
-int stmnpcvWeight  = 6566;
-int xstmnpcvWeight = 6566;
-int tcvWeight      = 4000;
-int p1ccvWeight    = 4000;
-int p2ccvWeight    = 2000;
+constexpr int pcvWeight      = 6619;
+constexpr int mcvWeight      = 3629;
+constexpr int macvWeight     = 3423;
+constexpr int micvWeight     = 5319;
+constexpr int stmnpcvWeight  = 7508;
+constexpr int xstmnpcvWeight = 7752;
+constexpr int tcvWeight      = 3770;
+constexpr int p1ccvWeight    = 4829;
+constexpr int p2ccvWeight    = 2551;
 
-int pcUpdateWeight      = 101;
-int mcUpdateWeight      = 99;
-int macUpdateWeight     = 157;
-int micUpdateWeight     = 153;
-int stmnpcUpdateWeight  = 140;
-int xstmnpcUpdateWeight = 140;
-int tcUpdateWeight      = 128;
-int p1ccUpdateWeight    = 128;
-int p2ccUpdateWeight    = 128;
-
-TUNE(SetRange(0, 90000),
-     pcvWeight,
-     mcvWeight,
-     macvWeight,
-     micvWeight,
-     stmnpcvWeight,
-     xstmnpcvWeight,
-     tcvWeight,
-     p1ccvWeight,
-     p2ccvWeight);
-
-TUNE(SetRange(0, 1000),
-     pcUpdateWeight,
-     mcUpdateWeight,
-     macUpdateWeight,
-     micUpdateWeight,
-     stmnpcUpdateWeight,
-     xstmnpcUpdateWeight,
-     tcUpdateWeight,
-     p1ccUpdateWeight,
-     p2ccUpdateWeight);
+constexpr int pcUpdateWeight      = 104;
+constexpr int mcUpdateWeight      = 104;
+constexpr int macUpdateWeight     = 163;
+constexpr int micUpdateWeight     = 143;
+constexpr int stmnpcUpdateWeight  = 147;
+constexpr int xstmnpcUpdateWeight = 139;
+constexpr int tcUpdateWeight      = 138;
+constexpr int p1ccUpdateWeight    = 151;
+constexpr int p2ccUpdateWeight    = 124;
 
 namespace TB = Tablebases;
 
@@ -585,7 +563,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
