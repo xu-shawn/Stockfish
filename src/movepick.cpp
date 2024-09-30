@@ -155,10 +155,10 @@ void MovePicker::score() {
             Square    to       = m.to_sq();
             PieceType captured = type_of(pos.piece_on(m.to_sq()));
 
-            m.value = m.SEEValue =
-              int(PieceValue[captured]) * 7 + (*captureHistory)[pc][to][captured];
+            m.value    = int(PieceValue[captured]) * 140 + (*captureHistory)[pc][to][captured] * 20;
+            m.SEEValue = int(PieceValue[captured]) * 7 + (*captureHistory)[pc][to][captured];
 
-            m.value += (*continuationHistory[0])[true][pc][to][captured] / 4;
+            m.value += (*continuationHistory[0])[true][pc][to][captured];
         }
 
         else if constexpr (Type == QUIETS)
