@@ -25,9 +25,21 @@
 #include "bitboard.h"
 #include "misc.h"
 #include "position.h"
+#include "tune.h"
 #include "types.h"
 
 namespace Stockfish {
+
+int captureValueDelta      = 4200;
+int captureValueMultiplier = 2340;
+
+int concapthistFactor = 32768;
+int pieceValueFactor  = 32768;
+
+TUNE(captureValueDelta);
+TUNE(captureValueMultiplier);
+TUNE(concapthistFactor);
+TUNE(pieceValueFactor);
 
 namespace {
 
@@ -156,9 +168,9 @@ void MovePicker::score() {
             Square    to       = m.to_sq();
             PieceType captured = type_of(pos.piece_on(m.to_sq()));
 
-            m.value = 7 * int(PieceValue[captured]);
+            m.value = pieceValueFactor * int(PieceValue[captured]) / 4681;
             m.value += (*captureHistory)[pc][to][captured];
-            m.value += (*continuationHistory[0])[pc][to][captured] / 3;
+            m.value += concapthistFactor * (*continuationHistory[0])[pc][to][captured] / 65536;
         }
 
         else if constexpr (Type == QUIETS)
@@ -259,7 +271,8 @@ top:
     case GOOD_CAPTURE :
         if (select<Next>([&]() {
                 // Move losing capture to endBadCaptures to be tried later
-                return pos.see_ge(*cur, -(cur->value + 4200) / 28)
+                return pos.see_ge(*cur, -(cur->value + captureValueDelta) * captureValueMultiplier
+                                          / 65536)
                        ? true
                        : (*endBadCaptures++ = *cur, false);
             }))
