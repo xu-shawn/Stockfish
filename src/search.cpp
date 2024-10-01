@@ -46,53 +46,30 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
-#include "tune.h"
 #include "uci.h"
 #include "ucioption.h"
 
 namespace Stockfish {
 
-int pcvWeight      = 6245;
-int mcvWeight      = 3442;
-int macvWeight     = 3471;
-int micvWeight     = 5958;
-int stmnpcvWeight  = 6566;
-int xstmnpcvWeight = 6566;
-int tcvWeight      = 4000;
-int p1ccvWeight    = 4000;
-int p2ccvWeight    = 2000;
+constexpr int pcvWeight      = 6845;
+constexpr int mcvWeight      = 3961;
+constexpr int macvWeight     = 3659;
+constexpr int micvWeight     = 5340;
+constexpr int stmnpcvWeight  = 7038;
+constexpr int xstmnpcvWeight = 7440;
+constexpr int tcvWeight      = 3291;
+constexpr int p1ccvWeight    = 4634;
+constexpr int p2ccvWeight    = 2230;
 
-int pcUpdateWeight      = 101;
-int mcUpdateWeight      = 99;
-int macUpdateWeight     = 157;
-int micUpdateWeight     = 153;
-int stmnpcUpdateWeight  = 140;
-int xstmnpcUpdateWeight = 140;
-int tcUpdateWeight      = 128;
-int p1ccUpdateWeight    = 128;
-int p2ccUpdateWeight    = 128;
-
-TUNE(SetRange(0, 90000),
-     pcvWeight,
-     mcvWeight,
-     macvWeight,
-     micvWeight,
-     stmnpcvWeight,
-     xstmnpcvWeight,
-     tcvWeight,
-     p1ccvWeight,
-     p2ccvWeight);
-
-TUNE(SetRange(0, 1000),
-     pcUpdateWeight,
-     mcUpdateWeight,
-     macUpdateWeight,
-     micUpdateWeight,
-     stmnpcUpdateWeight,
-     xstmnpcUpdateWeight,
-     tcUpdateWeight,
-     p1ccUpdateWeight,
-     p2ccUpdateWeight);
+constexpr int pcUpdateWeight      = 110;
+constexpr int mcUpdateWeight      = 95;
+constexpr int macUpdateWeight     = 156;
+constexpr int micUpdateWeight     = 141;
+constexpr int stmnpcUpdateWeight  = 160;
+constexpr int xstmnpcUpdateWeight = 147;
+constexpr int tcUpdateWeight      = 151;
+constexpr int p1ccUpdateWeight    = 151;
+constexpr int p2ccUpdateWeight    = 127;
 
 namespace TB = Tablebases;
 
@@ -585,7 +562,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
