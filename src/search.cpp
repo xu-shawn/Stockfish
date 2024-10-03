@@ -533,7 +533,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -858,6 +858,7 @@ Value Search::Worker::search(
 
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &thisThread->captureHistory);
         Piece      captured;
+        Value      adjustedProbcutBeta;
 
         while ((move = mp.next_move()) != Move::none())
         {
@@ -871,9 +872,9 @@ Value Search::Worker::search(
 
             assert(pos.capture_stage(move));
 
-            movedPiece = pos.moved_piece(move);
-            captured   = pos.piece_on(move.to_sq());
-
+            movedPiece          = pos.moved_piece(move);
+            captured            = pos.piece_on(move.to_sq());
+            adjustedProbcutBeta = probCutBeta - 30 * pos.gives_check(move);
 
             // Prefetch the TT entry for the resulting position
             prefetch(tt.first_entry(pos.key_after(move)));
@@ -886,16 +887,16 @@ Value Search::Worker::search(
             pos.do_move(move, st);
 
             // Perform a preliminary qsearch to verify that the move holds
-            value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
+            value = -qsearch<NonPV>(pos, ss + 1, -adjustedProbcutBeta, -adjustedProbcutBeta + 1);
 
             // If the qsearch held, perform the regular search
-            if (value >= probCutBeta)
-                value =
-                  -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, depth - 4, !cutNode);
+            if (value >= adjustedProbcutBeta)
+                value = -search<NonPV>(pos, ss + 1, -adjustedProbcutBeta, -adjustedProbcutBeta + 1,
+                                       depth - 4, !cutNode);
 
             pos.undo_move(move);
 
-            if (value >= probCutBeta)
+            if (value >= adjustedProbcutBeta)
             {
                 thisThread->captureHistory[movedPiece][move.to_sq()][type_of(captured)]
                   << stat_bonus(depth - 2);
@@ -903,8 +904,9 @@ Value Search::Worker::search(
                 // Save ProbCut data into transposition table
                 ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
                                depth - 3, move, unadjustedStaticEval, tt.generation());
-                return std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY ? value - (probCutBeta - beta)
-                                                                 : value;
+                return std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY
+                       ? value - (adjustedProbcutBeta - beta)
+                       : value;
             }
         }
 
