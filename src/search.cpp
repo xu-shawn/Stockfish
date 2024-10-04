@@ -52,15 +52,15 @@
 
 namespace Stockfish {
 
-int pcvWeight      = 6845;
-int mcvWeight      = 3961;
-int macvWeight     = 3659;
-int micvWeight     = 5340;
-int stmnpcvWeight  = 7038;
-int xstmnpcvWeight = 7440;
-int tcvWeight      = 3291;
-int p1ccvWeight    = 4634;
-int p2ccvWeight    = 2230;
+constexpr int pcvWeight      = 7325;
+constexpr int mcvWeight      = 2702;
+constexpr int macvWeight     = 3361;
+constexpr int micvWeight     = 5723;
+constexpr int stmnpcvWeight  = 8434;
+constexpr int xstmnpcvWeight = 8107;
+constexpr int tcvWeight      = 5482;
+constexpr int p1ccvWeight    = 5323;
+constexpr int p2ccvWeight    = 2458;
 
 constexpr int pcUpdateWeight      = 110;
 constexpr int mcUpdateWeight      = 95;
@@ -71,17 +71,6 @@ constexpr int xstmnpcUpdateWeight = 147;
 constexpr int tcUpdateWeight      = 151;
 constexpr int p1ccUpdateWeight    = 151;
 constexpr int p2ccUpdateWeight    = 127;
-
-TUNE(SetRange(0, 120000),
-     pcvWeight,
-     mcvWeight,
-     macvWeight,
-     micvWeight,
-     stmnpcvWeight,
-     xstmnpcvWeight,
-     tcvWeight,
-     p1ccvWeight,
-     p2ccvWeight);
 
 namespace TB = Tablebases;
 
