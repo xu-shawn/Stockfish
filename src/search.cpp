@@ -52,15 +52,15 @@
 
 namespace Stockfish {
 
-int pcvWeight      = 6845;
-int mcvWeight      = 3961;
-int macvWeight     = 3659;
-int micvWeight     = 5340;
-int stmnpcvWeight  = 7038;
-int xstmnpcvWeight = 7440;
-int tcvWeight      = 3291;
-int p1ccvWeight    = 4634;
-int p2ccvWeight    = 2230;
+constexpr int pcvWeight      = 8228;
+constexpr int mcvWeight      = 1432;
+constexpr int macvWeight     = 4127;
+constexpr int micvWeight     = 6282;
+constexpr int stmnpcvWeight  = 7682;
+constexpr int xstmnpcvWeight = 8054;
+constexpr int tcvWeight      = 5999;
+constexpr int p1ccvWeight    = 5567;
+constexpr int p2ccvWeight    = 2747;
 
 constexpr int pcUpdateWeight      = 110;
 constexpr int mcUpdateWeight      = 95;
@@ -71,17 +71,6 @@ constexpr int xstmnpcUpdateWeight = 147;
 constexpr int tcUpdateWeight      = 151;
 constexpr int p1ccUpdateWeight    = 151;
 constexpr int p2ccUpdateWeight    = 127;
-
-TUNE(SetRange(0, 120000),
-     pcvWeight,
-     mcvWeight,
-     macvWeight,
-     micvWeight,
-     stmnpcvWeight,
-     xstmnpcvWeight,
-     tcvWeight,
-     p1ccvWeight,
-     p2ccvWeight);
 
 namespace TB = Tablebases;
 
@@ -569,7 +558,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
