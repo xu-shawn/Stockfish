@@ -60,6 +60,7 @@ struct StateInfo {
     Bitboard   blockersForKing[COLOR_NB];
     Bitboard   pinners[COLOR_NB];
     Bitboard   checkSquares[PIECE_TYPE_NB];
+    Bitboard   threats;
     Piece      capturedPiece;
     int        repetition;
 
@@ -129,6 +130,8 @@ class Position {
     void     update_slider_blockers(Color c) const;
     template<PieceType Pt>
     Bitboard attacks_by(Color c) const;
+
+    void update_threats() const;
 
     // Properties of moves
     bool  legal(Move m) const;
