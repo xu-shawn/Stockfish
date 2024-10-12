@@ -87,7 +87,7 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos, St
     const auto  micv  = w.minorPieceCorrectionHistory[us][minor_piece_index(pos)];
     const auto  wnpcv = w.nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)];
     const auto  bnpcv = w.nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)];
-    int         cntcv = 1;
+    int         cntcv = 0;
 
     if (m.is_ok())
         cntcv = int((*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]);
@@ -537,7 +537,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -592,9 +592,10 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
-                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
-                                                        : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck)
+                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
+                              thisThread->optimism[us])
+                   : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -1430,6 +1431,7 @@ moves_loop:  // When in check, search starts here
           << bonus * 123 / 128;
         thisThread->nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)]
           << bonus * 165 / 128;
+        thisThread->threatsCorrectionHistory[us][threats_index(pos)] << bonus * 128 / 128;
 
         if (m.is_ok())
             (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()] << bonus;
