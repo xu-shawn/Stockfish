@@ -130,6 +130,9 @@ class Position {
     template<PieceType Pt>
     Bitboard attacks_by(Color c) const;
 
+    // Threats
+    Bitboard threatened() const;
+
     // Properties of moves
     bool  legal(Move m) const;
     bool  pseudo_legal(const Move m) const;
@@ -283,6 +286,22 @@ inline Bitboard Position::attacks_by(Color c) const {
             threats |= attacks_bb<Pt>(pop_lsb(attackers), pieces());
         return threats;
     }
+}
+
+inline Bitboard Position::threatened() const {
+    const Color& us = sideToMove;
+
+    const Bitboard threatenedByPawn = attacks_by<PAWN>(~us);
+    const Bitboard threatenedByMinor =
+      attacks_by<KNIGHT>(~us) | attacks_by<BISHOP>(~us) | threatenedByPawn;
+    const Bitboard threatenedByRook = attacks_by<ROOK>(~us) | threatenedByMinor;
+
+    // Pieces threatened by pieces of lesser material value
+    const Bitboard threats = (pieces(us, QUEEN) & threatenedByRook)
+                           | (pieces(us, ROOK) & threatenedByMinor)
+                           | (pieces(us, KNIGHT, BISHOP) & threatenedByPawn);
+
+    return threats;
 }
 
 inline Bitboard Position::checkers() const { return st->checkersBB; }
