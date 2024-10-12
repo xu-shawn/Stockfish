@@ -72,6 +72,16 @@ inline int non_pawn_index(const Position& pos) {
     return pos.non_pawn_key(c) & (CORRECTION_HISTORY_SIZE - 1);
 }
 
+inline int threats_index(const Position& pos) {
+    Key key = pos.threats();
+    key ^= key >> 33;
+    key *= 0xff51afd7ed558ccd;
+    key ^= key >> 33;
+    key *= 0xc4ceb9fe1a85ec53;
+    key ^= key >> 33;
+    return key & (CORRECTION_HISTORY_SIZE - 1);
+}
+
 // StatsEntry stores the stat table value. It is usually a number but could
 // be a move or even a nested history. We use a class instead of a naked value
 // to directly call history update operator<<() on the entry so to use stats
@@ -85,7 +95,7 @@ class StatsEntry {
     void operator=(const T& v) { entry = v; }
     T*   operator&() { return &entry; }
     T*   operator->() { return &entry; }
-    operator const T&() const { return entry; }
+         operator const T&() const { return entry; }
 
     void operator<<(int bonus) {
         static_assert(D <= std::numeric_limits<T>::max(), "D overflows T");
@@ -146,9 +156,6 @@ using CapturePieceToHistory = Stats<int16_t, 10692, PIECE_NB, SQUARE_NB, PIECE_T
 // PieceToHistory is like ButterflyHistory but is addressed by a move's [piece][to]
 using PieceToHistory = Stats<int16_t, 29952, PIECE_NB, SQUARE_NB>;
 
-// PieceToCorrectionHistory is addressed by a move's [piece][to]
-using PieceToCorrectionHistory = Stats<int16_t, CORRECTION_HISTORY_LIMIT, PIECE_NB, SQUARE_NB>;
-
 // ContinuationHistory is the combined history of a given pair of moves, usually
 // the current one given a previous one. The nested history table is based on
 // PieceToHistory instead of ButterflyBoards.
@@ -183,9 +190,15 @@ using MinorPieceCorrectionHistory =
 using NonPawnCorrectionHistory =
   Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, CORRECTION_HISTORY_SIZE>;
 
+// PieceToCorrectionHistory is addressed by a move's [piece][to]
+using PieceToCorrectionHistory = Stats<int16_t, CORRECTION_HISTORY_LIMIT, PIECE_NB, SQUARE_NB>;
+
 // ContinuationCorrectionHistory is the combined correction history of a given pair of moves
 using ContinuationCorrectionHistory =
   Stats<PieceToCorrectionHistory, NOT_USED, PIECE_NB, SQUARE_NB>;
+
+using ThreatsCorrectionHistory =
+  Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, CORRECTION_HISTORY_SIZE>;
 
 // The MovePicker class is used to pick one pseudo-legal move at a time from the
 // current position. The most important method is next_move(), which emits one
