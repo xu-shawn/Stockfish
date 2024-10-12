@@ -93,13 +93,13 @@ constexpr bool HasPopCnt = false;
     #ifdef USE_PEXT
 constexpr bool HasPext = true;
     #else
-constexpr bool HasPext = false;
+constexpr bool HasPext   = false;
     #endif
 
     #ifdef IS_64BIT
 constexpr bool Is64Bit = true;
     #else
-constexpr bool Is64Bit = false;
+constexpr bool Is64Bit   = false;
     #endif
 
 using Key      = uint64_t;
@@ -394,7 +394,7 @@ class Move {
 
     constexpr PieceType promotion_type() const { return PieceType(((data >> 12) & 3) + KNIGHT); }
 
-    constexpr bool is_ok() const { return none().data != data && null().data != data; }
+    constexpr bool is_ok() const { return null().data != data; }
 
     static constexpr Move null() { return Move(65); }
     static constexpr Move none() { return Move(0); }
