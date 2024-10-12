@@ -342,6 +342,7 @@ void Position::set_state() const {
     st->checkersBB = attackers_to(square<KING>(sideToMove)) & pieces(~sideToMove);
 
     set_check_info();
+    reset_threats();
 
     for (Bitboard b = pieces(); b;)
     {
@@ -891,6 +892,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
     // Update king attacks used for fast check detection
     set_check_info();
+    reset_threats();
 
     // Calculate the repetition info. It is the ply distance from the previous
     // occurrence of the same position, negative in the 3-fold case, or zero
@@ -1043,6 +1045,7 @@ void Position::do_null_move(StateInfo& newSt, TranspositionTable& tt) {
     sideToMove = ~sideToMove;
 
     set_check_info();
+    reset_threats();
 
     st->repetition = 0;
 
