@@ -89,7 +89,6 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos, St
     const auto  bnpcv = w.nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)];
     const auto  cntcv =
       m.is_ok() * (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()];
-    const auto tcv;
 
     const auto cv =
       (5932 * pcv + 3269 * macv + 5660 * micv + 6666 * (wnpcv + bnpcv) + 5555 * cntcv) / 131072;
