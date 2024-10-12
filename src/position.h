@@ -131,7 +131,7 @@ class Position {
     Bitboard attacks_by(Color c) const;
 
     // Threats
-    Bitboard threatened() const;
+    Bitboard threats() const;
 
     // Properties of moves
     bool  legal(Move m) const;
@@ -194,6 +194,9 @@ class Position {
     void do_castling(Color us, Square from, Square& to, Square& rfrom, Square& rto);
     template<bool AfterMove>
     Key adjust_key50(Key k) const;
+
+    // Threats
+    Bitboard calculate_threats() const;
 
     // Data members
     Piece      board[SQUARE_NB];
@@ -288,7 +291,7 @@ inline Bitboard Position::attacks_by(Color c) const {
     }
 }
 
-inline Bitboard Position::threatened() const {
+inline Bitboard Position::calculate_threats() const {
     const Color& us = sideToMove;
 
     const Bitboard threatenedByPawn = attacks_by<PAWN>(~us);
