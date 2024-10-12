@@ -32,6 +32,12 @@
 
 namespace Stockfish {
 
+namespace {
+
+constexpr Bitboard THREATS_NONE = -1;
+
+}  // namespace
+
 class TranspositionTable;
 
 // StateInfo struct stores information needed to restore a Position object to
@@ -55,6 +61,7 @@ struct StateInfo {
     // Not copied when making a move (will be recomputed anyhow)
     Key        key;
     Bitboard   checkersBB;
+    Bitboard   threats;
     StateInfo* previous;
     StateInfo* next;
     Bitboard   blockersForKing[COLOR_NB];
@@ -132,6 +139,7 @@ class Position {
 
     // Threats
     Bitboard threats() const;
+    void     reset_threats() const;
 
     // Properties of moves
     bool  legal(Move m) const;
@@ -290,6 +298,15 @@ inline Bitboard Position::attacks_by(Color c) const {
         return threats;
     }
 }
+
+inline Bitboard Position::threats() const {
+    if (st->threats != THREATS_NONE)
+        return st->threats;
+
+    return (st->threats = calculate_threats());
+}
+
+inline void Position::reset_threats() const { st->threats = THREATS_NONE; }
 
 inline Bitboard Position::calculate_threats() const {
     const Color& us = sideToMove;

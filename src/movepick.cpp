@@ -140,6 +140,8 @@ void MovePicker::score() {
         threatenedPieces = (pos.pieces(us, QUEEN) & threatenedByRook)
                          | (pos.pieces(us, ROOK) & threatenedByMinor)
                          | (pos.pieces(us, KNIGHT, BISHOP) & threatenedByPawn);
+
+        assert(threatenedPieces == pos.threats());
     }
 
     for (auto& m : *this)
