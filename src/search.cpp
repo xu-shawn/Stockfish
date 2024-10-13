@@ -46,6 +46,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "uci.h"
 #include "ucioption.h"
 
@@ -61,6 +62,23 @@ void syzygy_extend_pv(const OptionsMap&            options,
 
 using Eval::evaluate;
 using namespace Search;
+
+int pcvWeight   = 5532;
+int mcvWeight   = 1094;
+int macvWeight  = 2769;
+int micvWeight  = 5160;
+int npcvWeight  = 5537;
+int cntcvWeight = 4555;
+int tcvWeight   = 6000;
+
+TUNE(SetRange(0, 120000),
+     pcvWeight,
+     mcvWeight,
+     macvWeight,
+     micvWeight,
+     npcvWeight,
+     cntcvWeight,
+     tcvWeight);
 
 namespace {
 
@@ -94,8 +112,8 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos, St
     if (m.is_ok())
         cntcv = int((*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]);
 
-    const auto cv = (5532 * pcv + 1094 * mcv + 2769 * macv + 5160 * micv + 5537 * (wnpcv + bnpcv)
-                     + cntcv * 4555 + tcv * 6000)
+    const auto cv = (pcvWeight * pcv + mcvWeight * mcv + macvWeight * macv + micvWeight * micv
+                     + npcvWeight * (wnpcv + bnpcv) + cntcvWeight * cntcv + tcvWeight * tcv)
                   / 131072;
     v += cv;
     return std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
