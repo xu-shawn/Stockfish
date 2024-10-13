@@ -595,10 +595,9 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
-                              thisThread->optimism[us])
-                   : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
+                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
+                                                        : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -1397,8 +1396,15 @@ moves_loop:  // When in check, search starts here
     }
 
     // Bonus when search fails low and there is a TT move
-    else if (ttData.move && !allNode)
-        thisThread->mainHistory[us][ttData.move.from_to()] << stat_bonus(depth) / 4;
+    else
+    {
+        if (priorCapture && prevSq != SQ_NONE)
+            thisThread->captureHistory[pos.piece_on(prevSq)][prevSq][type_of(pos.captured_piece())]
+              << stat_bonus(depth - 2);
+
+        if (ttData.move && !allNode)
+            thisThread->mainHistory[us][ttData.move.from_to()] << stat_bonus(depth) / 4;
+    }
 
     if (PvNode)
         bestValue = std::min(bestValue, maxValue);
