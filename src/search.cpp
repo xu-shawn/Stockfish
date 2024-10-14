@@ -31,6 +31,7 @@
 #include <list>
 #include <ratio>
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include "evaluate.h"
@@ -79,7 +80,8 @@ constexpr int futility_move_count(bool improving, Depth depth) {
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation
 // does not hit the tablebase range.
-Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos, Stack* ss) {
+Value to_corrected_static_eval(
+  Value v, const Worker& w, const Position& pos, Stack* ss, const int optimismBonus) {
     const Color us    = pos.side_to_move();
     const auto  m     = (ss - 1)->currentMove;
     const auto  pcv   = w.pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)];
@@ -96,7 +98,7 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos, St
     const auto cv =
       (5932 * pcv + 2994 * mcv + 3269 * macv + 5660 * micv + 6237 * (wnpcv + bnpcv) + cntcv * 5555)
       / 131072;
-    v += cv;
+    v += cv + optimismBonus;
     return std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
 
@@ -595,10 +597,13 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
-                              thisThread->optimism[us])
-                   : value_draw(thisThread->nodes);
+        {
+            if (ss->ply < MAX_PLY || ss->inCheck)
+                return VALUE_DRAW;
+            const auto [evaluation, optimismBonus] =
+              evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
+            return evaluation + optimismBonus;
+        }
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -715,6 +720,7 @@ Value Search::Worker::search(
 
     // Step 6. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
+    Value optimismBonus        = 0;
     if (ss->inCheck)
     {
         // Skip early pruning when in check
@@ -734,13 +740,13 @@ Value Search::Worker::search(
         // Never assume anything about values stored in TT
         unadjustedStaticEval = ttData.eval;
         if (unadjustedStaticEval == VALUE_NONE)
-            unadjustedStaticEval =
+            std::tie(unadjustedStaticEval, optimismBonus) =
               evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
         else if (PvNode)
             Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
 
         ss->staticEval = eval =
-          to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
+          to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss, optimismBonus);
 
         // ttValue can be used as a better position evaluation (~7 Elo)
         if (ttData.value != VALUE_NONE
@@ -749,15 +755,17 @@ Value Search::Worker::search(
     }
     else
     {
-        unadjustedStaticEval =
+        std::tie(unadjustedStaticEval, optimismBonus) =
           evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
         ss->staticEval = eval =
-          to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
+          to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss, optimismBonus);
 
         // Static evaluation is saved as it was before adjustment by correction history
         ttWriter.write(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_UNSEARCHED, Move::none(),
-                       unadjustedStaticEval, tt.generation());
+                       unadjustedStaticEval + optimismBonus, tt.generation());
     }
+
+    unadjustedStaticEval += optimismBonus;
 
     // Use static evaluation difference to improve quiet move ordering (~9 Elo)
     if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture)
@@ -1498,9 +1506,13 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
     // Step 2. Check for an immediate draw or maximum ply reached
     if (pos.is_draw(ss->ply) || ss->ply >= MAX_PLY)
-        return (ss->ply >= MAX_PLY && !ss->inCheck)
-               ? evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
-               : VALUE_DRAW;
+    {
+        if (ss->ply < MAX_PLY || ss->inCheck)
+            return VALUE_DRAW;
+        const auto [eval, optimismBonus] =
+          evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
+        return eval + optimismBonus;
+    }
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
@@ -1521,6 +1533,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
     // Step 4. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
+    Value optimismBonus        = 0;
     if (ss->inCheck)
         bestValue = futilityBase = -VALUE_INFINITE;
     else
@@ -1530,10 +1543,10 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             // Never assume anything about values stored in TT
             unadjustedStaticEval = ttData.eval;
             if (unadjustedStaticEval == VALUE_NONE)
-                unadjustedStaticEval =
+                std::tie(unadjustedStaticEval, optimismBonus) =
                   evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
             ss->staticEval = bestValue =
-              to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
+              to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss, optimismBonus);
 
             // ttValue can be used as a better position evaluation (~13 Elo)
             if (std::abs(ttData.value) < VALUE_TB_WIN_IN_MAX_PLY
@@ -1543,13 +1556,17 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         else
         {
             // In case of null move search, use previous static eval with opposite sign
-            unadjustedStaticEval =
-              (ss - 1)->currentMove != Move::null()
-                ? evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
-                : -(ss - 1)->staticEval;
+            if ((ss - 1)->currentMove == Move::null())
+                unadjustedStaticEval = -(ss - 1)->staticEval;
+            else
+                std::tie(unadjustedStaticEval, optimismBonus) =
+                  evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
+
             ss->staticEval = bestValue =
-              to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
+              to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss, optimismBonus);
         }
+
+        unadjustedStaticEval += optimismBonus;
 
         // Stand pat. Return immediately if static value is at least beta
         if (bestValue >= beta)
