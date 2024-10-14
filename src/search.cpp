@@ -595,10 +595,9 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
-                              thisThread->optimism[us])
-                   : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
+                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
+                                                        : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -636,7 +635,7 @@ Value Search::Worker::search(
     // to save indentation, we list the condition in all code between here and there.
 
     // At non-PV nodes we check for an early TT cutoff
-    if (!PvNode && !excludedMove && ttData.depth > depth - (ttData.value <= beta)
+    if (!PvNode && !excludedMove && ttData.depth > depth - (ttData.value <= beta) + ss->ttPv
         && ttData.value != VALUE_NONE  // Can happen when !ttHit or when access race in probe()
         && (ttData.bound & (ttData.value >= beta ? BOUND_LOWER : BOUND_UPPER)))
     {
