@@ -63,22 +63,13 @@ void syzygy_extend_pv(const OptionsMap&            options,
 using Eval::evaluate;
 using namespace Search;
 
-int pcvWeight   = 5532;
-int mcvWeight   = 1094;
-int macvWeight  = 2769;
-int micvWeight  = 5160;
-int npcvWeight  = 5537;
-int cntcvWeight = 4555;
-int tcvWeight   = 6000;
-
-TUNE(SetRange(0, 120000),
-     pcvWeight,
-     mcvWeight,
-     macvWeight,
-     micvWeight,
-     npcvWeight,
-     cntcvWeight,
-     tcvWeight);
+constexpr int pcvWeight   = 5365;
+constexpr int mcvWeight   = 988;
+constexpr int macvWeight  = 2776;
+constexpr int micvWeight  = 3613;
+constexpr int npcvWeight  = 7013;
+constexpr int cntcvWeight = 5083;
+constexpr int tcvWeight   = 2296;
 
 namespace {
 
@@ -560,7 +551,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -615,9 +606,10 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
-                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
-                                                        : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck)
+                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
+                              thisThread->optimism[us])
+                   : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
