@@ -95,7 +95,7 @@ Value to_corrected_static_eval(
     if (m.is_ok())
         cntcv = int((*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]);
 
-    auto cv =
+    const auto cv =
       (5932 * pcv + 2994 * mcv + 3269 * macv + 5660 * micv + 6237 * (wnpcv + bnpcv) + cntcv * 5555)
       / 131072;
 
@@ -105,7 +105,7 @@ Value to_corrected_static_eval(
             && !(ttData.bound == BOUND_LOWER && ttData.value <= v)
             && !(ttData.bound == BOUND_UPPER && ttData.value >= v))
         {
-            cv += (ttData.value - v) / 8;
+            v += (ttData.value - v) / 8;
         }
     }
 
