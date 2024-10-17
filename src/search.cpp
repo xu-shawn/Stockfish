@@ -67,7 +67,7 @@ namespace {
 // Futility margin
 Value futility_margin(
   Depth d, bool noTtCutNode, bool improving, bool oppWorsening, const Bitboard threatened) {
-    Value futilityMult       = 118 - 33 * noTtCutNode;
+    Value futilityMult       = 98 - 23 * noTtCutNode;
     Value improvingDeduction = improving * futilityMult * 2;
     Value worseningDeduction = oppWorsening * futilityMult / 3;
     Value threatenedBonus    = static_cast<bool>(threatened) * futilityMult / 3;
