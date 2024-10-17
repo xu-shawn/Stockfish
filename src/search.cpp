@@ -1431,7 +1431,6 @@ moves_loop:  // When in check, search starts here
           << bonus * 123 / 128;
         thisThread->nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)]
           << bonus * 165 / 128;
-        thisThread->threatsCorrectionHistory[us][threats_index(pos)] << bonus * 128 / 128;
 
         if (m.is_ok())
             (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()] << bonus;

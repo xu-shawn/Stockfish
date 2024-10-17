@@ -196,9 +196,6 @@ struct CorrHistTypedef<Continuation> {
 template<CorrHistType T>
 using CorrectionHistory = typename CorrHistTypedef<T>::type;
 
-using ThreatsCorrectionHistory =
-  Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, CORRECTION_HISTORY_SIZE>;
-
 // The MovePicker class is used to pick one pseudo-legal move at a time from the
 // current position. The most important method is next_move(), which emits one
 // new pseudo-legal move on every call, until there are no moves left, when
