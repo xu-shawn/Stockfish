@@ -95,7 +95,7 @@ class StatsEntry {
     void operator=(const T& v) { entry = v; }
     T*   operator&() { return &entry; }
     T*   operator->() { return &entry; }
-         operator const T&() const { return entry; }
+    operator const T&() const { return entry; }
 
     void operator<<(int bonus) {
         static_assert(D <= std::numeric_limits<T>::max(), "D overflows T");
@@ -196,9 +196,6 @@ using PieceToCorrectionHistory = Stats<int16_t, CORRECTION_HISTORY_LIMIT, PIECE_
 // ContinuationCorrectionHistory is the combined correction history of a given pair of moves
 using ContinuationCorrectionHistory =
   Stats<PieceToCorrectionHistory, NOT_USED, PIECE_NB, SQUARE_NB>;
-
-using ThreatsCorrectionHistory =
-  Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, CORRECTION_HISTORY_SIZE>;
 
 // The MovePicker class is used to pick one pseudo-legal move at a time from the
 // current position. The most important method is next_move(), which emits one
