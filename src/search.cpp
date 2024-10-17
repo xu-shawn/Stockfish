@@ -105,7 +105,7 @@ Value to_corrected_static_eval(
             && !(ttData.bound == BOUND_LOWER && ttData.value <= v)
             && !(ttData.bound == BOUND_UPPER && ttData.value >= v))
         {
-            v += (ttData.value - v) / 8;
+            v += std::clamp((ttData.value - v) / 16, -32, 32);
         }
     }
 
