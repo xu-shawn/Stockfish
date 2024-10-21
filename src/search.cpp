@@ -101,7 +101,8 @@ Value to_corrected_static_eval(
 
     if constexpr (ttHit)
     {
-        if (!ss->inCheck && (!ttData.move || !pos.capture(ttData.move))
+        if (!ss->inCheck && ttData.bound != BOUND_NONE && ttData.value != VALUE_NONE
+            && (!ttData.move || !pos.capture(ttData.move))
             && !(ttData.bound == BOUND_LOWER && ttData.value <= v)
             && !(ttData.bound == BOUND_UPPER && ttData.value >= v))
         {
