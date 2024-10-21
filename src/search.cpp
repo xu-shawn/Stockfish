@@ -51,6 +51,14 @@
 
 namespace Stockfish {
 
+int fmc   = 98;
+int fmtcr = 23;
+int idm   = 2048;
+int wdm   = 341;
+int tbm   = 341;
+
+TUNE(fmtcr, fmc, idm, wdm, tbm);
+
 namespace TB = Tablebases;
 
 void syzygy_extend_pv(const OptionsMap&            options,
@@ -67,10 +75,10 @@ namespace {
 // Futility margin
 Value futility_margin(
   Depth d, bool noTtCutNode, bool improving, bool oppWorsening, const Bitboard threatened) {
-    Value futilityMult       = 98 - 23 * noTtCutNode;
-    Value improvingDeduction = improving * futilityMult * 2;
-    Value worseningDeduction = oppWorsening * futilityMult / 3;
-    Value threatenedBonus    = static_cast<bool>(threatened) * futilityMult / 3;
+    Value futilityMult       = fmc - fmtcr * noTtCutNode;
+    Value improvingDeduction = improving * futilityMult * idm / 1024;
+    Value worseningDeduction = oppWorsening * futilityMult * wdm / 1024;
+    Value threatenedBonus    = static_cast<bool>(threatened) * futilityMult * tbm / 1024;
 
     return futilityMult * d - improvingDeduction - worseningDeduction + threatenedBonus;
 }
