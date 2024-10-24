@@ -51,13 +51,13 @@
 
 namespace Stockfish {
 
-int fmc   = 98;
-int fmtcr = 23;
-int idm   = 2048;
-int wdm   = 341;
-int tbm   = 341;
+constexpr int fmc   = 22;
+constexpr int fmtcr = 96;
+constexpr int idm   = 2088;
+constexpr int wdm   = 329;
+constexpr int tbm   = 352;
 
-TUNE(fmtcr, fmc, idm, wdm, tbm);
+// TUNE(fmtcr, fmc, idm, wdm, tbm);
 
 namespace TB = Tablebases;
 
