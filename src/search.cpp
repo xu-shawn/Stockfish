@@ -51,8 +51,8 @@
 
 namespace Stockfish {
 
-constexpr int fmc   = 22;
-constexpr int fmtcr = 96;
+constexpr int fmc   = 96;
+constexpr int fmtcr = 22;
 constexpr int idm   = 2088;
 constexpr int wdm   = 329;
 constexpr int tbm   = 352;
