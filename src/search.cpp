@@ -51,6 +51,24 @@
 
 namespace Stockfish {
 
+int           f1  = 1024;
+constexpr int r1  = 1024;
+constexpr int r2  = 1024;
+constexpr int r3  = 1024;
+constexpr int r4  = 1024;
+int           r5  = 2048;
+int           r6  = 1024;
+int           r7  = 1024;
+int           r8  = 1024;
+int           r9  = 1024;
+int           r10 = 1024;
+int           r11 = 2048;
+int           s1  = 1533;
+int           r12 = 2048;
+int           r13 = 3072;
+
+TUNE(f1, r5, r6, r7, r8, r9, r10, r11, r12, r13, s1);
+
 namespace TB = Tablebases;
 
 void syzygy_extend_pv(const OptionsMap&            options,
@@ -1156,36 +1174,36 @@ moves_loop:  // When in check, search starts here
 
         // Decrease reduction if position is or has been on the PV (~7 Elo)
         if (ss->ttPv)
-            r -= 1024 + (ttData.value > alpha) * 1024 + (ttData.depth >= depth) * 1024;
+            r -= r1 + (ttData.value > alpha) * r2 + (ttData.depth >= depth) * r3;
 
         // Decrease reduction for PvNodes (~0 Elo on STC, ~2 Elo on LTC)
         if (PvNode)
-            r -= 1024;
+            r -= r4;
 
         // These reduction adjustments have no proven non-linear scaling
 
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)
-            r += 2048 - (ttData.depth >= depth && ss->ttPv) * 1024;
+            r += r5 - (ttData.depth >= depth && ss->ttPv) * r6;
 
         // Increase reduction if ttMove is a capture but the current move is not a capture (~3 Elo)
         if (ttCapture && !capture)
-            r += 1024 + (depth < 8) * 1024;
+            r += r7 + (depth < 8) * r8;
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)
-            r += 1024 + allNode * 1024;
+            r += r9 + allNode * r10;
 
         // For first picked move (ttMove) reduce reduction (~3 Elo)
         else if (move == ttData.move)
-            r -= 2048;
+            r -= r11;
 
         ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
                       + (*contHist[0])[movedPiece][move.to_sq()]
                       + (*contHist[1])[movedPiece][move.to_sq()] - 4410;
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
-        r -= ss->statScore * 1533 / 16384;
+        r -= ss->statScore * s1 / 16384;
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
         if (depth >= 2 && moveCount > 1)
@@ -1223,11 +1241,11 @@ moves_loop:  // When in check, search starts here
         {
             // Increase reduction if ttMove is not present (~6 Elo)
             if (!ttData.move)
-                r += 2048;
+                r += r12;
 
             // Note that if expected reduction is high, we reduce search depth by 1 here (~9 Elo)
             value =
-              -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - (r > 3072), !cutNode);
+              -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - (r > r13), !cutNode);
         }
 
         // For PV nodes only, do a full PV search on the first move or after a fail high,
@@ -1702,7 +1720,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
 Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta) const {
     int reductionScale = reductions[d] * reductions[mn];
-    return (reductionScale + 1239 - delta * 795 / rootDelta) + (!i && reductionScale > 1341) * 1024;
+    return (reductionScale + 1239 - delta * 795 / rootDelta) + (!i && reductionScale > 1341) * f1;
 }
 
 // elapsed() returns the time elapsed since the search started. If the
