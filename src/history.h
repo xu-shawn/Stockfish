@@ -70,6 +70,8 @@ inline int non_pawn_index(const Position& pos) {
     return pos.non_pawn_key(c) & (CORRECTION_HISTORY_SIZE - 1);
 }
 
+inline int zobrist_index(const Position& pos) { return pos.key() & (CORRECTION_HISTORY_SIZE - 1); }
+
 // StatsEntry stores the stat table value. It is usually a number but could
 // be a move or even a nested history. We use a class instead of a naked value
 // to directly call history update operator<<() on the entry so to use stats
@@ -165,6 +167,7 @@ enum CorrHistType {
     NonPawn,       // By color and non-pawn material positions
     PieceTo,       // By [piece][to] move
     Continuation,  // Combined history of move pairs
+    All,
 };
 
 template<CorrHistType _>
