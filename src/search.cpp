@@ -51,23 +51,21 @@
 
 namespace Stockfish {
 
-int           f1  = 1024;
+constexpr int f1  = 1089;
 constexpr int r1  = 1024;
 constexpr int r2  = 1024;
 constexpr int r3  = 1024;
 constexpr int r4  = 1024;
-int           r5  = 2048;
-int           r6  = 1024;
-int           r7  = 1024;
-int           r8  = 1024;
-int           r9  = 1024;
-int           r10 = 1024;
-int           r11 = 2048;
-int           s1  = 1533;
-int           r12 = 2048;
-int           r13 = 3072;
-
-TUNE(f1, r5, r6, r7, r8, r9, r10, r11, r12, r13, s1);
+constexpr int r5  = 2114;
+constexpr int r6  = 1055;
+constexpr int r7  = 1036;
+constexpr int r8  = 1021;
+constexpr int r9  = 1001;
+constexpr int r10 = 990;
+constexpr int r11 = 2110;
+constexpr int s1  = 1456;
+constexpr int r12 = 2124;
+constexpr int r13 = 3110;
 
 namespace TB = Tablebases;
 
