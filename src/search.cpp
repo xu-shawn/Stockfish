@@ -51,21 +51,21 @@
 
 namespace Stockfish {
 
-constexpr int f1  = 1057;
+constexpr int f1  = 1135;
 constexpr int r1  = 1024;
 constexpr int r2  = 1024;
 constexpr int r3  = 1024;
 constexpr int r4  = 1024;
-constexpr int r5  = 2394;
-constexpr int r6  = 961;
-constexpr int r7  = 970;
-constexpr int r8  = 1060;
-constexpr int r9  = 913;
-constexpr int r10 = 897;
-constexpr int r11 = 2036;
-constexpr int s1  = 1402;
-constexpr int r12 = 2008;
-constexpr int r13 = 3225;
+constexpr int r5  = 2518;
+constexpr int r6  = 991;
+constexpr int r7  = 1043;
+constexpr int r8  = 999;
+constexpr int r9  = 938;
+constexpr int r10 = 960;
+constexpr int r11 = 1879;
+constexpr int s1  = 1287;
+constexpr int r12 = 2037;
+constexpr int r13 = 2983;
 
 namespace TB = Tablebases;
 
@@ -553,7 +553,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
