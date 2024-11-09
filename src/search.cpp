@@ -537,7 +537,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -805,6 +805,7 @@ Value Search::Worker::search(
         Depth R = std::min(int(eval - beta) / 209, 6) + depth / 3 + 5;
 
         ss->currentMove                   = Move::null();
+        ss->statScore                     = -78520;
         ss->continuationHistory           = &thisThread->continuationHistory[0][0][NO_PIECE][0];
         ss->continuationCorrectionHistory = &thisThread->continuationCorrectionHistory[NO_PIECE][0];
 
@@ -890,6 +891,10 @@ Value Search::Worker::search(
               &this->continuationHistory[ss->inCheck][true][pos.moved_piece(move)][move.to_sq()];
             ss->continuationCorrectionHistory =
               &this->continuationCorrectionHistory[pos.moved_piece(move)][move.to_sq()];
+
+            ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
+                          + (*(ss - 1)->continuationHistory)[movedPiece][move.to_sq()]
+                          + (*(ss - 2)->continuationHistory)[movedPiece][move.to_sq()] - 4410;
 
             thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
             pos.do_move(move, st);
