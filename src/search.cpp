@@ -51,14 +51,6 @@
 
 namespace Stockfish {
 
-constexpr int fmc   = 96;
-constexpr int fmtcr = 22;
-constexpr int idm   = 2088;
-constexpr int wdm   = 329;
-constexpr int tbm   = 352;
-
-// TUNE(fmtcr, fmc, idm, wdm, tbm);
-
 namespace TB = Tablebases;
 
 void syzygy_extend_pv(const OptionsMap&            options,
@@ -73,14 +65,12 @@ using namespace Search;
 namespace {
 
 // Futility margin
-Value futility_margin(
-  Depth d, bool noTtCutNode, bool improving, bool oppWorsening, const Bitboard threatened) {
-    Value futilityMult       = fmc - fmtcr * noTtCutNode;
-    Value improvingDeduction = improving * futilityMult * idm / 1024;
-    Value worseningDeduction = oppWorsening * futilityMult * wdm / 1024;
-    Value threatenedBonus    = static_cast<bool>(threatened) * futilityMult * tbm / 1024;
+Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
+    Value futilityMult       = 118 - 33 * noTtCutNode;
+    Value improvingDeduction = improving * futilityMult * 2;
+    Value worseningDeduction = oppWorsening * futilityMult / 3;
 
-    return futilityMult * d - improvingDeduction - worseningDeduction + threatenedBonus;
+    return futilityMult * d - improvingDeduction - worseningDeduction;
 }
 
 constexpr int futility_move_count(bool improving, Depth depth) {
@@ -798,8 +788,8 @@ Value Search::Worker::search(
     // The depth condition is important for mate finding.
     if (!ss->ttPv && depth < 13
         && eval
-               - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening,
-                                 pos.threats())
+               - futility_margin(depth, cutNode && !ss->ttHit,
+                                 improving && static_cast<bool>(pos.threats()), opponentWorsening)
                - (ss - 1)->statScore / 272
              >= beta
         && eval >= beta && (!ttData.move || ttCapture) && beta > VALUE_TB_LOSS_IN_MAX_PLY
