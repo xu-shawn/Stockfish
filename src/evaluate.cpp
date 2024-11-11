@@ -19,6 +19,7 @@
 #include "evaluate.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
@@ -36,6 +37,36 @@
 #include "nnue/nnue_accumulator.h"
 
 namespace Stockfish {
+
+namespace {
+
+constexpr double log_approximation(double x) {
+    double result       = 0.0;
+    double term         = (x - 1) / (x + 1);
+    double term_squared = term * term;
+    double numerator    = term;
+
+    for (std::size_t i = 1; i < 2 * x; i += 2)
+    {
+        result += numerator / i;
+        numerator *= term_squared;
+    }
+
+    return 2 * result;
+}
+
+constexpr std::array<int, 101> DAMPENING_FACTOR = []() {
+    std::array<int, 101> temp_array = {};
+
+    for (std::size_t i = 0; i < 101; i++)
+    {
+        temp_array[i] = static_cast<int>(i * log_approximation(i));
+    }
+
+    return temp_array;
+}();
+
+}
 
 // Returns a static, purely materialistic evaluation of the position from
 // the point of view of the given color. It can be divided by PawnValue to get
@@ -82,7 +113,9 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
     int v        = (nnue * (77777 + material) + optimism * (7777 + material)) / 77777;
 
     // Damp down the evaluation linearly when shuffling
-    v -= v * pos.rule50_count() / 212;
+    v -= v * DAMPENING_FACTOR[pos.rule50_count()] / 600;
+
+    dbg_hit_on(pos.rule50_count() > 100);
 
     // Guarantee evaluation does not hit the tablebase range
     v = std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
