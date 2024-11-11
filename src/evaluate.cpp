@@ -112,10 +112,8 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
     int material = (smallNet ? 553 : 532) * pos.count<PAWN>() + pos.non_pawn_material();
     int v        = (nnue * (77777 + material) + optimism * (7777 + material)) / 77777;
 
-    // Damp down the evaluation linearly when shuffling
+    // Damp down the evaluation when shuffling
     v -= v * DAMPENING_FACTOR[pos.rule50_count()] / 600;
-
-    dbg_hit_on(pos.rule50_count() > 100);
 
     // Guarantee evaluation does not hit the tablebase range
     v = std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
