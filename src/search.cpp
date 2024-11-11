@@ -87,13 +87,15 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos, St
     const auto  micv  = w.minorPieceCorrectionHistory[us][minor_piece_index(pos)];
     const auto  wnpcv = w.nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)];
     const auto  bnpcv = w.nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)];
+    const auto  zcv   = w.zobristCorrectionHistory[us][zobrist_index(pos)];
     int         cntcv = 1;
 
     if (m.is_ok())
         cntcv = int((*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]);
 
     const auto cv =
-      (5932 * pcv + 3269 * macv + 5660 * micv + 6666 * (wnpcv + bnpcv) + 5555 * cntcv) / 131072;
+      (5932 * pcv + 3269 * macv + 5660 * micv + 6666 * (wnpcv + bnpcv) + 5555 * cntcv + zcv * 3000)
+      / 131072;
     v += cv;
     return std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
@@ -504,6 +506,7 @@ void Search::Worker::clear() {
     captureHistory.fill(-753);
     pawnHistory.fill(-1152);
     pawnCorrectionHistory.fill(0);
+    zobristCorrectionHistory.fill(0);
     majorPieceCorrectionHistory.fill(0);
     minorPieceCorrectionHistory.fill(0);
     nonPawnCorrectionHistory[WHITE].fill(0);
@@ -537,7 +540,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -1431,6 +1434,7 @@ moves_loop:  // When in check, search starts here
           << bonus * 123 / 128;
         thisThread->nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)]
           << bonus * 165 / 128;
+        thisThread->zobristCorrectionHistory[us][zobrist_index(pos)] << bonus * 128 / 128;
 
         if (m.is_ok())
             (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()] << bonus;

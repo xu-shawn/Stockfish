@@ -290,6 +290,7 @@ class Worker {
     CorrectionHistory<Major>        majorPieceCorrectionHistory;
     CorrectionHistory<Minor>        minorPieceCorrectionHistory;
     CorrectionHistory<NonPawn>      nonPawnCorrectionHistory[COLOR_NB];
+    CorrectionHistory<PosKey>       zobristCorrectionHistory;
     CorrectionHistory<Continuation> continuationCorrectionHistory;
 
    private:
