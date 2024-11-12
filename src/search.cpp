@@ -537,7 +537,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -787,7 +787,9 @@ Value Search::Worker::search(
     // Step 8. Futility pruning: child node (~40 Elo)
     // The depth condition is important for mate finding.
     if (!ss->ttPv && depth < 13
-        && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
+        && eval
+               - futility_margin(depth, cutNode && (!ttData.move || !pos.see_ge(ttData.move, -108)),
+                                 improving, opponentWorsening)
                - (ss - 1)->statScore / 272
              >= beta
         && eval >= beta && (!ttData.move || ttCapture) && beta > VALUE_TB_LOSS_IN_MAX_PLY
