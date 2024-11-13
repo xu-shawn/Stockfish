@@ -292,9 +292,6 @@ void Search::Worker::iterative_deepening() {
         size_t pvFirst = 0;
         pvLast         = 0;
 
-        if (!threads.increaseDepth)
-            searchAgainCounter++;
-
         // MultiPV loop. We perform a full root search for each PV line
         for (pvIdx = 0; pvIdx < multiPV; ++pvIdx)
         {
@@ -477,8 +474,6 @@ void Search::Worker::iterative_deepening() {
                 else
                     threads.stop = true;
             }
-            else
-                threads.increaseDepth = mainThread->ponder.load(std::memory_order_relaxed);
         }
 
         mainThread->iterValue[iterIdx] = bestValue;

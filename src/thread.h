@@ -150,7 +150,7 @@ class ThreadPool {
 
     void ensure_network_replicated();
 
-    std::atomic_bool stop, abortedSearch, increaseDepth;
+    std::atomic_bool stop, abortedSearch;
 
     auto cbegin() const noexcept { return threads.cbegin(); }
     auto begin() noexcept { return threads.begin(); }
@@ -164,7 +164,7 @@ class ThreadPool {
     std::vector<std::unique_ptr<Thread>> threads;
     std::vector<NumaIndex>               boundThreadToNumaNode;
 
-    uint64_t accumulate(std::atomic<uint64_t> Search::Worker::*member) const {
+    uint64_t accumulate(std::atomic<uint64_t> Search::Worker::* member) const {
 
         uint64_t sum = 0;
         for (auto&& th : threads)
