@@ -53,48 +53,30 @@
 namespace Stockfish {
 
 /* History Scales */
-int scale_ttc_hisupd        = 1024;
-int scale_ttc_prehisupd     = 1024;
-int scale_policy_pwnhist    = 512;
-int scale_probcut_capthist  = 1024;
-int scale_post_lmr_cnthist  = 2048;
-int scale_fl_hist           = 256;
-int scale_cnt_corrhist      = 128;
-int scale_main_bonus        = 1024;
-int scale_main_malus        = 1024;
-int scale_capthist_bonus    = 1024;
-int scale_capthist_malus    = 1024;
-int scale_qem_malus         = 1024;
-int scale_conthist_bonus[5] = {848, 848, 424, 848, 848};
-int scale_quiet_histupd     = 1024;
-int scale_low_ply_histupd   = 1024;
-int scale_qhupd_chupd       = 1024;
-int scale_qhupd_pwnhupd     = 512;
-TUNE(scale_ttc_hisupd,
-     scale_ttc_prehisupd,
-     scale_policy_pwnhist,
-     scale_probcut_capthist,
-     scale_post_lmr_cnthist,
-     scale_fl_hist,
-     scale_cnt_corrhist,
-     scale_main_bonus,
-     scale_main_malus,
-     scale_capthist_bonus,
-     scale_capthist_malus,
-     scale_qem_malus,
-     scale_conthist_bonus,
-     scale_quiet_histupd,
-     scale_low_ply_histupd,
-     scale_qhupd_chupd,
-     scale_qhupd_pwnhupd);
+constexpr int scale_ttc_hisupd        = 987;
+constexpr int scale_ttc_prehisupd     = 965;
+constexpr int scale_policy_pwnhist    = 555;
+constexpr int scale_probcut_capthist  = 981;
+constexpr int scale_post_lmr_cnthist  = 2128;
+constexpr int scale_fl_hist           = 265;
+constexpr int scale_cnt_corrhist      = 130;
+constexpr int scale_main_bonus        = 1052;
+constexpr int scale_main_malus        = 1018;
+constexpr int scale_capthist_bonus    = 1046;
+constexpr int scale_capthist_malus    = 986;
+constexpr int scale_qem_malus         = 1034;
+constexpr int scale_conthist_bonus[5] = {804, 837, 440, 804, 863};
+constexpr int scale_quiet_histupd     = 1043;
+constexpr int scale_low_ply_histupd   = 1007;
+constexpr int scale_qhupd_chupd       = 1046;
+constexpr int scale_qhupd_pwnhupd     = 514;
 
 /* Fail Mediums */
-int fm_ttcutoff    = 1024;
-int fm_rfp         = 683;
-int fm_pcidea      = 1024;
-int fm_standpat    = 512;
-int fm_qs_failhigh = 768;
-TUNE(SetRange(0, 1024), fm_ttcutoff, fm_rfp, fm_pcidea, fm_standpat, fm_qs_failhigh);
+constexpr int fm_ttcutoff    = 1024;
+constexpr int fm_rfp         = 703;
+constexpr int fm_pcidea      = 1004;
+constexpr int fm_standpat    = 506;
+constexpr int fm_qs_failhigh = 724;
 
 
 namespace TB = Tablebases;
@@ -583,7 +565,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
