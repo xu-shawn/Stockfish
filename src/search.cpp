@@ -54,23 +54,23 @@
 namespace Stockfish {
 
 /* History Scales */
-int scale_ttc_hisupd        = 1024;
-int scale_ttc_prehisupd     = 1024;
-int scale_policy_pwnhist    = 512;
-int scale_probcut_capthist  = 1024;
-int scale_post_lmr_cnthist  = 2048;
-int scale_fl_hist           = 256;
-int scale_cnt_corrhist      = 128;
-int scale_main_bonus        = 1024;
-int scale_main_malus        = 1024;
-int scale_capthist_bonus    = 1024;
-int scale_capthist_malus    = 1024;
-int scale_qem_malus         = 1024;
-int scale_conthist_bonus[5] = {848, 848, 424, 848, 848};
-int scale_quiet_histupd     = 1024;
-int scale_low_ply_histupd   = 1024;
-int scale_qhupd_chupd       = 1024;
-int scale_qhupd_pwnhupd     = 512;
+int scale_ttc_hisupd        = 987;
+int scale_ttc_prehisupd     = 965;
+int scale_policy_pwnhist    = 555;
+int scale_probcut_capthist  = 981;
+int scale_post_lmr_cnthist  = 2128;
+int scale_fl_hist           = 265;
+int scale_cnt_corrhist      = 130;
+int scale_main_bonus        = 1052;
+int scale_main_malus        = 1018;
+int scale_capthist_bonus    = 1046;
+int scale_capthist_malus    = 986;
+int scale_qem_malus         = 1034;
+int scale_conthist_bonus[5] = {804, 837, 440, 804, 863};
+int scale_quiet_histupd     = 1043;
+int scale_low_ply_histupd   = 1007;
+int scale_qhupd_chupd       = 1046;
+int scale_qhupd_pwnhupd     = 514;
 TUNE(scale_ttc_hisupd,
      scale_ttc_prehisupd,
      scale_policy_pwnhist,
@@ -90,12 +90,11 @@ TUNE(scale_ttc_hisupd,
      scale_qhupd_pwnhupd);
 
 /* Fail Mediums */
-int fm_ttcutoff    = 1024;
-int fm_rfp         = 683;
-int fm_pcidea      = 1024;
-int fm_standpat    = 512;
-int fm_qs_failhigh = 768;
-TUNE(SetRange(0, 1024), fm_ttcutoff, fm_rfp, fm_pcidea, fm_standpat, fm_qs_failhigh);
+int fm_rfp         = 703;
+int fm_pcidea      = 1004;
+int fm_standpat    = 506;
+int fm_qs_failhigh = 724;
+TUNE(SetRange(0, 1024), fm_rfp, fm_pcidea, fm_standpat, fm_qs_failhigh);
 
 
 namespace TB = Tablebases;
@@ -703,7 +702,7 @@ Value Search::Worker::search(
         // Partial workaround for the graph history interaction problem
         // For high rule50 counts don't produce transposition table cutoffs.
         if (pos.rule50_count() < 90)
-            return (ttData.value * fm_ttcutoff + beta * (1024 - fm_ttcutoff)) / 1024;
+            return ttData.value;
     }
 
     // Step 5. Tablebases probe
