@@ -54,48 +54,29 @@
 namespace Stockfish {
 
 /* History Scales */
-int scale_ttc_hisupd        = 987;
-int scale_ttc_prehisupd     = 965;
-int scale_policy_pwnhist    = 555;
-int scale_probcut_capthist  = 981;
-int scale_post_lmr_cnthist  = 2128;
-int scale_fl_hist           = 265;
-int scale_cnt_corrhist      = 130;
-int scale_main_bonus        = 1052;
-int scale_main_malus        = 1018;
-int scale_capthist_bonus    = 1046;
-int scale_capthist_malus    = 986;
-int scale_qem_malus         = 1034;
-int scale_conthist_bonus[5] = {804, 837, 440, 804, 863};
-int scale_quiet_histupd     = 1043;
-int scale_low_ply_histupd   = 1007;
-int scale_qhupd_chupd       = 1046;
-int scale_qhupd_pwnhupd     = 514;
-TUNE(scale_ttc_hisupd,
-     scale_ttc_prehisupd,
-     scale_policy_pwnhist,
-     scale_probcut_capthist,
-     scale_post_lmr_cnthist,
-     scale_fl_hist,
-     scale_cnt_corrhist,
-     scale_main_bonus,
-     scale_main_malus,
-     scale_capthist_bonus,
-     scale_capthist_malus,
-     scale_qem_malus,
-     scale_conthist_bonus,
-     scale_quiet_histupd,
-     scale_low_ply_histupd,
-     scale_qhupd_chupd,
-     scale_qhupd_pwnhupd);
+constexpr int scale_ttc_hisupd        = 1031;
+constexpr int scale_ttc_prehisupd     = 1008;
+constexpr int scale_policy_pwnhist    = 582;
+constexpr int scale_probcut_capthist  = 1044;
+constexpr int scale_post_lmr_cnthist  = 2060;
+constexpr int scale_fl_hist           = 265;
+constexpr int scale_cnt_corrhist      = 142;
+constexpr int scale_main_bonus        = 1070;
+constexpr int scale_main_malus        = 1014;
+constexpr int scale_capthist_bonus    = 1243;
+constexpr int scale_capthist_malus    = 848;
+constexpr int scale_qem_malus         = 1029;
+constexpr int scale_conthist_bonus[5] = {727, 800, 377, 774, 892};
+constexpr int scale_quiet_histupd     = 1130;
+constexpr int scale_low_ply_histupd   = 884;
+constexpr int scale_qhupd_chupd       = 906;
+constexpr int scale_qhupd_pwnhupd     = 564;
 
 /* Fail Mediums */
-int fm_rfp         = 703;
-int fm_pcidea      = 1004;
-int fm_standpat    = 506;
-int fm_qs_failhigh = 724;
-TUNE(SetRange(0, 1024), fm_rfp, fm_pcidea, fm_standpat, fm_qs_failhigh);
-
+constexpr int fm_rfp         = 715;
+constexpr int fm_pcidea      = 956;
+constexpr int fm_standpat    = 515;
+constexpr int fm_qs_failhigh = 690;
 
 namespace TB = Tablebases;
 
