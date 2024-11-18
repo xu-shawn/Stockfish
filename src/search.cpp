@@ -1218,8 +1218,12 @@ moves_loop:  // When in check, search starts here
                 if (newDepth > d)
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
 
-                // Post LMR continuation history updates (~1 Elo)
+                // Post LMR history updates (~1 Elo)
                 int bonus = 2 * (value >= beta) * stat_bonus(newDepth);
+                thisThread->mainHistory[us][move.from_to()] << bonus;
+                thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(move.from_sq())]
+                                       [move.to_sq()]
+                  << bonus / 2;
                 update_continuation_histories(ss, movedPiece, move.to_sq(), bonus);
             }
         }
