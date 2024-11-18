@@ -894,6 +894,9 @@ Value Search::Worker::search(
               &this->continuationHistory[ss->inCheck][true][pos.moved_piece(move)][move.to_sq()];
             ss->continuationCorrectionHistory =
               &this->continuationCorrectionHistory[pos.moved_piece(move)][move.to_sq()];
+            ss->statScore =
+              thisThread->captureHistory[movedPiece][move.to_sq()][type_of(pos.captured_piece())]
+              - 11000;
 
             thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
             pos.do_move(move, st);
