@@ -538,7 +538,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -1105,7 +1105,7 @@ moves_loop:  // When in check, search starts here
                 // singular (multiple moves fail high), and we can prune the whole
                 // subtree by returning a softbound.
                 else if (value >= beta && std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY)
-                    return value;
+                    return value + (ttData.value - value) / 3;
 
                 // Negative extensions
                 // If other moves failed high over (ttValue - margin) without the
