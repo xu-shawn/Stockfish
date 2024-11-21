@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "bitboard.h"
+#include "history.h"
 #include "position.h"
 
 namespace Stockfish {
@@ -157,9 +158,11 @@ void MovePicker::score() {
             Square    from = m.from_sq();
             Square    to   = m.to_sq();
 
+            const int pIndex = pawn_structure_index(pos);
+
             // histories
             m.value = (*mainHistory)[pos.side_to_move()][m.from_to()];
-            m.value += 2 * (*pawnHistory)[pawn_structure_index(pos)][pc][to];
+            m.value += 2 * (*pawnHistory)[pIndex][pc][to];
             m.value += 2 * (*continuationHistory[0])[pc][to];
             m.value += (*continuationHistory[1])[pc][to];
             m.value += (*continuationHistory[2])[pc][to] / 3;
@@ -182,7 +185,7 @@ void MovePicker::score() {
                                                                      : 0);
 
             if (ply < LOW_PLY_HISTORY_SIZE)
-                m.value += 8 * (*lowPlyHistory)[ply][m.from_to()] / (1 + 2 * ply);
+                m.value += 8 * (*lowPlyHistory)[ply][pIndex][m.from_to()] / (1 + 2 * ply);
         }
 
         else  // Type == EVASIONS
