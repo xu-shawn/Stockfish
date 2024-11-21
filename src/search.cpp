@@ -969,6 +969,8 @@ moves_loop:  // When in check, search starts here
                            thisThread->rootMoves.begin() + thisThread->pvLast, move))
             continue;
 
+        thisThread->mainHistory[us][move.from_to()] << 200;
+
         ss->moveCount = ++moveCount;
 
         if (rootNode && is_mainthread() && nodes > 10000000)
