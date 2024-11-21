@@ -1186,12 +1186,14 @@ moves_loop:  // When in check, search starts here
               thisThread->captureHistory[movedPiece][move.to_sq()][type_of(pos.captured_piece())]
               - 5454;
         else
+        {
             ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
                           + (*contHist[0])[movedPiece][move.to_sq()]
                           + (*contHist[1])[movedPiece][move.to_sq()] - 3996;
 
-        // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
-        r -= ss->statScore * 1287 / 16384;
+            // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
+            r -= ss->statScore * 1287 / 16384;
+        }
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
         if (depth >= 2 && moveCount > 1)
