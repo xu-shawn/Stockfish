@@ -79,7 +79,7 @@ class StatsEntry {
     void operator=(const T& v) { entry = v; }
     T*   operator&() { return &entry; }
     T*   operator->() { return &entry; }
-    operator const T&() const { return entry; }
+         operator const T&() const { return entry; }
 
     void operator<<(int bonus) {
         static_assert(D <= std::numeric_limits<T>::max(), "D overflows T");
@@ -128,17 +128,17 @@ enum StatsType {
 // during the current search, and is used for reduction and move ordering decisions.
 // It uses 2 tables (one for each color) indexed by the move's from and to squares,
 // see https://www.chessprogramming.org/Butterfly_Boards (~11 elo)
-using ButterflyHistory = Stats<int16_t, 7183, COLOR_NB, int(SQUARE_NB) * int(SQUARE_NB)>;
+using ButterflyHistory = Stats<int16_t, 8192, COLOR_NB, int(SQUARE_NB) * int(SQUARE_NB)>;
 
 // LowPlyHistory is adressed by play and move's from and to squares, used
 // to improve move ordering near the root
-using LowPlyHistory = Stats<int16_t, 7183, LOW_PLY_HISTORY_SIZE, int(SQUARE_NB) * int(SQUARE_NB)>;
+using LowPlyHistory = Stats<int16_t, 8192, LOW_PLY_HISTORY_SIZE, int(SQUARE_NB) * int(SQUARE_NB)>;
 
 // CapturePieceToHistory is addressed by a move's [piece][to][captured piece type]
-using CapturePieceToHistory = Stats<int16_t, 10692, PIECE_NB, SQUARE_NB, PIECE_TYPE_NB>;
+using CapturePieceToHistory = Stats<int16_t, 16384, PIECE_NB, SQUARE_NB, PIECE_TYPE_NB>;
 
 // PieceToHistory is like ButterflyHistory but is addressed by a move's [piece][to]
-using PieceToHistory = Stats<int16_t, 29952, PIECE_NB, SQUARE_NB>;
+using PieceToHistory = Stats<int16_t, 30000, PIECE_NB, SQUARE_NB>;
 
 // ContinuationHistory is the combined history of a given pair of moves, usually
 // the current one given a previous one. The nested history table is based on
