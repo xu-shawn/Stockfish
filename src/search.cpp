@@ -538,7 +538,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
+        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -593,10 +593,9 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
-                              thisThread->optimism[us])
-                   : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
+                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
+                                                        : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
@@ -775,16 +774,6 @@ Value Search::Worker::search(
     improving = ss->staticEval > (ss - 2)->staticEval;
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
-
-    // Step 7. Razoring (~1 Elo)
-    // If eval is really low, check with qsearch if we can exceed alpha. If the
-    // search suggests we cannot exceed alpha, return a speculative fail low.
-    if (eval < alpha - 469 - 307 * depth * depth)
-    {
-        value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
-        if (value < alpha && std::abs(value) < VALUE_TB_WIN_IN_MAX_PLY)
-            return value;
-    }
 
     // Step 8. Futility pruning: child node (~40 Elo)
     // The depth condition is important for mate finding.
