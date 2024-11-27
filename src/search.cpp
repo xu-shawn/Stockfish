@@ -910,7 +910,7 @@ Value Search::Worker::search(
 
             if (value >= probCutBeta)
             {
-                thisThread->captureHistory[movedPiece][move.to_sq()][type_of(captured)] << 1300;
+                thisThread->captureHistory[type_of(movedPiece)][move.to_sq()][captured] << 1300;
 
                 // Save ProbCut data into transposition table
                 ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
@@ -1005,7 +1005,7 @@ moves_loop:  // When in check, search starts here
             {
                 Piece capturedPiece = pos.piece_on(move.to_sq());
                 int   captHist =
-                  thisThread->captureHistory[movedPiece][move.to_sq()][type_of(capturedPiece)];
+                  thisThread->captureHistory[type_of(movedPiece)][move.to_sq()][capturedPiece];
 
                 // Futility pruning for captures (~2 Elo)
                 if (!givesCheck && lmrDepth < 7 && !ss->inCheck)
@@ -1125,8 +1125,8 @@ moves_loop:  // When in check, search starts here
 
             // Extension for capturing the previous moved piece (~1 Elo at LTC)
             else if (PvNode && move.to_sq() == prevSq
-                     && thisThread->captureHistory[movedPiece][move.to_sq()]
-                                                  [type_of(pos.piece_on(move.to_sq()))]
+                     && thisThread->captureHistory[type_of(movedPiece)][move.to_sq()]
+                                                  [pos.piece_on(move.to_sq())]
                           > 4321)
                 extension = 1;
         }
@@ -1795,8 +1795,8 @@ void update_all_stats(const Position&      pos,
                       Depth                depth) {
 
     CapturePieceToHistory& captureHistory = workerThread.captureHistory;
-    Piece                  moved_piece    = pos.moved_piece(bestMove);
-    PieceType              captured;
+    PieceType              moved_piece    = type_of(pos.moved_piece(bestMove));
+    Piece                  captured;
 
     int bonus = stat_bonus(depth);
     int malus = stat_malus(depth);
@@ -1812,7 +1812,7 @@ void update_all_stats(const Position&      pos,
     else
     {
         // Increase stats for the best move in case it was a capture move
-        captured = type_of(pos.piece_on(bestMove.to_sq()));
+        captured = pos.piece_on(bestMove.to_sq());
         captureHistory[moved_piece][bestMove.to_sq()][captured] << bonus;
     }
 
@@ -1824,8 +1824,8 @@ void update_all_stats(const Position&      pos,
     // Decrease stats for all non-best capture moves
     for (Move move : capturesSearched)
     {
-        moved_piece = pos.moved_piece(move);
-        captured    = type_of(pos.piece_on(move.to_sq()));
+        moved_piece = type_of(pos.moved_piece(move));
+        captured    = pos.piece_on(move.to_sq());
         captureHistory[moved_piece][move.to_sq()][captured] << -malus;
     }
 }
