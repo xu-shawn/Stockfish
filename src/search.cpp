@@ -825,7 +825,34 @@ Value Search::Worker::search(
             if (moveCount >= depth / 2)
                 break;
 
+            // Speculative prefetch as early as possible
+            prefetch(tt.first_entry(pos.key_after(move)));
+
+            capture    = pos.capture_stage(move);
+            movedPiece = pos.moved_piece(move);
+            givesCheck = pos.gives_check(move);
+
+            // Update the current move (this must be done after singular extension search)
+            ss->currentMove = move;
+            ss->continuationHistory =
+              &thisThread->continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
+            ss->continuationCorrectionHistory =
+              &thisThread->continuationCorrectionHistory[movedPiece][move.to_sq()];
+
+            thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
+            pos.do_move(move, st, givesCheck);
+
             value = -search<NonPV>(pos, ss + 1, -beta, -(beta - 1), 1, false);
+
+            pos.undo_move(move);
+
+            assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
+
+            // Finished searching the move. If a stop occurred, the return value of
+            // the search cannot be trusted, and we return immediately without updating
+            // best move, principal variation nor transposition table.
+            if (threads.stop.load(std::memory_order_relaxed))
+                return VALUE_ZERO;
 
             if (value >= beta)
                 return value;
