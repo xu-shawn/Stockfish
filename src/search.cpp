@@ -794,7 +794,7 @@ Value Search::Worker::search(
         && eval >= beta && (!ttData.move || ttCapture) && beta > VALUE_TB_LOSS_IN_MAX_PLY
         && eval < VALUE_TB_WIN_IN_MAX_PLY)
     {
-        if (depth < 8 || qsearch<NonPV>(pos, ss, beta - 1, beta) > beta)
+        if (depth < 8 || qsearch<NonPV>(pos, ss, beta - 1, beta) >= beta)
             return beta + (eval - beta) / 3;
     }
 
