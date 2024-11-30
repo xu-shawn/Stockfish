@@ -794,8 +794,44 @@ Value Search::Worker::search(
         && eval >= beta && (!ttData.move || ttCapture) && beta > VALUE_TB_LOSS_IN_MAX_PLY
         && eval < VALUE_TB_WIN_IN_MAX_PLY)
     {
-        if (depth < 8 || qsearch<NonPV>(pos, ss, beta - 1, beta) >= beta)
+        if (depth < 7 || ttCapture)
             return beta + (eval - beta) / 3;
+
+        int moveCount = 0;
+
+        const PieceToHistory* contHist[] = {(ss - 1)->continuationHistory,
+                                            (ss - 2)->continuationHistory,
+                                            (ss - 3)->continuationHistory,
+                                            (ss - 4)->continuationHistory,
+                                            nullptr,
+                                            (ss - 6)->continuationHistory};
+
+
+        MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->lowPlyHistory,
+                      &thisThread->captureHistory, contHist, &thisThread->pawnHistory, ss->ply);
+
+        while ((move = mp.next_move()) != Move::none())
+        {
+            assert(move.is_ok());
+
+            if (move == excludedMove)
+                continue;
+
+            if (!pos.legal(move))
+                continue;
+
+            ss->moveCount = ++moveCount;
+
+            if (moveCount >= depth / 2)
+                break;
+
+            value = -search<NonPV>(pos, ss + 1, -beta, -(beta - 1), 1, false);
+
+            if (value >= beta)
+                return value;
+        }
+
+        ss->moveCount = 0;
     }
 
     improving |= ss->staticEval >= beta + 100;
