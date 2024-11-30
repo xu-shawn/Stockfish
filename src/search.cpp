@@ -793,73 +793,7 @@ Value Search::Worker::search(
              >= beta
         && eval >= beta && (!ttData.move || ttCapture) && beta > VALUE_TB_LOSS_IN_MAX_PLY
         && eval < VALUE_TB_WIN_IN_MAX_PLY)
-    {
-        if (depth < 7 || ttCapture)
-            return beta + (eval - beta) / 3;
-
-        int moveCount = 0;
-
-        const PieceToHistory* contHist[] = {(ss - 1)->continuationHistory,
-                                            (ss - 2)->continuationHistory,
-                                            (ss - 3)->continuationHistory,
-                                            (ss - 4)->continuationHistory,
-                                            nullptr,
-                                            (ss - 6)->continuationHistory};
-
-
-        MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->lowPlyHistory,
-                      &thisThread->captureHistory, contHist, &thisThread->pawnHistory, ss->ply);
-
-        while ((move = mp.next_move()) != Move::none())
-        {
-            assert(move.is_ok());
-
-            if (move == excludedMove)
-                continue;
-
-            if (!pos.legal(move))
-                continue;
-
-            ss->moveCount = ++moveCount;
-
-            if (moveCount >= depth / 2)
-                break;
-
-            // Speculative prefetch as early as possible
-            prefetch(tt.first_entry(pos.key_after(move)));
-
-            capture    = pos.capture_stage(move);
-            movedPiece = pos.moved_piece(move);
-            givesCheck = pos.gives_check(move);
-
-            // Update the current move (this must be done after singular extension search)
-            ss->currentMove = move;
-            ss->continuationHistory =
-              &thisThread->continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
-            ss->continuationCorrectionHistory =
-              &thisThread->continuationCorrectionHistory[movedPiece][move.to_sq()];
-
-            thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
-            pos.do_move(move, st, givesCheck);
-
-            value = -search<NonPV>(pos, ss + 1, -beta, -(beta - 1), 1, false);
-
-            pos.undo_move(move);
-
-            assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
-
-            // Finished searching the move. If a stop occurred, the return value of
-            // the search cannot be trusted, and we return immediately without updating
-            // best move, principal variation nor transposition table.
-            if (threads.stop.load(std::memory_order_relaxed))
-                return VALUE_ZERO;
-
-            if (value >= beta)
-                return value;
-        }
-
-        ss->moveCount = 0;
-    }
+        return beta + (eval - beta) / 3;
 
     improving |= ss->staticEval >= beta + 100;
 
@@ -986,6 +920,73 @@ Value Search::Worker::search(
         }
 
         Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
+    }
+
+    probCutBeta = beta + 133;
+    if (!PvNode && depth >= 4 && (ttData.bound & BOUND_LOWER) && ttData.value >= probCutBeta)
+    {
+        int moveCount = 0;
+
+        const PieceToHistory* contHist[] = {(ss - 1)->continuationHistory,
+                                            (ss - 2)->continuationHistory,
+                                            (ss - 3)->continuationHistory,
+                                            (ss - 4)->continuationHistory,
+                                            nullptr,
+                                            (ss - 6)->continuationHistory};
+
+
+        MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->lowPlyHistory,
+                      &thisThread->captureHistory, contHist, &thisThread->pawnHistory, ss->ply);
+
+        while ((move = mp.next_move()) != Move::none())
+        {
+            assert(move.is_ok());
+
+            if (move == excludedMove)
+                continue;
+
+            if (!pos.legal(move))
+                continue;
+
+            ss->moveCount = ++moveCount;
+
+            if (moveCount >= 3)
+                break;
+
+            // Speculative prefetch as early as possible
+            prefetch(tt.first_entry(pos.key_after(move)));
+
+            capture    = pos.capture_stage(move);
+            movedPiece = pos.moved_piece(move);
+            givesCheck = pos.gives_check(move);
+
+            // Update the current move (this must be done after singular extension search)
+            ss->currentMove = move;
+            ss->continuationHistory =
+              &thisThread->continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
+            ss->continuationCorrectionHistory =
+              &thisThread->continuationCorrectionHistory[movedPiece][move.to_sq()];
+
+            thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
+            pos.do_move(move, st, givesCheck);
+
+            value = -search<NonPV>(pos, ss + 1, -probCutBeta, -(probCutBeta - 1), depth - 3, false);
+
+            pos.undo_move(move);
+
+            assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
+
+            // Finished searching the move. If a stop occurred, the return value of
+            // the search cannot be trusted, and we return immediately without updating
+            // best move, principal variation nor transposition table.
+            if (threads.stop.load(std::memory_order_relaxed))
+                return VALUE_ZERO;
+
+            if (value >= probCutBeta)
+                return value;
+        }
+
+        ss->moveCount = 0;
     }
 
 moves_loop:  // When in check, search starts here
