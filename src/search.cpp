@@ -54,47 +54,47 @@
 namespace Stockfish {
 
 
-int ttq_mainhist_bonus      = 1024;
-int ttq_prev_mainhist_malus = 1024;
+int ttq_mainhist_bonus      = 894;
+int ttq_prev_mainhist_malus = 904;
 TUNE(ttq_mainhist_bonus, ttq_prev_mainhist_malus);
 
-int policy_mainhist_bonus = 1024;
-int policy_pawnhist_bonus = 1024;
+int policy_mainhist_bonus = 1040;
+int policy_pawnhist_bonus = 1027;
 TUNE(policy_mainhist_bonus, policy_pawnhist_bonus);
 
-int pcb_capthist_bonus = 1300;
+int pcb_capthist_bonus = 1220;
 TUNE(pcb_capthist_bonus);
 
-int post_lmr_conthist_bonus = 2048;
+int post_lmr_conthist_bonus = 2153;
 TUNE(post_lmr_conthist_bonus);
 
-int pcb_mainhist_bonus = 173;
-int pcb_conthist_bonus = 325;
-int pcb_pawnhist_bonus = 1224;
+int pcb_mainhist_bonus = 252;
+int pcb_conthist_bonus = 354;
+int pcb_pawnhist_bonus = 1009;
 TUNE(pcb_mainhist_bonus, pcb_conthist_bonus, pcb_pawnhist_bonus);
 
-int fail_low_mainhist_bonus = 235;
+int fail_low_mainhist_bonus = 263;
 TUNE(fail_low_mainhist_bonus);
 
-int stats_update_mainhist_bonus              = 1024;
-int stats_update_mainhist_malus              = 1024;
-int stats_update_capthist_bonus              = 1024;
-int stats_update_capthist_malus              = 1024;
-int stats_update_p_early_move_conthist_malus = 1024;
+int stats_update_mainhist_bonus              = 1073;
+int stats_update_mainhist_malus              = 853;
+int stats_update_capthist_bonus              = 1239;
+int stats_update_capthist_malus              = 1054;
+int stats_update_p_early_move_conthist_malus = 1000;
 TUNE(stats_update_mainhist_bonus,
      stats_update_mainhist_malus,
      stats_update_capthist_bonus,
      stats_update_capthist_malus,
      stats_update_p_early_move_conthist_malus);
 
-int quiet_histories_lowplyhist_bonus = 1024;
-int quiet_histories_conthist_bonus   = 1024;
-int quiet_histories_pawnhist_bonus   = 512;
+int quiet_histories_lowplyhist_bonus = 1135;
+int quiet_histories_conthist_bonus   = 1011;
+int quiet_histories_pawnhist_bonus   = 521;
 TUNE(quiet_histories_lowplyhist_bonus,
      quiet_histories_conthist_bonus,
      quiet_histories_pawnhist_bonus);
 
-int conthist_bonuses[6] = {1024, 1024, 512, 1024, 0, 1024};
+int conthist_bonuses[6] = {1024, 757, 352, 587, 0, 526};
 TUNE(conthist_bonuses[1], conthist_bonuses[2], conthist_bonuses[3], conthist_bonuses[5]);
 
 int lowplyhist_fill  = 0;
@@ -595,7 +595,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -650,9 +650,10 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(
-                     networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
-                                                        : value_draw(thisThread->nodes);
+            return (ss->ply >= MAX_PLY && !ss->inCheck)
+                   ? evaluate(networks[numaAccessToken], pos, refreshTable,
+                              thisThread->optimism[us])
+                   : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply + 1), but if alpha is already bigger because
