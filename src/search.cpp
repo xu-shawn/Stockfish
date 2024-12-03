@@ -1231,6 +1231,9 @@ moves_loop:  // When in check, search starts here
             // Note that if expected reduction is high, we reduce search depth by 1 here (~9 Elo)
             value =
               -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - (r > 2983), !cutNode);
+
+            int bonus = 2 * (value >= beta) * (stat_bonus(newDepth) + std::clamp(r / 4, 0, 2000));
+            update_continuation_histories(ss, movedPiece, move.to_sq(), bonus);
         }
 
         // For PV nodes only, do a full PV search on the first move or after a fail high,
