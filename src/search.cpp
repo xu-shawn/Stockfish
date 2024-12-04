@@ -54,60 +54,30 @@
 namespace Stockfish {
 
 
-int ttq_mainhist_bonus      = 894;
-int ttq_prev_mainhist_malus = 904;
-TUNE(ttq_mainhist_bonus, ttq_prev_mainhist_malus);
-
-int policy_mainhist_bonus = 1040;
-int policy_pawnhist_bonus = 1027;
-TUNE(policy_mainhist_bonus, policy_pawnhist_bonus);
-
-int pcb_capthist_bonus = 1220;
-TUNE(pcb_capthist_bonus);
-
-int post_lmr_conthist_bonus = 2153;
-TUNE(post_lmr_conthist_bonus);
-
-int pcb_mainhist_bonus = 252;
-int pcb_conthist_bonus = 354;
-int pcb_pawnhist_bonus = 1009;
-TUNE(pcb_mainhist_bonus, pcb_conthist_bonus, pcb_pawnhist_bonus);
-
-int fail_low_mainhist_bonus = 263;
-TUNE(fail_low_mainhist_bonus);
-
-int stats_update_mainhist_bonus              = 1073;
-int stats_update_mainhist_malus              = 853;
-int stats_update_capthist_bonus              = 1239;
-int stats_update_capthist_malus              = 1054;
-int stats_update_p_early_move_conthist_malus = 1000;
-TUNE(stats_update_mainhist_bonus,
-     stats_update_mainhist_malus,
-     stats_update_capthist_bonus,
-     stats_update_capthist_malus,
-     stats_update_p_early_move_conthist_malus);
-
-int quiet_histories_lowplyhist_bonus = 1135;
-int quiet_histories_conthist_bonus   = 1011;
-int quiet_histories_pawnhist_bonus   = 521;
-TUNE(quiet_histories_lowplyhist_bonus,
-     quiet_histories_conthist_bonus,
-     quiet_histories_pawnhist_bonus);
-
-int conthist_bonuses[6] = {1024, 757, 352, 587, 0, 526};
-TUNE(conthist_bonuses[1], conthist_bonuses[2], conthist_bonuses[3], conthist_bonuses[5]);
-
-int lowplyhist_fill  = 0;
-int mainhistory_fill = 0;
-int capthist_fill    = -758;
-int pawnhist_fill    = -1158;
-int conthist_fill    = -645;
-TUNE(SetRange(-2048, 2048),
-     lowplyhist_fill,
-     mainhistory_fill,
-     capthist_fill,
-     pawnhist_fill,
-     conthist_fill);
+constexpr int ttq_mainhist_bonus                       = 747;
+constexpr int ttq_prev_mainhist_malus                  = 1091;
+constexpr int policy_mainhist_bonus                    = 1340;
+constexpr int policy_pawnhist_bonus                    = 1159;
+constexpr int pcb_capthist_bonus                       = 1226;
+constexpr int post_lmr_conthist_bonus                  = 1427;
+constexpr int pcb_mainhist_bonus                       = 212;
+constexpr int pcb_conthist_bonus                       = 416;
+constexpr int pcb_pawnhist_bonus                       = 1073;
+constexpr int fail_low_mainhist_bonus                  = 287;
+constexpr int stats_update_mainhist_bonus              = 1131;
+constexpr int stats_update_mainhist_malus              = 1028;
+constexpr int stats_update_capthist_bonus              = 1291;
+constexpr int stats_update_capthist_malus              = 1090;
+constexpr int stats_update_p_early_move_conthist_malus = 919;
+constexpr int quiet_histories_lowplyhist_bonus         = 874;
+constexpr int quiet_histories_conthist_bonus           = 853;
+constexpr int quiet_histories_pawnhist_bonus           = 628;
+constexpr int conthist_bonuses[6]                      = {1024, 571, 339, 500, 0, 592};
+constexpr int lowplyhist_fill                          = 106;
+constexpr int mainhistory_fill                         = 61;
+constexpr int capthist_fill                            = -598;
+constexpr int pawnhist_fill                            = -1181;
+constexpr int conthist_fill                            = -427;
 
 namespace TB = Tablebases;
 
