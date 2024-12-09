@@ -677,6 +677,59 @@ bool Position::gives_check(Move m) const {
 }
 
 
+// Tests whether a pseudo-legal move gives a double check
+bool Position::gives_double_check(Move m) const {
+
+    assert(m.is_ok());
+    assert(color_of(moved_piece(m)) == sideToMove);
+
+    Square from = m.from_sq();
+    Square to   = m.to_sq();
+
+    int checkers = 0;
+
+    // Is there a direct check?
+    if (check_squares(type_of(piece_on(from))) & to)
+        checkers++;
+
+    // Is there a discovered check?
+    if (blockers_for_king(~sideToMove) & from)
+        checkers += !aligned(from, to, square<KING>(~sideToMove)) || m.type_of() == CASTLING;
+
+    switch (m.type_of())
+    {
+    case NORMAL :
+        return checkers >= 2;
+
+    case PROMOTION :
+        return (checkers + attacks_bb(m.promotion_type(), to, pieces() ^ from)
+                & square<KING>(~sideToMove))
+            >= 2;
+
+    // En passant capture with check? We have already handled the case of direct
+    // checks and ordinary discovered check, so the only case we need to handle
+    // is the unusual case of a discovered check through the captured pawn.
+    case EN_PASSANT : {
+        Square   capsq = make_square(file_of(to), rank_of(from));
+        Bitboard b     = (pieces() ^ from ^ capsq) | to;
+
+        return checkers
+               + ((attacks_bb<ROOK>(square<KING>(~sideToMove), b) & pieces(sideToMove, QUEEN, ROOK))
+                  | (attacks_bb<BISHOP>(square<KING>(~sideToMove), b)
+                     & pieces(sideToMove, QUEEN, BISHOP)))
+            >= 2;
+    }
+    default :  //CASTLING
+    {
+        // Castling is encoded as 'king captures the rook'
+        Square rto = relative_square(sideToMove, to > from ? SQ_F1 : SQ_D1);
+
+        return checkers + (check_squares(ROOK) & rto) >= 2;
+    }
+    }
+}
+
+
 // Makes a move, and saves all information necessary
 // to a StateInfo object. The move is assumed to be legal. Pseudo-legal
 // moves should be filtered out before this function is called.
