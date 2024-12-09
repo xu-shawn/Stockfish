@@ -33,6 +33,7 @@
 #include <string>
 #include <utility>
 
+#include "bitboard.h"
 #include "evaluate.h"
 #include "history.h"
 #include "misc.h"
@@ -538,7 +539,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -998,7 +999,7 @@ moves_loop:  // When in check, search starts here
             // Reduced depth of the next LMR search
             int lmrDepth = newDepth - r / 1024;
 
-            if (capture || givesCheck)
+            if (capture || (givesCheck && !more_than_one(pos.checkers())))
             {
                 Piece capturedPiece = pos.piece_on(move.to_sq());
                 int   captHist =
