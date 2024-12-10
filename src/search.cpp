@@ -112,7 +112,7 @@ Value value_from_tt(Value v, int ply, int r50c);
 void  update_pv(Move* pv, Move move, const Move* childPv);
 void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
 void  update_quiet_histories(
-   const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus);
+   const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus, bool PvNode);
 void update_all_stats(const Position&      pos,
                       Stack*               ss,
                       Search::Worker&      workerThread,
@@ -120,7 +120,8 @@ void update_all_stats(const Position&      pos,
                       Square               prevSq,
                       ValueList<Move, 32>& quietsSearched,
                       ValueList<Move, 32>& capturesSearched,
-                      Depth                depth);
+                      Depth                depth,
+                      bool                 PvNode);
 
 }  // namespace
 
@@ -538,7 +539,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -644,7 +645,7 @@ Value Search::Worker::search(
         {
             // Bonus for a quiet ttMove that fails high (~2 Elo)
             if (!ttCapture)
-                update_quiet_histories(pos, ss, *this, ttData.move, stat_bonus(depth));
+                update_quiet_histories(pos, ss, *this, ttData.move, stat_bonus(depth), PvNode);
 
             // Extra penalty for early quiet moves of
             // the previous ply (~1 Elo on STC, ~2 Elo on LTC)
@@ -1374,7 +1375,8 @@ moves_loop:  // When in check, search starts here
     // If there is a move that produces search value greater than alpha,
     // we update the stats of searched moves.
     else if (bestMove)
-        update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth);
+        update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth,
+                         PvNode);
 
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
@@ -1797,7 +1799,8 @@ void update_all_stats(const Position&      pos,
                       Square               prevSq,
                       ValueList<Move, 32>& quietsSearched,
                       ValueList<Move, 32>& capturesSearched,
-                      Depth                depth) {
+                      Depth                depth,
+                      bool                 PvNode) {
 
     CapturePieceToHistory& captureHistory = workerThread.captureHistory;
     Piece                  moved_piece    = pos.moved_piece(bestMove);
@@ -1808,11 +1811,11 @@ void update_all_stats(const Position&      pos,
 
     if (!pos.capture_stage(bestMove))
     {
-        update_quiet_histories(pos, ss, workerThread, bestMove, bonus);
+        update_quiet_histories(pos, ss, workerThread, bestMove, bonus, PvNode);
 
         // Decrease stats for all non-best quiet moves
         for (Move move : quietsSearched)
-            update_quiet_histories(pos, ss, workerThread, move, -malus);
+            update_quiet_histories(pos, ss, workerThread, move, -malus, PvNode);
     }
     else
     {
@@ -1855,12 +1858,12 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
 // Updates move sorting heuristics
 
 void update_quiet_histories(
-  const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus) {
+  const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus, bool PvNode) {
 
     Color us = pos.side_to_move();
     workerThread.mainHistory[us][move.from_to()] << bonus;
     if (ss->ply < LOW_PLY_HISTORY_SIZE)
-        workerThread.lowPlyHistory[ss->ply][move.from_to()] << bonus;
+        workerThread.lowPlyHistory[ss->ply][move.from_to()] << (3 - 2 * PvNode) * bonus;
 
     update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus);
 
