@@ -33,6 +33,7 @@
 #include <string>
 #include <utility>
 
+#include "bitboard.h"
 #include "evaluate.h"
 #include "history.h"
 #include "misc.h"
@@ -538,7 +539,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -1269,9 +1270,11 @@ moves_loop:  // When in check, search starts here
             rm.averageScore =
               rm.averageScore != -VALUE_INFINITE ? (value + rm.averageScore) / 2 : value;
 
-            rm.meanSquaredScore = rm.meanSquaredScore != -VALUE_INFINITE * VALUE_INFINITE
-                                  ? (value * std::abs(value) + rm.meanSquaredScore) / 2
-                                  : value * std::abs(value);
+            rm.meanSquaredScore =
+              rm.meanSquaredScore != -VALUE_INFINITE * VALUE_INFINITE
+                ? (value * std::abs(value) * static_cast<int>(msb(depth)) + rm.meanSquaredScore)
+                    / (static_cast<int>(msb(depth)) + 1)
+                : value * std::abs(value);
 
             // PV move or new best move?
             if (moveCount == 1 || value > alpha)
