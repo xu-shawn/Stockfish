@@ -538,7 +538,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -1554,11 +1554,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         }
         else
         {
-            // In case of null move search, use previous static eval with opposite sign
             unadjustedStaticEval =
-              (ss - 1)->currentMove != Move::null()
-                ? evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us])
-                : -(ss - 1)->staticEval;
+              evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
             ss->staticEval = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
         }
