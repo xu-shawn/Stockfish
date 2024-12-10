@@ -146,6 +146,44 @@ void Search::Worker::ensure_network_replicated() {
     (void) (networks[numaAccessToken]);
 }
 
+void Search::Worker::average_correction_histories() {
+    for (const auto side : {WHITE, BLACK})
+    {
+        for (std::size_t index = 0; index < CORRECTION_HISTORY_SIZE; index++)
+        {
+            std::int32_t pch_value   = 0;
+            std::int32_t mapch_value = 0;
+            std::int32_t mipch_value = 0;
+            std::int32_t wnpch_value = 0;
+            std::int32_t bnpch_value = 0;
+
+            for (const auto& thread : threads)
+            {
+                pch_value += thread->worker->pawnCorrectionHistory[side][index];
+                mapch_value += thread->worker->majorPieceCorrectionHistory[side][index];
+                mipch_value += thread->worker->minorPieceCorrectionHistory[side][index];
+                wnpch_value += thread->worker->nonPawnCorrectionHistory[WHITE][side][index];
+                bnpch_value += thread->worker->nonPawnCorrectionHistory[BLACK][side][index];
+            }
+
+            pch_value /= threads.size();
+            mapch_value /= threads.size();
+            mipch_value /= threads.size();
+            wnpch_value /= threads.size();
+            bnpch_value /= threads.size();
+
+            for (const auto& thread : threads)
+            {
+                thread->worker->pawnCorrectionHistory[side][index]           = pch_value;
+                thread->worker->majorPieceCorrectionHistory[side][index]     = mapch_value;
+                thread->worker->minorPieceCorrectionHistory[side][index]     = mipch_value;
+                thread->worker->nonPawnCorrectionHistory[WHITE][side][index] = wnpch_value;
+                thread->worker->nonPawnCorrectionHistory[BLACK][side][index] = bnpch_value;
+            }
+        }
+    }
+}
+
 void Search::Worker::start_searching() {
 
     // Non-main threads go directly to iterative_deepening()
@@ -158,6 +196,8 @@ void Search::Worker::start_searching() {
     main_manager()->tm.init(limits, rootPos.side_to_move(), rootPos.game_ply(), options,
                             main_manager()->originalTimeAdjust);
     tt.new_search();
+
+    average_correction_histories();
 
     if (rootMoves.empty())
     {
@@ -538,7 +578,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);

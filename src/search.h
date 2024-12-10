@@ -294,6 +294,7 @@ class Worker {
 
    private:
     void iterative_deepening();
+    void average_correction_histories();
 
     // This is the main search function, for both PV and non-PV nodes
     template<NodeType nodeType>
