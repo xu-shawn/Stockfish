@@ -999,7 +999,7 @@ moves_loop:  // When in check, search starts here
             // Reduced depth of the next LMR search
             int lmrDepth = newDepth - r / 1024;
 
-            if (capture || (givesCheck && !pos.gives_double_check(move)))
+            if (capture || givesCheck)
             {
                 Piece capturedPiece = pos.piece_on(move.to_sq());
                 int   captHist =
@@ -1016,7 +1016,7 @@ moves_loop:  // When in check, search starts here
 
                 // SEE based pruning for captures and checks (~11 Elo)
                 int seeHist = std::clamp(captHist / 33, -161 * depth, 156 * depth);
-                if (!pos.see_ge(move, -162 * depth - seeHist))
+                if (!pos.gives_double_check(move) && !pos.see_ge(move, -162 * depth - seeHist))
                     continue;
             }
             else
