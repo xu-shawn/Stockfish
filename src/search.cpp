@@ -538,7 +538,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -856,13 +856,7 @@ Value Search::Worker::search(
     // If we have a good enough capture (or queen promotion) and a reduced search
     // returns a value much above beta, we can (almost) safely prune the previous move.
     probCutBeta = beta + 187 - 56 * improving;
-    if (!PvNode && depth > 3
-        && !is_decisive(beta)
-        // If value from transposition table is lower than probCutBeta, don't attempt
-        // probCut there and in further interactions with transposition table cutoff
-        // depth is set to depth - 3 because probCut search has depth set to depth - 4
-        // but we also do a move before it. So effective depth is equal to depth - 3.
-        && !(ttData.depth >= depth - 3 && is_valid(ttData.value) && ttData.value < probCutBeta))
+    if (!PvNode && depth > 3 && !is_decisive(beta))
     {
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
@@ -912,8 +906,15 @@ Value Search::Worker::search(
                 thisThread->captureHistory[movedPiece][move.to_sq()][type_of(captured)] << 1300;
 
                 // Save ProbCut data into transposition table
-                ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
-                               depth - 3, move, unadjustedStaticEval, tt.generation());
+                // If value from transposition table is lower than probCutBeta, don't attempt
+                // probCut there and in further interactions with transposition table cutoff
+                // depth is set to depth - 3 because probCut search has depth set to depth - 4
+                // but we also do a move before it. So effective depth is equal to depth - 3.
+                if (!(ttData.depth >= depth - 3 && is_valid(ttData.value)
+                      && ttData.value < probCutBeta))
+                    ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
+                                   depth - 3, move, unadjustedStaticEval, tt.generation());
+
                 return is_decisive(value) ? value : value - (probCutBeta - beta);
             }
         }
