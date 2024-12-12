@@ -1629,6 +1629,9 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
                     continue;
                 }
 
+                if (!is_loss(alpha))
+                    continue;
+
                 // If static exchange evaluation is low enough
                 // we can prune this move. (~2 Elo)
                 if (!pos.see_ge(move, alpha - futilityBase))
