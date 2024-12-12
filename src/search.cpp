@@ -47,6 +47,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "types.h"
 #include "uci.h"
 #include "ucioption.h"
 
@@ -618,9 +619,10 @@ Value Search::Worker::search(
     ss->statScore = 0;
 
     // Step 4. Transposition table lookup
-    excludedMove                   = ss->excludedMove;
-    posKey                         = pos.key();
-    auto [ttHit, ttData, ttWriter] = tt.probe(posKey);
+    excludedMove                                  = ss->excludedMove;
+    posKey                                        = pos.key();
+    auto [ttHit, ttData, ttWriter]                = tt.probe(posKey);
+    const auto [nmpTtHit, nmpTtData, nmptTWriter] = tt.probe(pos.key_after_null());
     // Need further processing of the saved data
     ss->ttHit    = ttHit;
     ttData.move  = rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
@@ -799,6 +801,7 @@ Value Search::Worker::search(
 
     // Step 9. Null move search with verification search (~35 Elo)
     if (cutNode && (ss - 1)->currentMove != Move::null() && eval >= beta
+        && (!nmpTtHit || !(nmpTtData.bound == BOUND_LOWER && nmpTtData.value <= -beta))
         && ss->staticEval >= beta - 21 * depth + 421 && !excludedMove && pos.non_pawn_material(us)
         && ss->ply >= thisThread->nmpMinPly && !is_loss(beta))
     {
