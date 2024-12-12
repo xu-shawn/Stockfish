@@ -539,7 +539,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -619,10 +619,10 @@ Value Search::Worker::search(
     ss->statScore = 0;
 
     // Step 4. Transposition table lookup
-    excludedMove                                  = ss->excludedMove;
-    posKey                                        = pos.key();
-    auto [ttHit, ttData, ttWriter]                = tt.probe(posKey);
-    const auto [nmpTtHit, nmpTtData, nmptTWriter] = tt.probe(pos.key_after_null());
+    excludedMove                   = ss->excludedMove;
+    posKey                         = pos.key();
+    auto [ttHit, ttData, ttWriter] = tt.probe(posKey);
+    prefetch(tt.first_entry(pos.key_after_null()));
     // Need further processing of the saved data
     ss->ttHit    = ttHit;
     ttData.move  = rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
@@ -801,43 +801,46 @@ Value Search::Worker::search(
 
     // Step 9. Null move search with verification search (~35 Elo)
     if (cutNode && (ss - 1)->currentMove != Move::null() && eval >= beta
-        && (!nmpTtHit || !(nmpTtData.bound == BOUND_LOWER && nmpTtData.value <= -beta))
         && ss->staticEval >= beta - 21 * depth + 421 && !excludedMove && pos.non_pawn_material(us)
         && ss->ply >= thisThread->nmpMinPly && !is_loss(beta))
     {
         assert(eval - beta >= 0);
-
-        // Null move dynamic reduction based on depth and eval
-        Depth R = std::min(int(eval - beta) / 235, 7) + depth / 3 + 5;
-
-        ss->currentMove                   = Move::null();
-        ss->continuationHistory           = &thisThread->continuationHistory[0][0][NO_PIECE][0];
-        ss->continuationCorrectionHistory = &thisThread->continuationCorrectionHistory[NO_PIECE][0];
-
-        pos.do_null_move(st, tt);
-
-        Value nullValue = -search<NonPV>(pos, ss + 1, -beta, -beta + 1, depth - R, false);
-
-        pos.undo_null_move();
-
-        // Do not return unproven mate or TB scores
-        if (nullValue >= beta && !is_win(nullValue))
+        const auto [nmpTtHit, nmpTtData, nmptTWriter] = tt.probe(pos.key_after_null());
+        if (!nmpTtHit || !(nmpTtData.bound == BOUND_LOWER && nmpTtData.value <= -beta))
         {
-            if (thisThread->nmpMinPly || depth < 16)
-                return nullValue;
+            // Null move dynamic reduction based on depth and eval
+            Depth R = std::min(int(eval - beta) / 235, 7) + depth / 3 + 5;
 
-            assert(!thisThread->nmpMinPly);  // Recursive verification is not allowed
+            ss->currentMove         = Move::null();
+            ss->continuationHistory = &thisThread->continuationHistory[0][0][NO_PIECE][0];
+            ss->continuationCorrectionHistory =
+              &thisThread->continuationCorrectionHistory[NO_PIECE][0];
 
-            // Do verification search at high depths, with null move pruning disabled
-            // until ply exceeds nmpMinPly.
-            thisThread->nmpMinPly = ss->ply + 3 * (depth - R) / 4;
+            pos.do_null_move(st, tt);
 
-            Value v = search<NonPV>(pos, ss, beta - 1, beta, depth - R, false);
+            Value nullValue = -search<NonPV>(pos, ss + 1, -beta, -beta + 1, depth - R, false);
 
-            thisThread->nmpMinPly = 0;
+            pos.undo_null_move();
 
-            if (v >= beta)
-                return nullValue;
+            // Do not return unproven mate or TB scores
+            if (nullValue >= beta && !is_win(nullValue))
+            {
+                if (thisThread->nmpMinPly || depth < 16)
+                    return nullValue;
+
+                assert(!thisThread->nmpMinPly);  // Recursive verification is not allowed
+
+                // Do verification search at high depths, with null move pruning disabled
+                // until ply exceeds nmpMinPly.
+                thisThread->nmpMinPly = ss->ply + 3 * (depth - R) / 4;
+
+                Value v = search<NonPV>(pos, ss, beta - 1, beta, depth - R, false);
+
+                thisThread->nmpMinPly = 0;
+
+                if (v >= beta)
+                    return nullValue;
+            }
         }
     }
 
