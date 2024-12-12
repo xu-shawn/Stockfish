@@ -782,7 +782,7 @@ Value Search::Worker::search(
     if (eval < alpha - 469 - 307 * depth * depth)
     {
         value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
-        if (value < alpha && !is_decisive(value))
+        if (!is_decisive(value))
             return value;
     }
 
