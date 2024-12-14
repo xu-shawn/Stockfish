@@ -271,6 +271,11 @@ void Search::Worker::iterative_deepening() {
     if (skill.enabled())
         multiPV = std::max(multiPV, size_t(4));
 
+    const bool randomizeOpening = rootPos.game_ply() < options["Random Op. Plies"];
+
+    if (randomizeOpening)
+        multiPV = options["Random Op. MultiPV"];
+
     multiPV = std::min(multiPV, rootMoves.size());
 
     int searchAgainCounter = 0;
@@ -496,6 +501,22 @@ void Search::Worker::iterative_deepening() {
         std::swap(rootMoves[0],
                   *std::find(rootMoves.begin(), rootMoves.end(),
                              skill.best ? skill.best : skill.pick_best(rootMoves, multiPV)));
+
+    if (randomizeOpening)
+    {
+        int maxPV = 0;
+
+        for (std::size_t i = 1; i < rootMoves.size(); ++i)
+            if (rootMoves[i].score
+                > rootMoves[0].score - PawnValue * options["Random Op. Score"] / 100)
+                maxPV = i;
+
+        static PRNG rng_opening(now());
+
+        const std::size_t iPV = maxPV > 0 ? rng_opening.rand<unsigned>() % maxPV + 1 : 0;
+
+        std::swap(rootMoves[0], rootMoves[iPV]);
+    }
 }
 
 // Reset histories, usually before a new game
@@ -538,7 +559,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);

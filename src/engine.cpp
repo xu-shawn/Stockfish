@@ -90,6 +90,9 @@ Engine::Engine(std::optional<std::string> path) :
     options["Skill Level"] << Option(20, 0, 20);
     options["Move Overhead"] << Option(10, 0, 5000);
     options["nodestime"] << Option(0, 0, 10000);
+    options["Random Op. Plies"] << Option(16, 0, 100);
+    options["Random Op. MultiPV"] << Option(5, 1, 500);
+    options["Random Op. Score"] << Option(20, 0, 10000);
     options["UCI_Chess960"] << Option(false);
     options["UCI_LimitStrength"] << Option(false);
     options["UCI_Elo"] << Option(Stockfish::Search::Skill::LowestElo,
