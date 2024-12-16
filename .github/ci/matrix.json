@@ -19,7 +19,6 @@
       "shell": "bash",
       "archive_ext": "tar",
       "sde": "/home/runner/work/Stockfish/Stockfish/.output/sde-temp-files/sde-external-9.27.0-2023-09-13-lin/sde -future --",
-      "cxx_flags": "-D_GLIBCXX_ASSERTIONS"
     },
     {
       "name": "MacOS 13 Apple Clang",
