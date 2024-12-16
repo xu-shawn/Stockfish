@@ -1161,6 +1161,8 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
+        r += 330;
+
         r -= std::min(std::abs(correctionValue) / 32768, 2048);
 
         // Increase reduction for cut nodes (~4 Elo)
