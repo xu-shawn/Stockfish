@@ -16,6 +16,7 @@ jobs:
       NAME: ${{ matrix.config.simple_name }}
       BINARY: ${{ matrix.binaries }}
       SDE: ${{ matrix.config.sde }}
+      CXXFLAGS: $ {{ matrix.config.cxx_flags }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(inputs.matrix) }}
