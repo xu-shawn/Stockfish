@@ -538,7 +538,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -1039,10 +1039,15 @@ moves_loop:  // When in check, search starts here
                 // Futility pruning: parent node (~13 Elo)
                 if (!ss->inCheck && lmrDepth < 12 && futilityValue <= alpha)
                 {
-                    if (bestValue <= futilityValue && !is_decisive(bestValue)
-                        && !is_win(futilityValue))
-                        bestValue = futilityValue;
-                    continue;
+                    value = -qsearch<NonPV>(pos, ss + 1, -(alpha + 1), -alpha);
+                    if (value <= alpha)
+                    {
+                        if (bestValue <= futilityValue && !is_decisive(bestValue)
+                            && !is_win(futilityValue))
+                            bestValue = futilityValue;
+
+                        continue;
+                    }
                 }
 
                 lmrDepth = std::max(lmrDepth, 0);
