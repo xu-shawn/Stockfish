@@ -314,6 +314,7 @@ class Worker {
     TimePoint elapsed() const;
     TimePoint elapsed_time() const;
 
+    template<NodeType nodeType>
     Value evaluate(const Position&);
 
     LimitsType limits;
