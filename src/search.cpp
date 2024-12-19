@@ -46,6 +46,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "types.h"
 #include "uci.h"
 #include "ucioption.h"
 
@@ -593,8 +594,8 @@ Value Search::Worker::search(
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
             return (ss->ply >= MAX_PLY && !ss->inCheck)
-                   ? evaluate<nodeType>(networks[numaAccessToken], pos, refreshTable,
-                                        thisThread->optimism[us])
+                   ? evaluate<NonPV>(networks[numaAccessToken], pos, refreshTable,
+                                     thisThread->optimism[us])
                    : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
@@ -724,8 +725,7 @@ Value Search::Worker::search(
     {
         // Providing the hint that this node's accumulator will be used often
         // brings significant Elo gain (~13 Elo).
-        Eval::NNUE::hint_common_parent_position<nodeType>(pos, networks[numaAccessToken],
-                                                          refreshTable);
+        Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
         unadjustedStaticEval = eval = ss->staticEval;
     }
     else if (ss->ttHit)
@@ -733,11 +733,10 @@ Value Search::Worker::search(
         // Never assume anything about values stored in TT
         unadjustedStaticEval = ttData.eval;
         if (!is_valid(unadjustedStaticEval))
-            unadjustedStaticEval = evaluate<nodeType>(networks[numaAccessToken], pos, refreshTable,
-                                                      thisThread->optimism[us]);
+            unadjustedStaticEval = evaluate<NonPV>(networks[numaAccessToken], pos, refreshTable,
+                                                   thisThread->optimism[us]);
         else if (PvNode)
-            Eval::NNUE::hint_common_parent_position<nodeType>(pos, networks[numaAccessToken],
-                                                              refreshTable);
+            Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
 
         ss->staticEval = eval =
           to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
@@ -749,9 +748,9 @@ Value Search::Worker::search(
     }
     else
     {
-        unadjustedStaticEval = evaluate<nodeType>(networks[numaAccessToken], pos, refreshTable,
-                                                  thisThread->optimism[us]);
-        ss->staticEval       = eval =
+        unadjustedStaticEval =
+          evaluate<NonPV>(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
+        ss->staticEval = eval =
           to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
 
         // Static evaluation is saved as it was before adjustment by correction history
@@ -919,8 +918,7 @@ Value Search::Worker::search(
             }
         }
 
-        Eval::NNUE::hint_common_parent_position<nodeType>(pos, networks[numaAccessToken],
-                                                          refreshTable);
+        Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
     }
 
 moves_loop:  // When in check, search starts here

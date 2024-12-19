@@ -50,7 +50,7 @@ INCBIN(EmbeddedNNUEBig, EvalFileDefaultNameBig);
 INCBIN(EmbeddedNNUESmall, EvalFileDefaultNameSmall);
 #else
 const unsigned char        gEmbeddedNNUEExtraBigData[1] = {0x0};
-const unsigned char* const gEmbeddedNNUEExtraBigEnd     = &gEmbeddedNNUEBigData[1];
+const unsigned char* const gEmbeddedNNUEExtraBigEnd     = &gEmbeddedNNUEExtraBigData[1];
 const unsigned int         gEmbeddedNNUEExtraBigSize    = 1;
 const unsigned char        gEmbeddedNNUEBigData[1]      = {0x0};
 const unsigned char* const gEmbeddedNNUEBigEnd          = &gEmbeddedNNUEBigData[1];
@@ -456,6 +456,15 @@ bool Network<Arch, Transformer>::write_parameters(std::ostream&      stream,
             return false;
     }
     return bool(stream);
+}
+
+void hint_common_parent_position(const Position&    pos,
+                                 const Networks&    networks,
+                                 AccumulatorCaches& caches) {
+    if (use_smallnet(pos))
+        networks.small.hint_common_access(pos, &caches.small);
+    else
+        networks.big.hint_common_access(pos, &caches.big);
 }
 
 // Explicit template instantiation

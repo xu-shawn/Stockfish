@@ -138,17 +138,9 @@ struct Networks {
     NetworkSmall    small;
 };
 
-template<NodeType nodeType>
 void hint_common_parent_position(const Position&    pos,
                                  const Networks&    networks,
-                                 AccumulatorCaches& caches) {
-    if constexpr (nodeType != NonPV)
-        networks.extraBig.hint_common_access(pos, &caches.extraBig);
-    if (use_smallnet(pos))
-        networks.small.hint_common_access(pos, &caches.small);
-    else
-        networks.big.hint_common_access(pos, &caches.big);
-}
+                                 AccumulatorCaches& caches);
 
 }  // namespace Stockfish
 
