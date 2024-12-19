@@ -71,5 +71,6 @@ fetch_network() {
   return 1
 }
 
+fetch_network EvalFileDefaultNameExtraBig && \
 fetch_network EvalFileDefaultNameBig && \
 fetch_network EvalFileDefaultNameSmall

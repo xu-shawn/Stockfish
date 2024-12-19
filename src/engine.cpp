@@ -55,6 +55,8 @@ Engine::Engine(std::optional<std::string> path) :
     networks(
       numaContext,
       NN::Networks(
+        NN::NetworkExtraBig({EvalFileDefaultNameExtraBig, "None", ""},
+                            NN::EmbeddedNNUEType::EXTRA_BIG),
         NN::NetworkBig({EvalFileDefaultNameBig, "None", ""}, NN::EmbeddedNNUEType::BIG),
         NN::NetworkSmall({EvalFileDefaultNameSmall, "None", ""}, NN::EmbeddedNNUEType::SMALL))) {
     pos.set(StartFEN, false, &states->back());
@@ -103,6 +105,10 @@ Engine::Engine(std::optional<std::string> path) :
     options["SyzygyProbeDepth"] << Option(1, 1, 100);
     options["Syzygy50MoveRule"] << Option(true);
     options["SyzygyProbeLimit"] << Option(7, 0, 7);
+    options["EvalFileExtraBig"] << Option(EvalFileDefaultNameExtraBig, [this](const Option& o) {
+        load_extra_big_network(o);
+        return std::nullopt;
+    });
     options["EvalFile"] << Option(EvalFileDefaultNameBig, [this](const Option& o) {
         load_big_network(o);
         return std::nullopt;
@@ -231,15 +237,24 @@ void Engine::set_ponderhit(bool b) { threads.main_manager()->ponder = b; }
 // network related
 
 void Engine::verify_networks() const {
+    networks->extraBig.verify(options["EvalFileExtraBig"], onVerifyNetworks);
     networks->big.verify(options["EvalFile"], onVerifyNetworks);
     networks->small.verify(options["EvalFileSmall"], onVerifyNetworks);
 }
 
 void Engine::load_networks() {
     networks.modify_and_replicate([this](NN::Networks& networks_) {
+        networks_.extraBig.load(binaryDirectory, options["EvalFileExtraBig"]);
         networks_.big.load(binaryDirectory, options["EvalFile"]);
         networks_.small.load(binaryDirectory, options["EvalFileSmall"]);
     });
+    threads.clear();
+    threads.ensure_network_replicated();
+}
+
+void Engine::load_extra_big_network(const std::string& file) {
+    networks.modify_and_replicate(
+      [this, &file](NN::Networks& networks_) { networks_.extraBig.load(binaryDirectory, file); });
     threads.clear();
     threads.ensure_network_replicated();
 }

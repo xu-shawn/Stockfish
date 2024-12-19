@@ -538,7 +538,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -725,7 +725,8 @@ Value Search::Worker::search(
     {
         // Providing the hint that this node's accumulator will be used often
         // brings significant Elo gain (~13 Elo).
-        Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
+        Eval::NNUE::hint_common_parent_position<nodeType>(pos, networks[numaAccessToken],
+                                                          refreshTable);
         unadjustedStaticEval = eval = ss->staticEval;
     }
     else if (ss->ttHit)
@@ -736,7 +737,8 @@ Value Search::Worker::search(
             unadjustedStaticEval =
               evaluate(networks[numaAccessToken], pos, refreshTable, thisThread->optimism[us]);
         else if (PvNode)
-            Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
+            Eval::NNUE::hint_common_parent_position<nodeType>(pos, networks[numaAccessToken],
+                                                              refreshTable);
 
         ss->staticEval = eval =
           to_corrected_static_eval(unadjustedStaticEval, *thisThread, pos, ss);
@@ -918,7 +920,8 @@ Value Search::Worker::search(
             }
         }
 
-        Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
+        Eval::NNUE::hint_common_parent_position<nodeType>(pos, networks[numaAccessToken],
+                                                          refreshTable);
     }
 
 moves_loop:  // When in check, search starts here

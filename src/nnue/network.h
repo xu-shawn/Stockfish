@@ -39,6 +39,7 @@
 namespace Stockfish::Eval::NNUE {
 
 enum class EmbeddedNNUEType {
+    EXTRA_BIG,
     BIG,
     SMALL,
 };
@@ -115,19 +116,38 @@ using BigFeatureTransformer =
   FeatureTransformer<TransformedFeatureDimensionsBig, &StateInfo::accumulatorBig>;
 using BigNetworkArchitecture = NetworkArchitecture<TransformedFeatureDimensionsBig, L2Big, L3Big>;
 
-using NetworkBig   = Network<BigNetworkArchitecture, BigFeatureTransformer>;
-using NetworkSmall = Network<SmallNetworkArchitecture, SmallFeatureTransformer>;
+using ExtraBigFeatureTransformer =
+  FeatureTransformer<TransformedFeatureDimensionsExtraBig, &StateInfo::accumulatorExtraBig>;
+using ExtraBigNetworkArchitecture =
+  NetworkArchitecture<TransformedFeatureDimensionsExtraBig, L2ExtraBig, L3ExtraBig>;
+
+using NetworkExtraBig = Network<ExtraBigNetworkArchitecture, ExtraBigFeatureTransformer>;
+using NetworkBig      = Network<BigNetworkArchitecture, BigFeatureTransformer>;
+using NetworkSmall    = Network<SmallNetworkArchitecture, SmallFeatureTransformer>;
 
 
 struct Networks {
-    Networks(NetworkBig&& nB, NetworkSmall&& nS) :
+    Networks(NetworkExtraBig&& nxB, NetworkBig&& nB, NetworkSmall&& nS) :
+        extraBig(std::move(nxB)),
         big(std::move(nB)),
         small(std::move(nS)) {}
 
-    NetworkBig   big;
-    NetworkSmall small;
+    NetworkExtraBig extraBig;
+    NetworkBig      big;
+    NetworkSmall    small;
 };
 
+template<NodeType nodeType>
+void hint_common_parent_position(const Position&    pos,
+                                 const Networks&    networks,
+                                 AccumulatorCaches& caches) {
+    if constexpr (nodeType == PV)
+        networks.extraBig.hint_common_access(pos, &caches.extraBig);
+    if (use_smallnet(pos))
+        networks.small.hint_common_access(pos, &caches.small);
+    else
+        networks.big.hint_common_access(pos, &caches.big);
+}
 
 }  // namespace Stockfish
 

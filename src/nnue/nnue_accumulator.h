@@ -87,12 +87,14 @@ struct AccumulatorCaches {
 
     template<typename Networks>
     void clear(const Networks& networks) {
+        extraBig.clear(networks.extraBig);
         big.clear(networks.big);
         small.clear(networks.small);
     }
 
-    Cache<TransformedFeatureDimensionsBig>   big;
-    Cache<TransformedFeatureDimensionsSmall> small;
+    Cache<TransformedFeatureDimensionsExtraBig> extraBig;
+    Cache<TransformedFeatureDimensionsBig>      big;
+    Cache<TransformedFeatureDimensionsSmall>    small;
 };
 
 }  // namespace Stockfish::Eval::NNUE

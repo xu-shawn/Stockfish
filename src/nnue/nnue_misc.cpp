@@ -30,11 +30,9 @@
 #include <string_view>
 #include <tuple>
 
-#include "../evaluate.h"
 #include "../position.h"
 #include "../types.h"
 #include "../uci.h"
-#include "network.h"
 #include "nnue_accumulator.h"
 
 namespace Stockfish::Eval::NNUE {
@@ -42,15 +40,6 @@ namespace Stockfish::Eval::NNUE {
 
 constexpr std::string_view PieceToChar(" PNBRQK  pnbrqk");
 
-
-void hint_common_parent_position(const Position&    pos,
-                                 const Networks&    networks,
-                                 AccumulatorCaches& caches) {
-    if (Eval::use_smallnet(pos))
-        networks.small.hint_common_access(pos, &caches.small);
-    else
-        networks.big.hint_common_access(pos, &caches.big);
-}
 
 namespace {
 // Converts a Value into (centi)pawns and writes it in a buffer.
@@ -105,8 +94,7 @@ void format_cp_aligned_dot(Value v, std::stringstream& stream, const Position& p
 
 // Returns a string with the value of each piece on a board,
 // and a table for (PSQT, Layers) values bucket by bucket.
-std::string
-trace(Position& pos, const Eval::NNUE::Networks& networks, Eval::NNUE::AccumulatorCaches& caches) {
+std::string trace(Position& pos, const Networks& networks, AccumulatorCaches& caches) {
 
     std::stringstream ss;
 

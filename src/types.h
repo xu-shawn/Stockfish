@@ -429,6 +429,13 @@ class Move {
     std::uint16_t data;
 };
 
+// Different node types, used as a template parameter
+enum NodeType {
+    NonPV,
+    PV,
+    Root
+};
+
 }  // namespace Stockfish
 
 #endif  // #ifndef TYPES_H_INCLUDED

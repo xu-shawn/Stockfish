@@ -64,9 +64,10 @@ struct StateInfo {
     int        repetition;
 
     // Used by NNUE
-    Eval::NNUE::Accumulator<Eval::NNUE::TransformedFeatureDimensionsBig>   accumulatorBig;
-    Eval::NNUE::Accumulator<Eval::NNUE::TransformedFeatureDimensionsSmall> accumulatorSmall;
-    DirtyPiece                                                             dirtyPiece;
+    Eval::NNUE::Accumulator<Eval::NNUE::TransformedFeatureDimensionsExtraBig> accumulatorExtraBig;
+    Eval::NNUE::Accumulator<Eval::NNUE::TransformedFeatureDimensionsBig>      accumulatorBig;
+    Eval::NNUE::Accumulator<Eval::NNUE::TransformedFeatureDimensionsSmall>    accumulatorSmall;
+    DirtyPiece                                                                dirtyPiece;
 };
 
 
