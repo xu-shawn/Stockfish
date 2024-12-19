@@ -22,7 +22,6 @@
 #include <cstddef>
 #include <string>
 
-#include "../evaluate.h"
 #include "../types.h"
 #include "nnue_architecture.h"
 

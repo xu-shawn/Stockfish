@@ -461,6 +461,10 @@ bool Network<Arch, Transformer>::write_parameters(std::ostream&      stream,
 // Explicit template instantiation
 
 template class Network<
+  NetworkArchitecture<TransformedFeatureDimensionsExtraBig, L2Big, L3Big>,
+  FeatureTransformer<TransformedFeatureDimensionsExtraBig, &StateInfo::accumulatorExtraBig>>;
+
+template class Network<
   NetworkArchitecture<TransformedFeatureDimensionsBig, L2Big, L3Big>,
   FeatureTransformer<TransformedFeatureDimensionsBig, &StateInfo::accumulatorBig>>;
 
