@@ -84,6 +84,7 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos, St
     const Color us    = pos.side_to_move();
     const auto  m     = (ss - 1)->currentMove;
     const auto  pcv   = w.pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)];
+    const auto  mcv   = w.materialCorrectionHistory[us][pos.rule50_count()][material_index(pos)];
     const auto  macv  = w.majorPieceCorrectionHistory[us][major_piece_index(pos)];
     const auto  micv  = w.minorPieceCorrectionHistory[us][minor_piece_index(pos)];
     const auto  wnpcv = w.nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)];
@@ -94,7 +95,8 @@ Value to_corrected_static_eval(Value v, const Worker& w, const Position& pos, St
         cntcv = int((*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]);
 
     const auto cv =
-      (6384 * pcv + 3583 * macv + 6492 * micv + 6725 * (wnpcv + bnpcv) + cntcv * 5880) / 131072;
+      (6384 * pcv + 2000 * mcv + 3583 * macv + 6492 * micv + 6725 * (wnpcv + bnpcv) + cntcv * 5880)
+      / 131072;
     v += cv;
     return std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
@@ -505,6 +507,7 @@ void Search::Worker::clear() {
     captureHistory.fill(-758);
     pawnHistory.fill(-1158);
     pawnCorrectionHistory.fill(0);
+    materialCorrectionHistory.fill(0);
     majorPieceCorrectionHistory.fill(0);
     minorPieceCorrectionHistory.fill(0);
     nonPawnCorrectionHistory[WHITE].fill(0);
@@ -538,7 +541,7 @@ Value Search::Worker::search(
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
-        return qsearch < PvNode ? PV : NonPV > (pos, ss, alpha, beta);
+        return qsearch<PvNode ? PV : NonPV>(pos, ss, alpha, beta);
 
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
@@ -1441,6 +1444,8 @@ moves_loop:  // When in check, search starts here
                                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
         thisThread->pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)]
           << bonus * 107 / 128;
+        thisThread->materialCorrectionHistory[us][pos.rule50_count()][material_index(pos)]
+          << bonus * 128 / 128;
         thisThread->majorPieceCorrectionHistory[us][major_piece_index(pos)] << bonus * 162 / 128;
         thisThread->minorPieceCorrectionHistory[us][minor_piece_index(pos)] << bonus * 148 / 128;
         thisThread->nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)]

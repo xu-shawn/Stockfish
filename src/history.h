@@ -53,6 +53,10 @@ inline int pawn_structure_index(const Position& pos) {
     return pos.pawn_key() & ((T == Normal ? PAWN_HISTORY_SIZE : CORRECTION_HISTORY_SIZE) - 1);
 }
 
+inline int material_index(const Position& pos) {
+    return pos.material_key() & (CORRECTION_HISTORY_SIZE - 1);
+}
+
 inline int major_piece_index(const Position& pos) {
     return pos.major_piece_key() & (CORRECTION_HISTORY_SIZE - 1);
 }
@@ -155,6 +159,7 @@ using PawnHistory = Stats<int16_t, 8192, PAWN_HISTORY_SIZE, PIECE_NB, SQUARE_NB>
 // see https://www.chessprogramming.org/Static_Evaluation_Correction_History
 enum CorrHistType {
     Pawn,          // By color and pawn structure
+    Material,      // By 50mr and material configuration
     Major,         // By color and positions of major pieces (Queen, Rook) and King
     Minor,         // By color and positions of minor pieces (Knight, Bishop) and King
     NonPawn,       // By color and non-pawn material positions
@@ -175,6 +180,11 @@ struct CorrHistTypedef<PieceTo> {
 template<>
 struct CorrHistTypedef<Continuation> {
     using type = Stats<CorrHistTypedef<PieceTo>::type, NOT_USED, PIECE_NB, SQUARE_NB>;
+};
+
+template<>
+struct CorrHistTypedef<Material> {
+    using type = Stats<int16_t, CORRECTION_HISTORY_LIMIT, COLOR_NB, 100, CORRECTION_HISTORY_SIZE>;
 };
 
 template<CorrHistType T>
