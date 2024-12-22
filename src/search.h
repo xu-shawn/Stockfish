@@ -32,6 +32,7 @@
 #include <vector>
 
 #include "history.h"
+#include "lmr.h"
 #include "misc.h"
 #include "nnue/network.h"
 #include "nnue/nnue_accumulator.h"
@@ -344,6 +345,7 @@ class Worker {
     ThreadPool&                                     threads;
     TranspositionTable&                             tt;
     const LazyNumaReplicated<Eval::NNUE::Networks>& networks;
+    LMR::Network                                    lmr_network;
 
     // Used by NNUE
     Eval::NNUE::AccumulatorCaches refreshTable;

@@ -35,6 +35,7 @@
 
 #include "evaluate.h"
 #include "history.h"
+#include "lmr.h"
 #include "misc.h"
 #include "movegen.h"
 #include "movepick.h"
@@ -135,6 +136,7 @@ Search::Worker::Worker(SharedState&                    sharedState,
     threads(sharedState.threads),
     tt(sharedState.tt),
     networks(sharedState.networks),
+    lmr_network(),
     refreshTable(networks[token]) {
     clear();
 }
@@ -940,6 +942,10 @@ moves_loop:  // When in check, search starts here
 
     int moveCount = 0;
 
+    const bool reductionParams[8] = {PvNode,    ss->ttPv, ss->ttHit,         ss->inCheck,
+                                     ttCapture, cutNode,  bool(ttData.move), improving};
+    lmr_network.init_node(reductionParams);
+
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
     while ((move = mp.next_move()) != Move::none())
@@ -1189,6 +1195,10 @@ moves_loop:  // When in check, search starts here
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore * 1287 / 16384;
+
+        const int32_t dynamicReductionParams[5] = {(ss + 1)->cutoffCnt, move == ttData.move,
+                                                   ss->statScore / 8192, moveCount, depth};
+        r += lmr_network.get_reduction(dynamicReductionParams);
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
         if (depth >= 2 && moveCount > 1)

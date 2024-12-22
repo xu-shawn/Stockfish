@@ -182,22 +182,16 @@ void Engine::set_position(const std::string& fen, const std::vector<std::string>
 
 void Engine::set_numa_config_from_option(const std::string& o) {
     if (o == "auto" || o == "system")
-    {
-        numaContext.set_numa_config(NumaConfig::from_system());
-    }
+    { numaContext.set_numa_config(NumaConfig::from_system()); }
     else if (o == "hardware")
     {
         // Don't respect affinity set in the system.
         numaContext.set_numa_config(NumaConfig::from_system(false));
     }
     else if (o == "none")
-    {
-        numaContext.set_numa_config(NumaConfig{});
-    }
+    { numaContext.set_numa_config(NumaConfig{}); }
     else
-    {
-        numaContext.set_numa_config(NumaConfig::from_string(o));
-    }
+    { numaContext.set_numa_config(NumaConfig::from_string(o)); }
 
     // Force reallocation of threads in case affinities need to change.
     resize_threads();
