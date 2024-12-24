@@ -46,7 +46,7 @@ int Network::get_reduction(const int32_t data[5]) const {
         }
     }
 
-    return reduction / 64;
+    return reduction / 1024;
 }
 
 }  // namespace LMR
