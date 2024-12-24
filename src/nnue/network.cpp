@@ -163,14 +163,10 @@ void Network<Arch, Transformer>::load(const std::string& rootDirectory, std::str
         if (evalFile.current != evalfilePath)
         {
             if (directory != "<internal>")
-            {
-                load_user_net(directory, evalfilePath);
-            }
+            { load_user_net(directory, evalfilePath); }
 
             if (directory == "<internal>" && evalfilePath == evalFile.defaultName)
-            {
-                load_internal();
-            }
+            { load_internal(); }
         }
     }
 }
