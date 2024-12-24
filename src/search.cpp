@@ -47,6 +47,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "types.h"
 #include "uci.h"
 #include "ucioption.h"
 
@@ -231,9 +232,11 @@ void Search::Worker::iterative_deepening() {
 
     Value  alpha, beta;
     Value  bestValue     = -VALUE_INFINITE;
+    Value  lastValue     = -VALUE_INFINITE;
     Color  us            = rootPos.side_to_move();
     double timeReduction = 1, totBestMoveChanges = 0;
     int    delta, iterIdx                        = 0;
+    int    evalTrend = 0;
 
     // Allocate stack with extra size to allow access from (ss - 7) to (ss + 2):
     // (ss - 7) is needed for update_continuation_histories(ss - 1) which accesses (ss - 6),
@@ -316,7 +319,7 @@ void Search::Worker::iterative_deepening() {
             beta      = std::min(avg + delta, VALUE_INFINITE);
 
             // Adjust optimism based on root move's averageScore (~4 Elo)
-            optimism[us]  = 150 * avg / (std::abs(avg) + 85);
+            optimism[us]  = 150 * avg / (std::abs(avg) + 85) - std::clamp(evalTrend, -25, 25);
             optimism[~us] = -optimism[us];
 
             // Start with a small aspiration window and, in the case of a fail
@@ -480,6 +483,10 @@ void Search::Worker::iterative_deepening() {
                 threads.increaseDepth = mainThread->ponder || elapsedTime <= totalTime * 0.506;
         }
 
+        if (lastValue != -VALUE_INFINITE)
+            evalTrend = ((bestValue - lastValue) + evalTrend) / 2;
+
+        lastValue                      = bestValue;
         mainThread->iterValue[iterIdx] = bestValue;
         iterIdx                        = (iterIdx + 1) & 3;
     }
