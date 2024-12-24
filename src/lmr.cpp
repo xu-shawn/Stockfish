@@ -15,9 +15,9 @@ int input_weights[28][5] = {{0}};
 int output_weights[28]   = {0};
 int biases[28]           = {0};
 
-TUNE(SetRange(-256, 256), input_weights);
-TUNE(SetRange(-256, 256), output_weights);
-TUNE(SetRange(-256, 256), biases);
+TUNE(SetRange(-2048, 2048), input_weights);
+TUNE(SetRange(-2048, 2048), output_weights);
+TUNE(SetRange(-2048, 2048), biases);
 
 void Network::init_node(const bool data[8]) {
     int counter = 0;
@@ -33,7 +33,7 @@ int Network::get_reduction(const int32_t data[5]) const {
     for (int i = 0; i < 28; i++)
     {
         if (!enabled[i])
-            reduction += output_weights[i] * std::clamp<int32_t>(biases[i], -64, 64);
+            reduction += output_weights[i] * std::clamp<int32_t>(biases[i], 0, 1024);
 
         else
         {
@@ -42,7 +42,7 @@ int Network::get_reduction(const int32_t data[5]) const {
             for (int j = 0; j < 5; j++)
                 value += input_weights[i][j] * data[j];
 
-            reduction += output_weights[i] * std::clamp(value, -64, 64);
+            reduction += output_weights[i] * std::clamp(value, 0, 1024);
         }
     }
 
