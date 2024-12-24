@@ -795,6 +795,7 @@ Value Search::Worker::search(
 
     // Step 9. Null move search with verification search (~35 Elo)
     if (cutNode && (ss - 1)->currentMove != Move::null() && eval >= beta
+        && to_corrected_static_eval(eval, correctionValue) >= beta
         && ss->staticEval >= beta - 21 * depth + 421 && !excludedMove && pos.non_pawn_material(us)
         && ss->ply >= thisThread->nmpMinPly && !is_loss(beta))
     {
