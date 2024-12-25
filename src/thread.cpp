@@ -180,7 +180,7 @@ void ThreadPool::set(const NumaConfig&                           numaConfig,
             const size_t    threadId = threads.size();
             const NumaIndex numaId   = doBindThreads ? boundThreadToNumaNode[threadId] : 0;
             auto            manager  = threadId == 0 ? std::unique_ptr<Search::ISearchManager>(
-                                             std::make_unique<Search::SearchManager>(updateContext))
+                             std::make_unique<Search::SearchManager>(updateContext))
                                                      : std::make_unique<Search::NullSearchManager>();
 
             // When not binding threads we want to force all access to happen
@@ -312,7 +312,8 @@ Thread* ThreadPool::get_best_thread() const {
 
     // Vote according to score and depth, and select the best thread
     auto thread_voting_value = [minScore](Thread* th) {
-        return (th->worker->rootMoves[0].score - minScore + 14) * int(th->worker->completedDepth);
+        return (th->worker->rootMoves[0].score - minScore + 14) * int(th->worker->completedDepth)
+             + int(th->worker->selDepth / 2);
     };
 
     for (auto&& th : threads)
