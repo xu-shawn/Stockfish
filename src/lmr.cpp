@@ -26,9 +26,9 @@ int output_weights[28] = {-130, 171, -210, -88, -11, -81,  92,   -119, 19,   -26
                           176,  126, 321,  -29, 48,  -217, 101,  -145};
 int biases[28] = {-142, 249, -31, 87, -46, -226, -160, -148, -92,  38,   15,  -37,  -209, -277,
                   68,   241, -7,  44, -82, 73,   -90,  -189, -437, -176, -50, -151, -181, -197};
-TUNE(input_weights);
-TUNE(output_weights);
-TUNE(biases);
+TUNE(SetRange(-1024, 1024), input_weights);
+TUNE(SetRange(-512, 512), output_weights);
+TUNE(SetRange(-512, 512), biases);
 
 void Network::init_node(const bool data[8]) {
     int counter = 0;
