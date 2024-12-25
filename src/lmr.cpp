@@ -16,7 +16,7 @@ int output_weights[28]   = {0};
 int biases[28]           = {0};
 
 TUNE(SetRange(-2048, 2048), input_weights);
-TUNE(SetRange(-2048, 2048), output_weights);
+TUNE(SetRange(-32, 32), output_weights);
 TUNE(SetRange(-2048, 2048), biases);
 
 void Network::init_node(const bool data[8]) {
@@ -46,7 +46,7 @@ int Network::get_reduction(const int32_t data[5]) const {
         }
     }
 
-    return reduction / 1024;
+    return reduction / 128;
 }
 
 }  // namespace LMR
