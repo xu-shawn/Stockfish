@@ -53,7 +53,7 @@ int Network::get_reduction(const int32_t data[5]) const {
         }
     }
 
-    return reduction / 1024;
+    return reduction / 33550336;
 }
 
 }  // namespace LMR
