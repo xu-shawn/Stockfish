@@ -63,7 +63,7 @@ void Tune::make_option(OptionsMap* opts, const string& n, int v, const SetRange&
               << v << ","                                  //
               << r(v).first << ","                         //
               << r(v).second << ","                        //
-              << (r(v).second - r(v).first) / 20.0 << ","  //
+              << (r(v).second - r(v).first) / 25.0 << ","  //
               << "0.0020" << std::endl;
 }
 
@@ -121,6 +121,7 @@ void Tune::Entry<Tune::PostUpdate>::read_option() {
 
 namespace Stockfish {
 
-void Tune::read_results() { /* ...insert your values here... */ }
+void Tune::read_results() { /* ...insert your values here... */
+}
 
 }  // namespace Stockfish
