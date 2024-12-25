@@ -47,6 +47,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "types.h"
 #include "uci.h"
 #include "ucioption.h"
 
@@ -135,7 +136,12 @@ Search::Worker::Worker(SharedState&                    sharedState,
     threads(sharedState.threads),
     tt(sharedState.tt),
     networks(sharedState.networks),
-    refreshTable(networks[token]) {
+    refreshTable(networks[token]),
+    lmr_data_file("data_" + std::to_string(std::time(nullptr)) + "_" + std::to_string(threadId)
+                  + ".csv") {
+    lmr_data_file
+      << "lmr_success,depth,moveCount,reduction,ttHit,ttMoveExists,ttCapture,cutNode,PvNode,ttPv,complexity,ttCorrectedEval,capture,ttDepth,staticEval,alpha,beta"
+      << ",rootDelta,completedDepth,rootDepth\n";
     clear();
 }
 
@@ -494,6 +500,30 @@ void Search::Worker::iterative_deepening() {
         std::swap(rootMoves[0],
                   *std::find(rootMoves.begin(), rootMoves.end(),
                              skill.best ? skill.best : skill.pick_best(rootMoves, multiPV)));
+}
+
+void Search::Worker::write_lmr_data(bool lmr_success,
+                                    int  depth,
+                                    int  moveCount,
+                                    int  reduction,
+                                    bool ttHit,
+                                    bool ttMoveExists,
+                                    bool ttCapture,
+                                    bool cutNode,
+                                    bool PvNode,
+                                    bool ttPv,
+                                    int  complexity,
+                                    bool ttCorrectedEval,
+                                    bool capture,
+                                    int  ttDepth,
+                                    int  staticEval,
+                                    int  alpha,
+                                    int  beta) {
+    lmr_data_file << lmr_success << "," << depth << "," << moveCount << "," << reduction << ","
+                  << ttHit << "," << ttMoveExists << "," << ttCapture << "," << cutNode << ","
+                  << PvNode << "," << ttPv << "," << complexity << "," << ttCorrectedEval << ","
+                  << capture << "," << ttDepth << "," << staticEval << "," << alpha << "," << beta;
+    lmr_data_file << "," << rootDelta << "," << completedDepth << "," << rootDepth << "\n";
 }
 
 // Reset histories, usually before a new game
@@ -1201,6 +1231,11 @@ moves_loop:  // When in check, search starts here
             Depth d = std::max(1, std::min(newDepth - r / 1024, newDepth + !allNode));
 
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+
+            write_lmr_data(value > alpha, depth, moveCount, r, ttHit, bool(ttData.move), ttCapture,
+                           cutNode, PvNode, ss->ttPv, std::abs(correctionValue) / 32768,
+                           eval != ss->staticEval, capture, ttData.depth, ss->staticEval, alpha,
+                           beta);
 
             // Do a full-depth search when reduced LMR search fails high
             if (value > alpha && d < newDepth)

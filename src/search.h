@@ -25,6 +25,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <fstream>
 #include <functional>
 #include <memory>
 #include <string>
@@ -293,6 +294,23 @@ class Worker {
 
    private:
     void iterative_deepening();
+    void write_lmr_data(bool lmr_success,
+                        int  depth,
+                        int  moveCount,
+                        int  reduction,
+                        bool ttHit,
+                        bool ttMoveExists,
+                        bool ttCapture,
+                        bool cutNode,
+                        bool PvNode,
+                        bool ttPv,
+                        int  complexity,
+                        bool ttCorrerctedEval,
+                        bool capture,
+                        int  ttDepth,
+                        int  staticEval,
+                        int  alpha,
+                        int  beta);
 
     // This is the main search function, for both PV and non-PV nodes
     template<NodeType nodeType>
@@ -347,6 +365,9 @@ class Worker {
 
     // Used by NNUE
     Eval::NNUE::AccumulatorCaches refreshTable;
+
+    // datagen stream
+    std::ofstream lmr_data_file;
 
     friend class Stockfish::ThreadPool;
     friend class SearchManager;
