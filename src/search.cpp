@@ -318,6 +318,7 @@ void Search::Worker::iterative_deepening() {
             // Adjust optimism based on root move's averageScore (~4 Elo)
             optimism[us]  = 150 * avg / (std::abs(avg) + 85);
             optimism[~us] = -optimism[us];
+            rootScore     = rootMoves[pvIdx].score;
 
             // Start with a small aspiration window and, in the case of a fail
             // high/low, re-search with a bigger window until we don't fail
@@ -786,7 +787,7 @@ Value Search::Worker::search(
     // The depth condition is important for mate finding.
     if (!ss->ttPv && depth < 14
         && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
-               - (ss - 1)->statScore / 290
+               - (ss - 1)->statScore / 290 - (eval >= rootScore + 30) * 40
              >= beta
         && eval >= beta && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
         return beta + (eval - beta) / 3;
