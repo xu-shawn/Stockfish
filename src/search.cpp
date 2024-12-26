@@ -30,6 +30,7 @@
 #include <iostream>
 #include <list>
 #include <ratio>
+#include <random>
 #include <string>
 #include <utility>
 
@@ -137,7 +138,8 @@ Search::Worker::Worker(SharedState&                    sharedState,
     tt(sharedState.tt),
     networks(sharedState.networks),
     refreshTable(networks[token]),
-    lmr_data_file("data_" + std::to_string(std::time(nullptr)) + "_" + std::to_string(threadId)
+    lmr_data_file("data_" + std::to_string(std::time(nullptr)) + "_"
+                  + std::to_string(std::random_device{}()) + "_" + std::to_string(threadId)
                   + ".csv") {
     lmr_data_file
       << "lmr_success,depth,moveCount,reduction,ttHit,ttMoveExists,ttCapture,cutNode,PvNode,ttPv,complexity,ttCorrectedEval,capture,ttDepth,staticEval,alpha,beta"
