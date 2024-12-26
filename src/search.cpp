@@ -564,7 +564,7 @@ Value Search::Worker::search(
     Key   posKey;
     Move  move, excludedMove, bestMove;
     Depth extension, newDepth;
-    Value bestValue, value, eval, maxValue, probCutBeta;
+    Value bestValue, value, eval, maxValue, probCutBeta, improvement;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
     Piece movedPiece;
@@ -768,7 +768,8 @@ Value Search::Worker::search(
     // bigger than the previous static evaluation at our turn (if we were in
     // check at our previous move we go back until we weren't in check) and is
     // false otherwise. The improving flag is used in various pruning heuristics.
-    improving = ss->staticEval > (ss - 2)->staticEval;
+    improving   = ss->staticEval > (ss - 2)->staticEval;
+    improvement = ss->staticEval - (ss - 2)->staticEval;
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
 
@@ -1160,6 +1161,7 @@ moves_loop:  // When in check, search starts here
         r += 330;
 
         r -= std::min(std::abs(correctionValue) / 32768, 2048);
+        r -= 2048 * improvement / (std::abs(improvement) + 500);
 
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)
