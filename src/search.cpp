@@ -521,6 +521,9 @@ void Search::Worker::clear() {
     for (size_t i = 1; i < reductions.size(); ++i)
         reductions[i] = int(19.43 * std::log(i));
 
+    for (size_t i = 1; i < log_table_128x.size(); ++i)
+        log_table_128x[i] = int(std::log(i) * 128);
+
     refreshTable.clear(networks[numaAccessToken]);
 }
 
@@ -1167,7 +1170,7 @@ moves_loop:  // When in check, search starts here
 
         // Increase reduction if ttMove is a capture but the current move is not a capture (~3 Elo)
         if (ttCapture && !capture)
-            r += 1043 + (depth < 8) * 999;
+            r += 1043 + 358 * log_table_128x[depth] / 128;
 
         // Increase reduction if next ply has a lot of fail high (~5 Elo)
         if ((ss + 1)->cutoffCnt > 3)
