@@ -925,7 +925,7 @@ moves_loop:  // When in check, search starts here
         && !is_decisive(beta) && is_valid(ttData.value) && !is_decisive(ttData.value))
         return ttCutBeta;
 
-    const Value ttCutAlpha = alpha - 417;
+    const Value ttCutAlpha = alpha - 367;
     if ((ttData.bound & BOUND_UPPER) && ttData.depth >= depth - 4 && ttData.value <= ttCutAlpha
         && !is_decisive(alpha) && is_valid(ttData.value) && !is_decisive(ttData.value))
         return ttCutAlpha;
