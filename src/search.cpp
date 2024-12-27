@@ -564,7 +564,7 @@ Value Search::Worker::search(
     Key   posKey;
     Move  move, excludedMove, bestMove;
     Depth extension, newDepth;
-    Value bestValue, value, eval, maxValue, probCutBeta;
+    Value bestValue, value, eval, maxValue, probCutBeta, evalDelta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
     Piece movedPiece;
@@ -718,6 +718,7 @@ Value Search::Worker::search(
     {
         // Skip early pruning when in check
         ss->staticEval = eval = (ss - 2)->staticEval;
+        evalDelta             = 0;
         improving             = false;
         goto moves_loop;
     }
@@ -754,10 +755,12 @@ Value Search::Worker::search(
                        unadjustedStaticEval, tt.generation());
     }
 
+    evalDelta = (ss - 1)->staticEval + ss->staticEval;
+
     // Use static evaluation difference to improve quiet move ordering (~9 Elo)
     if (((ss - 1)->currentMove).is_ok() && !(ss - 1)->inCheck && !priorCapture)
     {
-        int bonus = std::clamp(-10 * int((ss - 1)->staticEval + ss->staticEval), -1831, 1428) + 623;
+        int bonus = std::clamp(-10 * int(evalDelta), -1831, 1428) + 623;
         thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << bonus * 1340 / 1024;
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
@@ -795,8 +798,9 @@ Value Search::Worker::search(
 
     // Step 9. Null move search with verification search (~35 Elo)
     if (cutNode && (ss - 1)->currentMove != Move::null() && eval >= beta
-        && ss->staticEval >= beta - 21 * depth + 421 && !excludedMove && pos.non_pawn_material(us)
-        && ss->ply >= thisThread->nmpMinPly && !is_loss(beta))
+        && ss->staticEval + std::clamp(evalDelta / 5, -50, 50) >= beta - 21 * depth + 421
+        && !excludedMove && pos.non_pawn_material(us) && ss->ply >= thisThread->nmpMinPly
+        && !is_loss(beta))
     {
         assert(eval - beta >= 0);
 
@@ -862,7 +866,9 @@ Value Search::Worker::search(
     {
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
-        MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &thisThread->captureHistory);
+        MovePicker mp(pos, ttData.move,
+                      probCutBeta - ss->staticEval - std::clamp(evalDelta / 5, -50, 50),
+                      &thisThread->captureHistory);
         Piece      captured;
 
         while ((move = mp.next_move()) != Move::none())
@@ -1003,8 +1009,8 @@ moves_loop:  // When in check, search starts here
                 // Futility pruning for captures (~2 Elo)
                 if (!givesCheck && lmrDepth < 7 && !ss->inCheck)
                 {
-                    Value futilityValue = ss->staticEval + 287 + 253 * lmrDepth
-                                        + PieceValue[capturedPiece] + captHist / 7;
+                    Value futilityValue = ss->staticEval + std::clamp(evalDelta / 5, -50, 50) + 287
+                                        + 253 * lmrDepth + PieceValue[capturedPiece] + captHist / 7;
                     if (futilityValue <= alpha)
                         continue;
                 }
@@ -1029,8 +1035,8 @@ moves_loop:  // When in check, search starts here
 
                 lmrDepth += history / 3609;
 
-                Value futilityValue =
-                  ss->staticEval + (bestValue < ss->staticEval - 45 ? 140 : 43) + 141 * lmrDepth;
+                Value futilityValue = ss->staticEval + (bestValue < ss->staticEval - 45 ? 140 : 43)
+                                    + std::clamp(evalDelta / 5, -50, 50) + 141 * lmrDepth;
 
                 // Futility pruning: parent node (~13 Elo)
                 if (!ss->inCheck && lmrDepth < 12 && futilityValue <= alpha)
@@ -1379,9 +1385,14 @@ moves_loop:  // When in check, search starts here
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
     {
-        int bonusScale = (117 * (depth > 5) + 39 * !allNode + 168 * ((ss - 1)->moveCount > 8)
-                          + 115 * (!ss->inCheck && bestValue <= ss->staticEval - 108)
-                          + 119 * (!(ss - 1)->inCheck && bestValue <= -(ss - 1)->staticEval - 83));
+        int bonusScale =
+          (117 * (depth > 5) + 39 * !allNode + 168 * ((ss - 1)->moveCount > 8)
+           + 115
+               * (!ss->inCheck
+                  && bestValue <= ss->staticEval + std::clamp(evalDelta / 5, -50, 50) - 108)
+           + 119
+               * (!(ss - 1)->inCheck
+                  && bestValue <= -(ss - 1)->staticEval + std::clamp(evalDelta / 5, -50, 50) - 83));
 
         // Proportional to "how much damage we have to undo"
         bonusScale += std::min(-(ss - 1)->statScore / 113, 300);
