@@ -594,7 +594,7 @@ Value Search::Worker::search(
         // Step 2. Check for aborted search and immediate draw
         if (threads.stop.load(std::memory_order_relaxed) || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos)
+            return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos).eval
                                                         : value_draw(thisThread->nodes);
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
@@ -718,6 +718,7 @@ Value Search::Worker::search(
     {
         // Skip early pruning when in check
         ss->staticEval = eval = (ss - 2)->staticEval;
+        ss->nnueComplexity    = 0;
         improving             = false;
         goto moves_loop;
     }
@@ -732,8 +733,13 @@ Value Search::Worker::search(
     {
         // Never assume anything about values stored in TT
         unadjustedStaticEval = ttData.eval;
+        ss->nnueComplexity   = 0;
         if (!is_valid(unadjustedStaticEval))
-            unadjustedStaticEval = evaluate(pos);
+        {
+            auto evaluation      = evaluate(pos);
+            unadjustedStaticEval = evaluation.eval;
+            ss->nnueComplexity   = evaluation.nnueComplexity;
+        }
         else if (PvNode)
             Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
 
@@ -746,7 +752,9 @@ Value Search::Worker::search(
     }
     else
     {
-        unadjustedStaticEval = evaluate(pos);
+        auto evaluation      = evaluate(pos);
+        unadjustedStaticEval = evaluation.eval;
+        ss->nnueComplexity   = evaluation.nnueComplexity;
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 
         // Static evaluation is saved as it was before adjustment by correction history
@@ -1157,9 +1165,10 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
-        r += 330;
+        r += 390;
 
         r -= std::min(std::abs(correctionValue) / 32768, 2048);
+        r -= std::min(ss->nnueComplexity * 2, 1024);
 
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)
@@ -1511,7 +1520,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
     // Step 2. Check for an immediate draw or maximum ply reached
     if (pos.is_draw(ss->ply) || ss->ply >= MAX_PLY)
-        return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos) : VALUE_DRAW;
+        return (ss->ply >= MAX_PLY && !ss->inCheck) ? evaluate(pos).eval : VALUE_DRAW;
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
@@ -1542,7 +1551,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             // Never assume anything about values stored in TT
             unadjustedStaticEval = ttData.eval;
             if (!is_valid(unadjustedStaticEval))
-                unadjustedStaticEval = evaluate(pos);
+                unadjustedStaticEval = evaluate(pos).eval;
             ss->staticEval = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 
@@ -1555,7 +1564,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         {
             // In case of null move search, use previous static eval with opposite sign
             unadjustedStaticEval =
-              (ss - 1)->currentMove != Move::null() ? evaluate(pos) : -(ss - 1)->staticEval;
+              (ss - 1)->currentMove != Move::null() ? evaluate(pos).eval : -(ss - 1)->staticEval;
             ss->staticEval = bestValue =
               to_corrected_static_eval(unadjustedStaticEval, correctionValue);
         }
@@ -1727,7 +1736,7 @@ TimePoint Search::Worker::elapsed() const {
 
 TimePoint Search::Worker::elapsed_time() const { return main_manager()->tm.elapsed_time(); }
 
-Value Search::Worker::evaluate(const Position& pos) {
+Eval::EvaluationResult Search::Worker::evaluate(const Position& pos) {
     return Eval::evaluate(networks[numaAccessToken], pos, refreshTable,
                           optimism[pos.side_to_move()]);
 }

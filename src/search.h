@@ -31,6 +31,7 @@
 #include <string_view>
 #include <vector>
 
+#include "evaluate.h"
 #include "history.h"
 #include "misc.h"
 #include "nnue/network.h"
@@ -68,6 +69,7 @@ struct Stack {
     Move                        currentMove;
     Move                        excludedMove;
     Value                       staticEval;
+    int                         nnueComplexity;
     int                         statScore;
     int                         moveCount;
     bool                        inCheck;
@@ -313,7 +315,7 @@ class Worker {
     TimePoint elapsed() const;
     TimePoint elapsed_time() const;
 
-    Value evaluate(const Position&);
+    Eval::EvaluationResult evaluate(const Position&);
 
     LimitsType limits;
 
