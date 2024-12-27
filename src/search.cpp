@@ -550,7 +550,8 @@ Value Search::Worker::search(
     if (!rootNode && pos.upcoming_repetition(ss->ply))
     {
         const auto correctionValue = correction_value(*thisThread, pos, ss);
-        alpha = std::max(alpha, to_corrected_static_eval(value_draw(this->nodes), correctionValue));
+        alpha =
+          std::max(alpha, to_corrected_static_eval(value_draw(this->nodes), -correctionValue));
         if (alpha >= beta)
             return alpha;
     }
@@ -1482,7 +1483,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     if (pos.upcoming_repetition(ss->ply))
     {
         const auto correctionValue = correction_value(*thisThread, pos, ss);
-        alpha = std::max(alpha, to_corrected_static_eval(value_draw(this->nodes), correctionValue));
+        alpha =
+          std::max(alpha, to_corrected_static_eval(value_draw(this->nodes), -correctionValue));
         if (alpha >= beta)
             return alpha;
     }
