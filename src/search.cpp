@@ -544,10 +544,13 @@ Value Search::Worker::search(
     // Limit the depth if extensions made it too large
     depth = std::min(depth, MAX_PLY - 1);
 
+    Worker* thisThread = this;
+
     // Check if we have an upcoming move that draws by repetition
-    if (!rootNode && alpha < VALUE_DRAW && pos.upcoming_repetition(ss->ply))
+    if (!rootNode && pos.upcoming_repetition(ss->ply))
     {
-        alpha = value_draw(this->nodes);
+        const auto correctionValue = correction_value(*thisThread, pos, ss);
+        alpha = std::max(alpha, to_corrected_static_eval(value_draw(this->nodes), correctionValue));
         if (alpha >= beta)
             return alpha;
     }
@@ -573,13 +576,12 @@ Value Search::Worker::search(
     ValueList<Move, 32> quietsSearched;
 
     // Step 1. Initialize node
-    Worker* thisThread = this;
-    ss->inCheck        = pos.checkers();
-    priorCapture       = pos.captured_piece();
-    Color us           = pos.side_to_move();
-    ss->moveCount      = 0;
-    bestValue          = -VALUE_INFINITE;
-    maxValue           = VALUE_INFINITE;
+    ss->inCheck   = pos.checkers();
+    priorCapture  = pos.captured_piece();
+    Color us      = pos.side_to_move();
+    ss->moveCount = 0;
+    bestValue     = -VALUE_INFINITE;
+    maxValue      = VALUE_INFINITE;
 
     // Check for the available remaining time
     if (is_mainthread())
@@ -1474,10 +1476,13 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     assert(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
 
+    Worker* thisThread = this;
+
     // Check if we have an upcoming move that draws by repetition (~1 Elo)
-    if (alpha < VALUE_DRAW && pos.upcoming_repetition(ss->ply))
+    if (pos.upcoming_repetition(ss->ply))
     {
-        alpha = value_draw(this->nodes);
+        const auto correctionValue = correction_value(*thisThread, pos, ss);
+        alpha = std::max(alpha, to_corrected_static_eval(value_draw(this->nodes), correctionValue));
         if (alpha >= beta)
             return alpha;
     }
@@ -1500,10 +1505,9 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         ss->pv[0]    = Move::none();
     }
 
-    Worker* thisThread = this;
-    bestMove           = Move::none();
-    ss->inCheck        = pos.checkers();
-    moveCount          = 0;
+    bestMove    = Move::none();
+    ss->inCheck = pos.checkers();
+    moveCount   = 0;
 
     // Used to send selDepth info to GUI (selDepth counts from 1, ply from 0)
     if (PvNode && thisThread->selDepth < ss->ply + 1)
