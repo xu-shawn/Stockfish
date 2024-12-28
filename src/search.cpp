@@ -549,9 +549,11 @@ Value Search::Worker::search(
     // Check if we have an upcoming move that draws by repetition
     if (!rootNode && pos.upcoming_repetition(ss->ply))
     {
-        const auto correctionValue = correction_value(*thisThread, pos, ss);
-        alpha =
-          std::max(alpha, to_corrected_static_eval(value_draw(this->nodes), -correctionValue));
+        const Value drawValue = value_draw(this->nodes);
+        const Value correctedDrawValue =
+          depth < 3 ? to_corrected_static_eval(drawValue, -correction_value(*thisThread, pos, ss))
+                    : drawValue;
+        alpha = std::max(alpha, correctedDrawValue);
         if (alpha >= beta)
             return alpha;
     }
@@ -1482,9 +1484,10 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     // Check if we have an upcoming move that draws by repetition (~1 Elo)
     if (pos.upcoming_repetition(ss->ply))
     {
-        const auto correctionValue = correction_value(*thisThread, pos, ss);
-        alpha =
-          std::max(alpha, to_corrected_static_eval(value_draw(this->nodes), -correctionValue));
+        const Value drawValue = value_draw(this->nodes);
+        const Value correctedDrawValue =
+          to_corrected_static_eval(drawValue, -correction_value(*thisThread, pos, ss));
+        alpha = std::max(alpha, correctedDrawValue);
         if (alpha >= beta)
             return alpha;
     }
