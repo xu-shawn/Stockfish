@@ -135,15 +135,18 @@ struct SharedState {
     SharedState(const OptionsMap&                               optionsMap,
                 ThreadPool&                                     threadPool,
                 TranspositionTable&                             transpositionTable,
+                RootMovesTable&                                 rootMovesScore,
                 const LazyNumaReplicated<Eval::NNUE::Networks>& nets) :
         options(optionsMap),
         threads(threadPool),
         tt(transpositionTable),
+        rms(rootMovesScore),
         networks(nets) {}
 
     const OptionsMap&                               options;
     ThreadPool&                                     threads;
     TranspositionTable&                             tt;
+    RootMovesTable&                                 rms;
     const LazyNumaReplicated<Eval::NNUE::Networks>& networks;
 };
 
@@ -277,6 +280,8 @@ class Worker {
 
     void ensure_network_replicated();
 
+    void zero_root_moves_table();
+
     // Public because they need to be updatable by the stats
     ButterflyHistory mainHistory;
     LowPlyHistory    lowPlyHistory;
@@ -344,6 +349,7 @@ class Worker {
     ThreadPool&                                     threads;
     TranspositionTable&                             tt;
     const LazyNumaReplicated<Eval::NNUE::Networks>& networks;
+    RootMovesTable&                                 rootMovesScore;
 
     // Used by NNUE
     Eval::NNUE::AccumulatorCaches refreshTable;
