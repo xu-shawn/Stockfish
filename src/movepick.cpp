@@ -135,7 +135,6 @@ void MovePicker::init_root(const RootMovesTable& rmt) {
 
         if (currentScore > bestScore)
         {
-            rootNode   = true;
             bestScore  = currentScore;
             threadMove = m;
         }
@@ -252,7 +251,7 @@ top:
 
     case THREAD_MOVE :
         ++stage;
-        if (rootNode)
+        if (threadMove.is_ok())
             return threadMove;
         [[fallthrough]];
 
