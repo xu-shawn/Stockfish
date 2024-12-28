@@ -19,10 +19,14 @@
 #include "movepick.h"
 
 #include <array>
+#include <atomic>
 #include <cassert>
+#include <cstdint>
 #include <limits>
 
 #include "bitboard.h"
+#include "history.h"
+#include "movegen.h"
 #include "position.h"
 
 namespace Stockfish {
@@ -32,6 +36,7 @@ namespace {
 enum Stages {
     // generate main search moves
     MAIN_TT,
+    THREAD_MOVE,
     CAPTURE_INIT,
     GOOD_CAPTURE,
     QUIET_INIT,
@@ -115,6 +120,27 @@ MovePicker::MovePicker(const Position& p, Move ttm, int th, const CapturePieceTo
 
     stage = PROBCUT_TT
           + !(ttm && pos.capture_stage(ttm) && pos.pseudo_legal(ttm) && pos.see_ge(ttm, threshold));
+}
+
+void MovePicker::init_root(const RootMovesTable& rmt) {
+    MoveList<LEGAL> rootMoves(pos);
+    std::uint32_t   bestScore = 0;
+    for (Move m : rootMoves)
+    {
+        if (ttMove == m)
+            continue;
+
+        std::uint32_t currentScore =
+          rmt[type_of(pos.piece_on(m.from_sq()))][m.to_sq()].get().data.load(
+            std::memory_order_relaxed);
+
+        if (currentScore > bestScore)
+        {
+            rootNode   = true;
+            bestScore  = currentScore;
+            threadMove = m;
+        }
+    }
 }
 
 // Assigns a numerical value to each move in a list, used for sorting.
@@ -201,7 +227,7 @@ template<typename Pred>
 Move MovePicker::select(Pred filter) {
 
     for (; cur < endMoves; ++cur)
-        if (*cur != ttMove && filter())
+        if (*cur != ttMove && *cur != threadMove && filter())
             return *cur++;
 
     return Move::none();
@@ -224,6 +250,12 @@ top:
     case PROBCUT_TT :
         ++stage;
         return ttMove;
+
+    case THREAD_MOVE :
+        ++stage;
+        if (rootNode)
+            return threadMove;
+        [[fallthrough]];
 
     case CAPTURE_INIT :
     case PROBCUT_INIT :

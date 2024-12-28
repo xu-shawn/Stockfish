@@ -49,6 +49,7 @@ class MovePicker {
                int);
     MovePicker(const Position&, Move, int, const CapturePieceToHistory*);
     Move next_move();
+    void init_root(const RootMovesTable&);
     void skip_quiet_moves();
 
    private:
@@ -66,12 +67,14 @@ class MovePicker {
     const PieceToHistory**       continuationHistory;
     const PawnHistory*           pawnHistory;
     Move                         ttMove;
+    Move                         threadMove = Move::null();
     ExtMove *                    cur, *endMoves, *endBadCaptures, *beginBadQuiets, *endBadQuiets;
     int                          stage;
     int                          threshold;
     Depth                        depth;
     int                          ply;
     bool                         skipQuiets = false;
+    bool                         rootNode   = false;
     ExtMove                      moves[MAX_MOVES];
 };
 

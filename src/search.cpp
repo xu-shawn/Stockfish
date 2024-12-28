@@ -417,6 +417,10 @@ void Search::Worker::iterative_deepening() {
             lastBestMoveDepth = rootDepth;
         }
 
+        Move rootBestMove = rootMoves[0].pv[0];
+        rootMovesScore[type_of(rootPos.piece_on(rootBestMove.from_sq()))][rootBestMove.to_sq()]
+          .get() += rootDepth;
+
         if (!mainThread)
             continue;
 
@@ -937,6 +941,9 @@ moves_loop:  // When in check, search starts here
 
     MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->lowPlyHistory,
                   &thisThread->captureHistory, contHist, &thisThread->pawnHistory, ss->ply);
+
+    if (rootNode && threads.num_threads() > 1)
+        mp.init_root(rootMovesScore);
 
     value = bestValue;
 

@@ -77,11 +77,12 @@ class StatsEntry {
     T entry;
 
    public:
-    void operator=(const T& v) { entry = v; }
-    T&   get() noexcept { return entry; }
-    T*   operator&() noexcept { return &entry; }
-    T*   operator->() noexcept { return &entry; }
-         operator const T&() const noexcept { return entry; }
+    void     operator=(const T& v) { entry = v; }
+    T&       get() noexcept { return entry; }
+    const T& get() const noexcept { return entry; }
+    T*       operator&() noexcept { return &entry; }
+    T*       operator->() noexcept { return &entry; }
+             operator const T&() const noexcept { return entry; }
 
     void operator<<(int bonus) noexcept {
         static_assert(D <= std::numeric_limits<T>::max(), "D overflows T");
@@ -191,10 +192,6 @@ struct WrappedAtomic {
 
     WrappedAtomic<T>& operator=(const T& value) noexcept {
         data.exchange(value, std::memory_order_relaxed);
-        return *this;
-    }
-    WrappedAtomic<T>& operator=(const std::atomic<T>& value) noexcept {
-        data.exchange(value.load(std::memory_order_relaxed), std::memory_order_relaxed);
         return *this;
     }
     WrappedAtomic<T>& operator=(const WrappedAtomic<T>& other) noexcept {
