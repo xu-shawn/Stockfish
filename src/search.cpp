@@ -767,6 +767,8 @@ Value Search::Worker::search(
               << bonus * 1159 / 1024;
     }
 
+    evalDelta += 62;
+
     // Set up the improving flag, which is true if current static evaluation is
     // bigger than the previous static evaluation at our turn (if we were in
     // check at our previous move we go back until we weren't in check) and is
