@@ -216,14 +216,21 @@ struct WrappedAtomic {
 
     std::atomic<T> data;
 
-    std::atomic<T>& operator=(const T& value) noexcept {
+    WrappedAtomic<T>& operator=(const T& value) noexcept {
         data.exchange(value, std::memory_order_relaxed);
+        return *this;
     }
-    std::atomic<T>& operator=(const std::atomic<T>& value) noexcept {
+    WrappedAtomic<T>& operator=(const std::atomic<T>& value) noexcept {
         data.exchange(value.load(std::memory_order_relaxed), std::memory_order_relaxed);
+        return *this;
     }
-    std::atomic<T>& operator=(const WrappedAtomic<T>& other) noexcept {
+    WrappedAtomic<T>& operator=(const WrappedAtomic<T>& other) noexcept {
         data.exchange(other.data.load(std::memory_order_relaxed), std::memory_order_relaxed);
+        return *this;
+    }
+    WrappedAtomic<T>& operator+=(const T& value) noexcept {
+        std::atomic_fetch_add_explicit(&data, value, std::memory_order_relaxed);
+        return *this;
     }
 };
 
