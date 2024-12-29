@@ -190,6 +190,7 @@ struct WrappedAtomic {
 
     std::atomic<T> data;
 
+    [[nodiscard]]     operator T() const noexcept { return data.load(std::memory_order_relaxed); }
     WrappedAtomic<T>& operator=(const T& value) noexcept {
         data.exchange(value, std::memory_order_relaxed);
         return *this;
