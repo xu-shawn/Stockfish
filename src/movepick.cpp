@@ -123,15 +123,14 @@ MovePicker::MovePicker(const Position& p, Move ttm, int th, const CapturePieceTo
 
 void MovePicker::init_root(const RootMovesTable& rmt) {
     MoveList<LEGAL> rootMoves(pos);
-    std::uint32_t   bestScore = 0;
+    std::uint32_t   bestScore =
+      ttMove.is_ok() ? rmt[type_of(pos.piece_on(ttMove.from_sq()))][ttMove.to_sq()].get() : 0;
     for (Move m : rootMoves)
     {
         if (ttMove == m)
             continue;
 
-        std::uint32_t currentScore =
-          rmt[type_of(pos.piece_on(m.from_sq()))][m.to_sq()].get().data.load(
-            std::memory_order_relaxed);
+        std::uint32_t currentScore = rmt[type_of(pos.piece_on(m.from_sq()))][m.to_sq()].get();
 
         if (currentScore > bestScore)
         {
