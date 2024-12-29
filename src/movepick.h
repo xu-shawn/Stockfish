@@ -22,6 +22,7 @@
 #include "history.h"
 #include "movegen.h"
 #include "types.h"
+#include <cstdint>
 
 namespace Stockfish {
 
@@ -49,7 +50,7 @@ class MovePicker {
                int);
     MovePicker(const Position&, Move, int, const CapturePieceToHistory*);
     Move next_move();
-    void init_root(const RootMovesTable&);
+    void init_root(const RootMovesTable&, std::uint32_t);
     void skip_quiet_moves();
 
    private:

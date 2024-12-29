@@ -104,6 +104,8 @@ int stat_bonus(Depth d) { return std::min(168 * d - 100, 1718); }
 // History and stats update malus, based on depth
 int stat_malus(Depth d) { return std::min(768 * d - 257, 2351); }
 
+std::uint32_t thread_bonus(Depth d) { return d * d; }
+
 // Add a small random component to draw evaluations to avoid 3-fold blindness
 Value value_draw(size_t nodes) { return VALUE_DRAW - 1 + Value(nodes & 0x2); }
 Value value_to_tt(Value v, int ply);
@@ -419,7 +421,7 @@ void Search::Worker::iterative_deepening() {
 
         Move rootBestMove = rootMoves[0].pv[0];
         rootMovesScore[type_of(rootPos.piece_on(rootBestMove.from_sq()))][rootBestMove.to_sq()]
-          .get() += rootDepth * rootDepth + 2 * rootDepth + 1;
+          .get() += thread_bonus(rootDepth);
 
         if (!mainThread)
             continue;
@@ -943,7 +945,7 @@ moves_loop:  // When in check, search starts here
                   &thisThread->captureHistory, contHist, &thisThread->pawnHistory, ss->ply);
 
     if (rootNode && threads.num_threads() > 1)
-        mp.init_root(rootMovesScore);
+        mp.init_root(rootMovesScore, thread_bonus(rootDepth - 1));
 
     value = bestValue;
 

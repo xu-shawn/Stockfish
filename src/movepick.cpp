@@ -122,10 +122,9 @@ MovePicker::MovePicker(const Position& p, Move ttm, int th, const CapturePieceTo
           + !(ttm && pos.capture_stage(ttm) && pos.pseudo_legal(ttm) && pos.see_ge(ttm, threshold));
 }
 
-void MovePicker::init_root(const RootMovesTable& rmt) {
+void MovePicker::init_root(const RootMovesTable& rmt, std::uint32_t thread_move_threshold) {
     MoveList<LEGAL> rootMoves(pos);
-    std::uint32_t   bestScore =
-      ttMove.is_ok() ? rmt[type_of(pos.piece_on(ttMove.from_sq()))][ttMove.to_sq()].get() : 0;
+    std::uint32_t   bestScore = ttMove.is_ok() ? thread_move_threshold : 0;
     for (Move m : rootMoves)
     {
         if (ttMove == m)
