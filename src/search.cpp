@@ -419,7 +419,7 @@ void Search::Worker::iterative_deepening() {
 
         Move rootBestMove = rootMoves[0].pv[0];
         rootMovesScore[type_of(rootPos.piece_on(rootBestMove.from_sq()))][rootBestMove.to_sq()]
-          .get() += rootDepth;
+          .get() += rootDepth * rootDepth;
 
         if (!mainThread)
             continue;
