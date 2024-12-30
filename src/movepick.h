@@ -50,7 +50,7 @@ class MovePicker {
                int);
     MovePicker(const Position&, Move, int, const CapturePieceToHistory*);
     Move next_move();
-    void init_root(const RootMovesTable&, std::uint32_t);
+    void init_root(const RootMovesTable&);
     void skip_quiet_moves();
 
    private:
