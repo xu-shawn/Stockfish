@@ -122,7 +122,7 @@ MovePicker::MovePicker(const Position& p, Move ttm, int th, const CapturePieceTo
           + !(ttm && pos.capture_stage(ttm) && pos.pseudo_legal(ttm) && pos.see_ge(ttm, threshold));
 }
 
-void MovePicker::init_root(const RootMovesTable& rmt) {
+bool MovePicker::init_root(const RootMovesTable& rmt) {
     MoveList<LEGAL> rootMoves(pos);
     std::uint32_t   bestScore =
       ttMove.is_ok() ? rmt[type_of(pos.piece_on(ttMove.from_sq()))][ttMove.to_sq()].get() : 0;
@@ -139,6 +139,8 @@ void MovePicker::init_root(const RootMovesTable& rmt) {
             threadMove = m;
         }
     }
+
+    return threadMove.is_ok();
 }
 
 // Assigns a numerical value to each move in a list, used for sorting.

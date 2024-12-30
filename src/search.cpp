@@ -942,8 +942,9 @@ moves_loop:  // When in check, search starts here
     MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->lowPlyHistory,
                   &thisThread->captureHistory, contHist, &thisThread->pawnHistory, ss->ply);
 
+    bool threadMoveFound = false;
     if (rootNode && threads.num_threads() > 1)
-        mp.init_root(rootMovesScore);
+        threadMoveFound = mp.init_root(rootMovesScore);
 
     value = bestValue;
 
@@ -1200,7 +1201,7 @@ moves_loop:  // When in check, search starts here
         r -= ss->statScore * 1287 / 16384;
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
-        if (depth >= 2 && moveCount > 1 + (rootNode && threads.size() > 1))
+        if (depth >= 2 && moveCount > 1 + threadMoveFound)
         {
             // In general we want to cap the LMR depth search at newDepth, but when
             // reduction is negative, we allow this move a limited search extension
