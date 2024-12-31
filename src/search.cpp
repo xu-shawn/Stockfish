@@ -482,6 +482,7 @@ void Search::Worker::iterative_deepening() {
 
         mainThread->iterValue[iterIdx] = bestValue;
         iterIdx                        = (iterIdx + 1) & 3;
+        rootDepth += (threadIdx % 4 == 1);
     }
 
     if (!mainThread)
