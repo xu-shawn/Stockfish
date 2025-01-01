@@ -1378,8 +1378,8 @@ moves_loop:  // When in check, search starts here
         update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth);
         if (ttData.move && bestMove != ttData.move)
         {
-            const auto ttHistEntry   = thisThread->mainHistory[~us][ttData.move.from_to()];
-            auto&      mainHistEntry = thisThread->mainHistory[~us][bestMove.from_to()];
+            const auto ttHistEntry   = thisThread->mainHistory[us][ttData.move.from_to()];
+            auto&      mainHistEntry = thisThread->mainHistory[us][bestMove.from_to()];
             if (ttHistEntry > mainHistEntry)
                 mainHistEntry << ttHistEntry - mainHistEntry;
         }
