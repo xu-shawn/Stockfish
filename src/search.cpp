@@ -330,7 +330,7 @@ void Search::Worker::iterative_deepening() {
                 Depth adjustedDepth =
                   std::max(1, rootDepth - failedHighCnt - 3 * (searchAgainCounter + 1) / 4);
                 rootDelta = beta - alpha;
-                bestValue = search<Root>(rootPos, ss, alpha, beta, adjustedDepth, false);
+                bestValue = search<Root, false>(rootPos, ss, alpha, beta, adjustedDepth, false);
 
                 // Bring the best move to the front. It is critical that sorting
                 // is done with a stable algorithm because all the values but the
@@ -376,6 +376,8 @@ void Search::Worker::iterative_deepening() {
 
                 assert(alpha >= -VALUE_INFINITE && beta <= VALUE_INFINITE);
             }
+
+            extend_pv(rootPos, ss, rootMoves[pvIdx]);
 
             // Sort the PV lines searched so far and update the GUI
             std::stable_sort(rootMoves.begin() + pvFirst, rootMoves.begin() + pvIdx + 1);
@@ -496,6 +498,22 @@ void Search::Worker::iterative_deepening() {
                              skill.best ? skill.best : skill.pick_best(rootMoves, multiPV)));
 }
 
+void Search::Worker::extend_pv(Position& pos, Stack* ss, const RootMove& rootMove) {
+    std::list<StateInfo> sts;
+
+    for (const auto move : rootMove.pv)
+    {
+        auto& st = sts.emplace_back();
+        ++ss;
+        pos.do_move(move, st);
+    }
+
+    search<PV, true>(pos, ss, -VALUE_MATE, VALUE_MATE, 1, false);
+
+    for (auto it = rootMove.pv.rbegin(); it != rootMove.pv.rend(); ++it)
+        pos.undo_move(*it);
+}
+
 // Reset histories, usually before a new game
 void Search::Worker::clear() {
     mainHistory.fill(61);
@@ -526,7 +544,7 @@ void Search::Worker::clear() {
 
 
 // Main search function for both PV and non-PV nodes
-template<NodeType nodeType>
+template<NodeType nodeType, bool disablePV>
 Value Search::Worker::search(
   Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode) {
 
@@ -538,7 +556,7 @@ Value Search::Worker::search(
     if (depth <= 0)
     {
         constexpr auto nt = PvNode ? PV : NonPV;
-        return qsearch<nt>(pos, ss, alpha, beta);
+        return qsearch<nt, disablePV>(pos, ss, alpha, beta);
     }
 
     // Limit the depth if extensions made it too large
@@ -777,7 +795,7 @@ Value Search::Worker::search(
     // search suggests we cannot exceed alpha, return a speculative fail low.
     if (eval < alpha - 469 - 307 * depth * depth)
     {
-        value = qsearch<NonPV>(pos, ss, alpha - 1, alpha);
+        value = qsearch<NonPV, disablePV>(pos, ss, alpha - 1, alpha);
         if (value < alpha && !is_decisive(value))
             return value;
     }
@@ -809,7 +827,8 @@ Value Search::Worker::search(
 
         pos.do_null_move(st, tt);
 
-        Value nullValue = -search<NonPV>(pos, ss + 1, -beta, -beta + 1, depth - R, false);
+        Value nullValue =
+          -search<NonPV, disablePV>(pos, ss + 1, -beta, -beta + 1, depth - R, false);
 
         pos.undo_null_move();
 
@@ -825,7 +844,7 @@ Value Search::Worker::search(
             // until ply exceeds nmpMinPly.
             thisThread->nmpMinPly = ss->ply + 3 * (depth - R) / 4;
 
-            Value v = search<NonPV>(pos, ss, beta - 1, beta, depth - R, false);
+            Value v = search<NonPV, disablePV>(pos, ss, beta - 1, beta, depth - R, false);
 
             thisThread->nmpMinPly = 0;
 
@@ -841,7 +860,7 @@ Value Search::Worker::search(
 
     // Use qsearch if depth <= 0
     if (depth <= 0)
-        return qsearch<PV>(pos, ss, alpha, beta);
+        return qsearch<PV, disablePV>(pos, ss, alpha, beta);
 
     // For cutNodes, if depth is high enough, decrease depth by 2 if there is no ttMove,
     // or by 1 if there is a ttMove with an upper bound.
@@ -894,12 +913,12 @@ Value Search::Worker::search(
             pos.do_move(move, st);
 
             // Perform a preliminary qsearch to verify that the move holds
-            value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
+            value = -qsearch<NonPV, disablePV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
 
             // If the qsearch held, perform the regular search
             if (value >= probCutBeta)
-                value =
-                  -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, depth - 4, !cutNode);
+                value = -search<NonPV, disablePV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1,
+                                                  depth - 4, !cutNode);
 
             pos.undo_move(move);
 
@@ -1075,8 +1094,8 @@ moves_loop:  // When in check, search starts here
                 Depth singularDepth = newDepth / 2;
 
                 ss->excludedMove = move;
-                value =
-                  search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
+                value            = search<NonPV, disablePV>(pos, ss, singularBeta - 1, singularBeta,
+                                                 singularDepth, cutNode);
                 ss->excludedMove = Move::none();
 
                 if (value < singularBeta)
@@ -1200,7 +1219,7 @@ moves_loop:  // When in check, search starts here
             // std::clamp has been replaced by a more robust implementation.
             Depth d = std::max(1, std::min(newDepth - r / 1024, newDepth + !allNode));
 
-            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+            value = -search<NonPV, disablePV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
 
             // Do a full-depth search when reduced LMR search fails high
             if (value > alpha && d < newDepth)
@@ -1213,7 +1232,8 @@ moves_loop:  // When in check, search starts here
                 newDepth += doDeeperSearch - doShallowerSearch;
 
                 if (newDepth > d)
-                    value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+                    value = -search<NonPV, disablePV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth,
+                                                      !cutNode);
 
                 // Post LMR continuation history updates (~1 Elo)
                 int bonus = (value >= beta) * stat_bonus(newDepth);
@@ -1229,8 +1249,8 @@ moves_loop:  // When in check, search starts here
                 r += 2037;
 
             // Note that if expected reduction is high, we reduce search depth by 1 here (~9 Elo)
-            value =
-              -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - (r > 2983), !cutNode);
+            value = -search<NonPV, disablePV>(pos, ss + 1, -(alpha + 1), -alpha,
+                                              newDepth - (r > 2983), !cutNode);
         }
 
         // For PV nodes only, do a full PV search on the first move or after a fail high,
@@ -1244,7 +1264,7 @@ moves_loop:  // When in check, search starts here
             if (move == ttData.move && ss->ply <= thisThread->rootDepth * 2)
                 newDepth = std::max(newDepth, 1);
 
-            value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
+            value = -search<PV, disablePV>(pos, ss + 1, -beta, -alpha, newDepth, false);
         }
 
         // Step 19. Undo move
@@ -1324,7 +1344,7 @@ moves_loop:  // When in check, search starts here
             {
                 bestMove = move;
 
-                if (PvNode && !rootNode)  // Update pv even in fail-high case
+                if (PvNode && !disablePV && !rootNode)  // Update pv even in fail-high case
                     update_pv(ss->pv, move, (ss + 1)->pv);
 
                 if (value >= beta)
@@ -1465,7 +1485,7 @@ moves_loop:  // When in check, search starts here
 // To fight this horizon effect, we implement this qsearch of tactical moves (~155 Elo).
 // See https://www.chessprogramming.org/Horizon_Effect
 // and https://www.chessprogramming.org/Quiescence_Search
-template<NodeType nodeType>
+template<NodeType nodeType, bool disablePV>
 Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta) {
 
     static_assert(nodeType != Root);
@@ -1494,7 +1514,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     Color us = pos.side_to_move();
 
     // Step 1. Initialize node
-    if (PvNode)
+    if (PvNode && !disablePV)
     {
         (ss + 1)->pv = pv;
         ss->pv[0]    = Move::none();
@@ -1660,7 +1680,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         // Step 7. Make and search the move
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
         pos.do_move(move, st, givesCheck);
-        value = -qsearch<nodeType>(pos, ss + 1, -beta, -alpha);
+        value = -qsearch<nodeType, disablePV>(pos, ss + 1, -beta, -alpha);
         pos.undo_move(move);
 
         assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
@@ -1674,7 +1694,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             {
                 bestMove = move;
 
-                if (PvNode)  // Update pv even in fail-high case
+                if (PvNode && !disablePV)  // Update pv even in fail-high case
                     update_pv(ss->pv, move, (ss + 1)->pv);
 
                 if (value < beta)  // Update alpha here!

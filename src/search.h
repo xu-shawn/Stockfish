@@ -293,13 +293,14 @@ class Worker {
 
    private:
     void iterative_deepening();
+    void extend_pv(Position& pos, Stack* ss, const RootMove& rootMove);
 
     // This is the main search function, for both PV and non-PV nodes
-    template<NodeType nodeType>
+    template<NodeType nodeType, bool disablePV>
     Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode);
 
     // Quiescence search function, which is called by the main search
-    template<NodeType nodeType>
+    template<NodeType nodeType, bool disablePV>
     Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta);
 
     Depth reduction(bool i, Depth d, int mn, int delta) const;
