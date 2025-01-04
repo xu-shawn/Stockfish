@@ -77,25 +77,55 @@ constexpr int futility_move_count(bool improving, Depth depth) {
     return (3 + depth * depth) / (2 - improving);
 }
 
-int correction_value(const Worker& w, const Position& pos, Stack* ss) {
-    const Color us    = pos.side_to_move();
-    const auto  m     = (ss - 1)->currentMove;
-    const auto  pcv   = w.pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)];
-    const auto  macv  = w.majorPieceCorrectionHistory[us][major_piece_index(pos)];
-    const auto  micv  = w.minorPieceCorrectionHistory[us][minor_piece_index(pos)];
-    const auto  wnpcv = w.nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)];
-    const auto  bnpcv = w.nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)];
-    const auto  cntcv =
-      m.is_ok() ? (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
-                 : 0;
+struct CorrectionInfo {
+    int pawn_cv;
+    int major_cv;
+    int minor_cv;
+    int stm_nonpawn_cv;
+    int nstm_nonpawn_cv;
+    int continuation_cv;
 
-    return (6384 * pcv + 3583 * macv + 6492 * micv + 6725 * (wnpcv + bnpcv) + 5880 * cntcv);
+    CorrectionInfo(const Worker& w, const Position& pos, Stack* const ss);
+};
+
+CorrectionInfo::CorrectionInfo(const Worker& w, const Position& pos, Stack* const ss) {
+    const Color us = pos.side_to_move();
+    const Move  m  = (ss - 1)->currentMove;
+
+    pawn_cv         = w.pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)];
+    major_cv        = w.majorPieceCorrectionHistory[us][major_piece_index(pos)];
+    minor_cv        = w.minorPieceCorrectionHistory[us][minor_piece_index(pos)];
+    stm_nonpawn_cv  = w.nonPawnCorrectionHistory[us][us][non_pawn_index<WHITE>(pos)];
+    nstm_nonpawn_cv = w.nonPawnCorrectionHistory[~us][us][non_pawn_index<BLACK>(pos)];
+    continuation_cv =
+      m.is_ok() ? (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
+                : 0;
+}
+
+struct CorrectionCoefficient {
+    int pawn;
+    int major;
+    int minor;
+    int stm_nonpawn;
+    int nstm_nonpawn;
+    int continuation;
+};
+
+int correction_value(const CorrectionInfo&        correction_info,
+                     const CorrectionCoefficient& coefficents) {
+    return (coefficents.pawn * correction_info.pawn_cv
+            + coefficents.major * correction_info.major_cv
+            + coefficents.minor * correction_info.minor_cv
+            + coefficents.stm_nonpawn * correction_info.stm_nonpawn_cv
+            + coefficents.nstm_nonpawn * correction_info.nstm_nonpawn_cv
+            + coefficents.continuation * correction_info.continuation_cv)
+         / 131072;
 }
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation
 // does not hit the tablebase range.
 Value to_corrected_static_eval(Value v, const int cv) {
-    return std::clamp(v + cv / 131072, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
+    return std::clamp(v + cv, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
 
 // History and stats update bonus, based on depth
@@ -712,8 +742,12 @@ Value Search::Worker::search(
     }
 
     // Step 6. Static evaluation of the position
-    Value      unadjustedStaticEval = VALUE_NONE;
-    const auto correctionValue      = correction_value(*thisThread, pos, ss);
+    Value unadjustedStaticEval = VALUE_NONE;
+
+    static constexpr CorrectionCoefficient correction_coeff{6384, 3583, 6492, 3362, 3362, 5880};
+    const CorrectionInfo                   correction_values(*thisThread, pos, ss);
+    const auto correctionValue = correction_value(correction_values, correction_coeff);
+
     if (ss->inCheck)
     {
         // Skip early pruning when in check
@@ -1160,7 +1194,10 @@ moves_loop:  // When in check, search starts here
 
         r += 330;
 
-        r -= std::abs(correctionValue) / 32768;
+        static constexpr CorrectionCoefficient complexity_coeff{25536, 14332, 25972,
+                                                                13450, 13450, 23520};
+        const auto complexity = correction_value(correction_values, complexity_coeff);
+        r -= std::abs(complexity);
 
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)
@@ -1533,8 +1570,12 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         return ttData.value;
 
     // Step 4. Static evaluation of the position
-    Value      unadjustedStaticEval = VALUE_NONE;
-    const auto correctionValue      = correction_value(*thisThread, pos, ss);
+    Value unadjustedStaticEval = VALUE_NONE;
+
+    static constexpr CorrectionCoefficient correction_coeff{6384, 3583, 6492, 3362, 3362, 5880};
+    const CorrectionInfo                   correction_values(*thisThread, pos, ss);
+    const auto correctionValue = correction_value(correction_values, correction_coeff);
+
     if (ss->inCheck)
         bestValue = futilityBase = -VALUE_INFINITE;
     else
