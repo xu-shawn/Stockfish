@@ -47,6 +47,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "uci.h"
 #include "ucioption.h"
 
@@ -152,6 +153,32 @@ void update_all_stats(const Position&      pos,
                       Depth                depth);
 
 }  // namespace
+
+
+CorrectionCoefficient correction_coeff[3]{{6384, 3583, 6492, 3362, 3362, 5880},
+                                          {6384, 3583, 6492, 3362, 3362, 5880},
+                                          {25536, 14332, 25972, 13450, 13450, 23520}};
+
+TUNE(correction_coeff[0].pawn,
+     correction_coeff[0].major,
+     correction_coeff[0].minor,
+     correction_coeff[0].stm_nonpawn,
+     correction_coeff[0].nstm_nonpawn,
+     correction_coeff[0].continuation);
+
+TUNE(correction_coeff[1].pawn,
+     correction_coeff[1].major,
+     correction_coeff[1].minor,
+     correction_coeff[1].stm_nonpawn,
+     correction_coeff[1].nstm_nonpawn,
+     correction_coeff[1].continuation);
+
+TUNE(correction_coeff[2].pawn,
+     correction_coeff[2].major,
+     correction_coeff[2].minor,
+     correction_coeff[2].stm_nonpawn,
+     correction_coeff[2].nstm_nonpawn,
+     correction_coeff[2].continuation);
 
 Search::Worker::Worker(SharedState&                    sharedState,
                        std::unique_ptr<ISearchManager> sm,
@@ -744,9 +771,9 @@ Value Search::Worker::search(
     // Step 6. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
 
-    static constexpr CorrectionCoefficient correction_coeff{6384, 3583, 6492, 3362, 3362, 5880};
-    const CorrectionInfo                   correction_values(*thisThread, pos, ss);
-    const auto correctionValue = correction_value(correction_values, correction_coeff);
+    // static constexpr CorrectionCoefficient correction_coeff{6384, 3583, 6492, 3362, 3362, 5880};
+    const CorrectionInfo correction_values(*thisThread, pos, ss);
+    const auto           correctionValue = correction_value(correction_values, correction_coeff[1]);
 
     if (ss->inCheck)
     {
@@ -1194,9 +1221,9 @@ moves_loop:  // When in check, search starts here
 
         r += 330;
 
-        static constexpr CorrectionCoefficient complexity_coeff{25536, 14332, 25972,
-                                                                13450, 13450, 23520};
-        const auto complexity = correction_value(correction_values, complexity_coeff);
+        // static constexpr CorrectionCoefficient complexity_coeff{25536, 14332, 25972,
+        //                                                         13450, 13450, 23520};
+        const auto complexity = correction_value(correction_values, correction_coeff[2]);
         r -= std::abs(complexity);
 
         // Increase reduction for cut nodes (~4 Elo)
@@ -1572,9 +1599,9 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     // Step 4. Static evaluation of the position
     Value unadjustedStaticEval = VALUE_NONE;
 
-    static constexpr CorrectionCoefficient correction_coeff{6384, 3583, 6492, 3362, 3362, 5880};
-    const CorrectionInfo                   correction_values(*thisThread, pos, ss);
-    const auto correctionValue = correction_value(correction_values, correction_coeff);
+    // static constexpr CorrectionCoefficient correction_coeff{6384, 3583, 6492, 3362, 3362, 5880};
+    const CorrectionInfo correction_values(*thisThread, pos, ss);
+    const auto           correctionValue = correction_value(correction_values, correction_coeff[0]);
 
     if (ss->inCheck)
         bestValue = futilityBase = -VALUE_INFINITE;
