@@ -112,6 +112,8 @@ void  update_pv(Move* pv, Move move, const Move* childPv);
 void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
 void  update_quiet_histories(
    const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus);
+void update_all_correction_histories(
+  const Position& pos, Stack* const ss, Search::Worker& workerThread, Value bestValue, Depth depth);
 void update_all_stats(const Position&      pos,
                       Stack*               ss,
                       Search::Worker&      workerThread,
@@ -650,6 +652,16 @@ Value Search::Worker::search(
             if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 2 && !priorCapture)
                 update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                               -stat_malus(depth + 1) * 1091 / 1024);
+        }
+
+        if (!ss->inCheck && ttData.eval != VALUE_NONE && ttData.bound != BOUND_NONE
+            && !(ttData.move && pos.capture(ttData.move)))
+        {
+            const auto correctionValue = correction_value(*thisThread, pos, ss);
+            ss->staticEval             = to_corrected_static_eval(ttData.eval, correctionValue);
+            if ((ttData.value < ss->staticEval && (ttData.bound & BOUND_LOWER))
+                || (ttData.value > ss->staticEval && (ttData.bound & BOUND_UPPER)))
+                update_all_correction_histories(pos, ss, *thisThread, ttData.value, depth);
         }
 
         // Partial workaround for the graph history interaction problem
@@ -1436,24 +1448,7 @@ moves_loop:  // When in check, search starts here
     if (!ss->inCheck && !(bestMove && pos.capture(bestMove))
         && ((bestValue < ss->staticEval && bestValue < beta)  // negative correction & no fail high
             || (bestValue > ss->staticEval && bestMove)))     // positive correction & no fail low
-    {
-        const auto       m             = (ss - 1)->currentMove;
-        static const int nonPawnWeight = 154;
-
-        auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / 8,
-                                -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
-        thisThread->pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)]
-          << bonus * 107 / 128;
-        thisThread->majorPieceCorrectionHistory[us][major_piece_index(pos)] << bonus * 162 / 128;
-        thisThread->minorPieceCorrectionHistory[us][minor_piece_index(pos)] << bonus * 148 / 128;
-        thisThread->nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)]
-          << bonus * nonPawnWeight / 128;
-        thisThread->nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)]
-          << bonus * nonPawnWeight / 128;
-
-        if (m.is_ok())
-            (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()] << bonus;
-    }
+        update_all_correction_histories(pos, ss, *thisThread, bestValue, depth);
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
@@ -1789,6 +1784,32 @@ void update_pv(Move* pv, Move move, const Move* childPv) {
     for (*pv++ = move; childPv && *childPv != Move::none();)
         *pv++ = *childPv++;
     *pv = Move::none();
+}
+
+
+void update_all_correction_histories(const Position& pos,
+                                     Stack* const    ss,
+                                     Search::Worker& workerThread,
+                                     Value           bestValue,
+                                     Depth           depth) {
+    const Move  m  = (ss - 1)->currentMove;
+    const Color us = pos.side_to_move();
+
+    static constexpr int nonPawnWeight = 154;
+
+    auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / 8,
+                            -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
+    workerThread.pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)]
+      << bonus * 107 / 128;
+    workerThread.majorPieceCorrectionHistory[us][major_piece_index(pos)] << bonus * 162 / 128;
+    workerThread.minorPieceCorrectionHistory[us][minor_piece_index(pos)] << bonus * 148 / 128;
+    workerThread.nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)]
+      << bonus * nonPawnWeight / 128;
+    workerThread.nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)]
+      << bonus * nonPawnWeight / 128;
+
+    if (m.is_ok())
+        (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()] << bonus;
 }
 
 
