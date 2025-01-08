@@ -1444,7 +1444,7 @@ moves_loop:  // When in check, search starts here
                                CORRECTION_HISTORY_LIMIT / 4);
 
         if (delta < 0)
-            bonus = bonus * 5 / 4;
+            bonus = bonus * 1152 / 1024;
 
         static constexpr int nonPawnWeight = 154;
 
