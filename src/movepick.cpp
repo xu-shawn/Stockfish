@@ -140,6 +140,7 @@ void MovePicker::init_root(const RootMovesTable& rmt) {
         {
             bestScore  = currentScore;
             threadMove = m;
+            break;
         }
     }
 }
