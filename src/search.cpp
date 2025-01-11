@@ -155,30 +155,9 @@ void update_all_stats(const Position&      pos,
 }  // namespace
 
 
-CorrectionCoefficient correction_coeff[3]{{6384, 3583, 6492, 3362, 3362, 5880},
-                                          {6384, 3583, 6492, 3362, 3362, 5880},
-                                          {25536, 14332, 25972, 13450, 13450, 23520}};
-
-TUNE(correction_coeff[0].pawn,
-     correction_coeff[0].major,
-     correction_coeff[0].minor,
-     correction_coeff[0].stm_nonpawn,
-     correction_coeff[0].nstm_nonpawn,
-     correction_coeff[0].continuation);
-
-TUNE(correction_coeff[1].pawn,
-     correction_coeff[1].major,
-     correction_coeff[1].minor,
-     correction_coeff[1].stm_nonpawn,
-     correction_coeff[1].nstm_nonpawn,
-     correction_coeff[1].continuation);
-
-TUNE(correction_coeff[2].pawn,
-     correction_coeff[2].major,
-     correction_coeff[2].minor,
-     correction_coeff[2].stm_nonpawn,
-     correction_coeff[2].nstm_nonpawn,
-     correction_coeff[2].continuation);
+constexpr CorrectionCoefficient correction_coeff[3]{{6689, 3367, 6669, 3534, 3285, 6246},
+                                                    {6895, 3620, 6902, 3264, 3091, 6333},
+                                                    {24619, 16328, 26108, 13414, 14862, 23085}};
 
 Search::Worker::Worker(SharedState&                    sharedState,
                        std::unique_ptr<ISearchManager> sm,
