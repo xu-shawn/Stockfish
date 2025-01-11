@@ -62,13 +62,6 @@ void syzygy_extend_pv(const OptionsMap&            options,
 
 using namespace Search;
 
-int depth_coeff     = 341;
-int clamp           = 7168;
-int eval_beta_coeff = 4462;
-int constant        = 5120;
-
-TUNE(depth_coeff, clamp, eval_beta_coeff, constant);
-
 namespace {
 
 // Futility margin
@@ -809,9 +802,7 @@ Value Search::Worker::search(
         assert(eval - beta >= 0);
 
         // Null move dynamic reduction based on depth and eval
-        Depth R =
-          (depth * depth_coeff + std::min(eval - beta, clamp) * eval_beta_coeff / 1024 + constant)
-          / 1024;
+        Depth R = (depth * 308 + std::min(eval - beta, 7264) * 4183 / 1024 + 5161) / 1024;
 
         ss->currentMove                   = Move::null();
         ss->continuationHistory           = &thisThread->continuationHistory[0][0][NO_PIECE][0];
