@@ -1125,6 +1125,8 @@ moves_loop:  // When in check, search starts here
                 extension = 1;
         }
 
+        cutNode |= (!PvNode && extension < 0);
+
         // Add extension to new depth
         newDepth += extension;
 
