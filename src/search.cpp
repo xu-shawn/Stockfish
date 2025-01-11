@@ -56,7 +56,7 @@ int a1 = 117, a2 = 39, a3 = 168;
 int div = 113, max = 300;
 int fill = -598;
 
-TUNE(a1, a3, a3, div, max, fill);
+TUNE(a1, a2, a3, div, max, fill);
 
 namespace TB = Tablebases;
 
