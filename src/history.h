@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -84,7 +85,7 @@ class StatsEntry {
     T* operator->() { return &entry; }
     operator const T&() const { return entry; }
 
-    void operator<<(int bonus) {
+    void operator<<(int bonus) noexcept {
         static_assert(D <= std::numeric_limits<T>::max(), "D overflows T");
 
         // Make sure that bonus is in range [-D, D]
@@ -207,6 +208,26 @@ struct CorrHistTypedef<Continuation> {
 
 template<CorrHistType T>
 using CorrectionHistory = typename CorrHistTypedef<T>::type;
+
+template<typename T>
+struct WrappedAtomic {
+    static_assert(std::is_integral_v<T>);
+    static_assert(std::atomic<T>::is_always_lock_free);
+
+    std::atomic<T> data;
+
+    std::atomic<T>& operator=(const T& value) noexcept {
+        data.exchange(value, std::memory_order_relaxed);
+    }
+    std::atomic<T>& operator=(const std::atomic<T>& value) noexcept {
+        data.exchange(value.load(std::memory_order_relaxed), std::memory_order_relaxed);
+    }
+    std::atomic<T>& operator=(const WrappedAtomic<T>& other) noexcept {
+        data.exchange(other.data.load(std::memory_order_relaxed), std::memory_order_relaxed);
+    }
+};
+
+using RootMovesTable = Stats<WrappedAtomic<std::uint32_t>, NOT_USED, PIECE_TYPE_NB, SQUARE_NB>;
 
 }  // namespace Stockfish
 

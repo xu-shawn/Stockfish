@@ -135,6 +135,7 @@ Search::Worker::Worker(SharedState&                    sharedState,
     threads(sharedState.threads),
     tt(sharedState.tt),
     networks(sharedState.networks),
+    rootMovesScore(sharedState.rms),
     refreshTable(networks[token]) {
     clear();
 }
@@ -157,6 +158,7 @@ void Search::Worker::start_searching() {
     main_manager()->tm.init(limits, rootPos.side_to_move(), rootPos.game_ply(), options,
                             main_manager()->originalTimeAdjust);
     tt.new_search();
+    rootMovesScore.fill(WrappedAtomic<std::uint32_t>{0});
 
     if (rootMoves.empty())
     {

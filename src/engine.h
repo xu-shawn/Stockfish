@@ -28,6 +28,7 @@
 #include <utility>
 #include <vector>
 
+#include "history.h"
 #include "nnue/network.h"
 #include "numa.h"
 #include "position.h"
@@ -118,6 +119,7 @@ class Engine {
     OptionsMap                               options;
     ThreadPool                               threads;
     TranspositionTable                       tt;
+    RootMovesTable                           rootMovesScore;
     LazyNumaReplicated<Eval::NNUE::Networks> networks;
 
     Search::SearchManager::UpdateContext  updateContext;
