@@ -52,12 +52,6 @@
 
 namespace Stockfish {
 
-int a1 = 117, a2 = 39, a3 = 168;
-int div = 113, max = 300;
-int fill = -598;
-
-TUNE(a1, a2, a3, div, max, fill);
-
 namespace TB = Tablebases;
 
 void syzygy_extend_pv(const OptionsMap&            options,
@@ -506,7 +500,7 @@ void Search::Worker::iterative_deepening() {
 void Search::Worker::clear() {
     mainHistory.fill(61);
     lowPlyHistory.fill(106);
-    captureHistory.fill(fill);
+    captureHistory.fill(-574);
     pawnHistory.fill(-1181);
     pawnCorrectionHistory.fill(0);
     majorPieceCorrectionHistory.fill(0);
@@ -1414,9 +1408,9 @@ moves_loop:  // When in check, search starts here
         Piece capturedPiece = pos.captured_piece();
         assert(capturedPiece != NO_PIECE);
 
-        int bonusScale = (a1 * (depth > 5) + a2 * !allNode + a3 * ((ss - 1)->moveCount > 8));
+        int bonusScale = (122 * (depth > 5) + 45 * !allNode + 174 * ((ss - 1)->moveCount > 8));
 
-        bonusScale += std::min(-(ss - 1)->statScore / div, max);
+        bonusScale += std::min(-(ss - 1)->statScore / 117, 300);
 
         bonusScale = std::max(bonusScale, 0);
 
