@@ -47,6 +47,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "uci.h"
 #include "ucioption.h"
 
@@ -77,6 +78,14 @@ constexpr int futility_move_count(bool improving, Depth depth) {
     return (3 + depth * depth) / (2 - improving);
 }
 
+int pcv_coeff      = 6384;
+int macv_coeff     = 3583;
+int micv_coeff     = 6492;
+int npcv_coeff     = 6735;
+int cntcv_coeff[5] = {5880, 0, 0, 0, 0};
+
+TUNE(SetRange(0, 16384), pcv_coeff, macv_coeff, micv_coeff, npcv_coeff, cntcv_coeff);
+
 int correction_value(const Worker& w, const Position& pos, Stack* ss) {
     const Color us    = pos.side_to_move();
     const auto  m     = (ss - 1)->currentMove;
@@ -85,11 +94,19 @@ int correction_value(const Worker& w, const Position& pos, Stack* ss) {
     const auto  micv  = w.minorPieceCorrectionHistory[us][minor_piece_index(pos)];
     const auto  wnpcv = w.nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)];
     const auto  bnpcv = w.nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)];
-    const auto  cntcv =
-      m.is_ok() ? (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
-                 : 0;
 
-    return (6384 * pcv + 3583 * macv + 6492 * micv + 6725 * (wnpcv + bnpcv) + 5880 * cntcv);
+    constexpr std::size_t cntcv_count = 5;
+
+    std::array<int, cntcv_count> cntcv{0};
+
+    if (m.is_ok())
+        for (std::size_t i = 0; i < cntcv_count; i++)
+            cntcv[i] =
+              (*(ss - i - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()];
+
+    return (6384 * pcv + 3583 * macv + 6492 * micv + 6725 * (wnpcv + bnpcv)
+            + cntcv_coeff[0] * cntcv[0] + cntcv_coeff[1] * cntcv[1] + cntcv_coeff[2] * cntcv[2]
+            + cntcv_coeff[3] * cntcv[3] + cntcv_coeff[4] * cntcv[4]);
 }
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation
