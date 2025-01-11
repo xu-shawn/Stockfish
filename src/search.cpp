@@ -52,6 +52,12 @@
 
 namespace Stockfish {
 
+int a1 = 117, a2 = 39, a3 = 168;
+int div = 113, max = 300;
+int fill = -598;
+
+TUNE(a1, a3, a3, div, max, fill);
+
 namespace TB = Tablebases;
 
 void syzygy_extend_pv(const OptionsMap&            options,
@@ -500,7 +506,7 @@ void Search::Worker::iterative_deepening() {
 void Search::Worker::clear() {
     mainHistory.fill(61);
     lowPlyHistory.fill(106);
-    captureHistory.fill(-598);
+    captureHistory.fill(fill);
     pawnHistory.fill(-1181);
     pawnCorrectionHistory.fill(0);
     majorPieceCorrectionHistory.fill(0);
@@ -1407,8 +1413,15 @@ moves_loop:  // When in check, search starts here
         // bonus for prior countermoves that caused the fail low
         Piece capturedPiece = pos.captured_piece();
         assert(capturedPiece != NO_PIECE);
+
+        int bonusScale = (a1 * (depth > 5) + a2 * !allNode + a3 * ((ss - 1)->moveCount > 8));
+
+        bonusScale += std::min(-(ss - 1)->statScore / div, max);
+
+        bonusScale = std::max(bonusScale, 0);
+
         thisThread->captureHistory[pos.piece_on(prevSq)][prevSq][type_of(capturedPiece)]
-          << stat_bonus(depth) * 2;
+          << stat_bonus(depth) * bonusScale / 128;
     }
 
     // Bonus when search fails low and there is a TT move
