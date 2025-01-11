@@ -447,6 +447,11 @@ class FeatureTransformer {
         hint_common_access_for_perspective<BLACK>(pos, cache);
     }
 
+    bool can_efficiently_update(const Position& pos) const {
+        return can_efficiently_update_for_perspective<WHITE>(pos)
+            && can_efficiently_update_for_perspective<BLACK>(pos);
+    }
+
    private:
     template<Color Perspective>
     StateInfo* try_find_computed_accumulator(const Position& pos) const {
@@ -834,6 +839,14 @@ class FeatureTransformer {
             update_accumulator_incremental<Perspective>(pos, oldest);
         else
             update_accumulator_refresh_cache<Perspective>(pos, cache);
+    }
+
+    template<Color Perspective>
+    bool can_efficiently_update_for_perspective(const Position& pos) const {
+        if ((pos.state()->*accPtr).computed[Perspective])
+            return true;
+
+        return FeatureSet::requires_refresh(pos.state()->previous, Perspective);
     }
 
     template<Color Perspective>

@@ -285,6 +285,11 @@ void Network<Arch, Transformer>::hint_common_access(
 }
 
 template<typename Arch, typename Transformer>
+bool Network<Arch, Transformer>::can_efficiently_update(const Position& pos) const {
+    return featureTransformer->can_efficiently_update(pos);
+}
+
+template<typename Arch, typename Transformer>
 NnueEvalTrace
 Network<Arch, Transformer>::trace_evaluate(const Position&                         pos,
                                            AccumulatorCaches::Cache<FTDimensions>* cache) const {

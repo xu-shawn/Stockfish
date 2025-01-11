@@ -52,6 +52,12 @@ void hint_common_parent_position(const Position&    pos,
         networks.big.hint_common_access(pos, &caches.big);
 }
 
+bool can_efficiently_update(const Position& pos, const Networks& networks) {
+    if (Eval::use_smallnet(pos))
+        return networks.small.can_efficiently_update(pos);
+    return networks.big.can_efficiently_update(pos);
+}
+
 namespace {
 // Converts a Value into (centi)pawns and writes it in a buffer.
 // The buffer must have capacity for at least 5 chars.
