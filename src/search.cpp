@@ -742,7 +742,7 @@ Value Search::Worker::search(
         // ttValue can be used as a better position evaluation (~7 Elo)
         if (is_valid(ttData.value)
             && (ttData.bound & (ttData.value > eval ? BOUND_LOWER : BOUND_UPPER)))
-            eval = ttData.value;
+            eval = (eval + ttData.value) / 2;
     }
     else
     {
