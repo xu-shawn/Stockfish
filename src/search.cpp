@@ -792,6 +792,7 @@ Value Search::Worker::search(
         && eval >= beta && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
         return beta + (eval - beta) / 3;
 
+    cutNode |= (!PvNode && improving && ss->staticEval >= beta + 100);
     improving |= ss->staticEval >= beta + 100;
 
     // Step 9. Null move search with verification search (~35 Elo)
