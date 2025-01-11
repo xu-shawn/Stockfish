@@ -220,10 +220,6 @@ struct WrappedAtomic {
         data.exchange(value, std::memory_order_relaxed);
         return *this;
     }
-    WrappedAtomic<T>& operator=(const std::atomic<T>& value) noexcept {
-        data.exchange(value.load(std::memory_order_relaxed), std::memory_order_relaxed);
-        return *this;
-    }
     WrappedAtomic<T>& operator=(const WrappedAtomic<T>& other) noexcept {
         data.exchange(other.data.load(std::memory_order_relaxed), std::memory_order_relaxed);
         return *this;
