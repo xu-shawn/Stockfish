@@ -81,6 +81,10 @@ class StatsEntry {
         entry = v;
         return *this;
     }
+
+    T&       get() { return entry; }
+    const T& get() const { return entry; }
+
     T* operator&() { return &entry; }
     T* operator->() { return &entry; }
     operator const T&() const { return entry; }
@@ -216,7 +220,7 @@ struct WrappedAtomic {
 
     std::atomic<T> data;
 
-    [[nodiscard]]     operator T() const noexcept { return data.load(std::memory_order_relaxed); }
+    [[nodiscard]] operator T() const noexcept { return data.load(std::memory_order_relaxed); }
     WrappedAtomic<T>& operator=(const T& value) noexcept {
         data.exchange(value, std::memory_order_relaxed);
         return *this;
