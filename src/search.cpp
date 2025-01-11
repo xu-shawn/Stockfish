@@ -1068,11 +1068,11 @@ moves_loop:  // When in check, search starts here
             // and lower extension margins scale well.
 
             if (!rootNode && move == ttData.move && !excludedMove
-                && depth >= 4 - (thisThread->completedDepth > 33) + ss->ttPv
-                && is_valid(ttData.value) && !is_decisive(ttData.value)
-                && (ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 3)
+                && depth >= 4 - (thisThread->completedDepth > 33) + PvNode && is_valid(ttData.value)
+                && !is_decisive(ttData.value) && (ttData.bound & BOUND_LOWER)
+                && ttData.depth >= depth - 3)
             {
-                Value singularBeta  = ttData.value - (56 + 79 * (ss->ttPv && !PvNode)) * depth / 64;
+                Value singularBeta  = ttData.value - 56 * depth / 64;
                 Depth singularDepth = newDepth / 2;
 
                 ss->excludedMove = move;
@@ -1083,7 +1083,7 @@ moves_loop:  // When in check, search starts here
                 if (value < singularBeta)
                 {
                     int doubleMargin = 249 * PvNode - 194 * !ttCapture;
-                    int tripleMargin = 94 + 287 * PvNode - 249 * !ttCapture + 99 * ss->ttPv;
+                    int tripleMargin = 94 + 287 * PvNode - 249 * !ttCapture + 99 * PvNode;
 
                     extension = 1 + (value < singularBeta - doubleMargin)
                               + (value < singularBeta - tripleMargin);
@@ -1148,13 +1148,9 @@ moves_loop:  // When in check, search starts here
         // so changing them or adding conditions that are similar requires
         // tests at these types of time controls.
 
-        // Decrease reduction if position is or has been on the PV (~7 Elo)
-        if (ss->ttPv)
-            r -= 1024 + (ttData.value > alpha) * 1024 + (ttData.depth >= depth) * 1024;
-
         // Decrease reduction for PvNodes (~0 Elo on STC, ~2 Elo on LTC)
         if (PvNode)
-            r -= 1024;
+            r -= 2048 + (ttData.value > alpha) * 1024 + (ttData.depth >= depth) * 1024;
 
         // These reduction adjustments have no proven non-linear scaling
 
@@ -1164,7 +1160,7 @@ moves_loop:  // When in check, search starts here
 
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)
-            r += 2518 - (ttData.depth >= depth && ss->ttPv) * 991;
+            r += 2518 - (ttData.depth >= depth && PvNode) * 991;
 
         // Increase reduction if ttMove is a capture but the current move is not a capture (~3 Elo)
         if (ttCapture && !capture)
