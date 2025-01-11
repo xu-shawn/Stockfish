@@ -18,7 +18,6 @@
 
 #include "movepick.h"
 
-#include <array>
 #include <atomic>
 #include <cassert>
 #include <cstdint>
