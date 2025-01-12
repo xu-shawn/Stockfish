@@ -1176,7 +1176,8 @@ moves_loop:  // When in check, search starts here
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore * 1287 / 16384;
 
-        if (!PvNode && moveCount == 1 && r < -1000 && !ttData.move && depth >= 6 && !ss->inCheck)
+        if (!PvNode && moveCount == 1 && r < -1000 && ss->statScore > 20000 && !ttData.move
+            && depth >= 6 && !ss->inCheck)
         {
             Value singularBeta  = ss->staticEval - 6 * depth;
             Depth singularDepth = newDepth / 2;
@@ -1184,6 +1185,7 @@ moves_loop:  // When in check, search starts here
             ss->excludedMove = move;
             value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
             ss->excludedMove = Move::none();
+
             if (value < singularBeta)
                 newDepth++;
         }
