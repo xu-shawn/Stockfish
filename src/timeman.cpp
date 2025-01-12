@@ -66,8 +66,8 @@ TUNE(ota_coeff,
      opt_scale_pow_exponent,
      opt_scale_max_coeff,
      max_scale_maximum,
-     max_scale_divisor,
-     maximum_time_clamp_coeff);
+     max_scale_divisor);
+TUNE(SetRange(805000, 855000), maximum_time_clamp_coeff);
 
 TimePoint TimeManagement::optimum() const { return optimumTime; }
 TimePoint TimeManagement::maximum() const { return maximumTime; }
