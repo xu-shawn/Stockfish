@@ -697,6 +697,9 @@ Value Search::Worker::search(
                                    std::min(MAX_PLY - 1, depth + 6), Move::none(), VALUE_NONE,
                                    tt.generation());
 
+                    if (PvNode)
+                        ttWriter.flush();
+
                     return value;
                 }
 

@@ -29,6 +29,10 @@
 #include "syzygy/tbprobe.h"
 #include "thread.h"
 
+#ifdef USE_SSE2
+    #include "immintrin.h"
+#endif
+
 namespace Stockfish {
 
 
@@ -130,6 +134,15 @@ TTWriter::TTWriter(TTEntry* tte) :
 void TTWriter::write(
   Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8) {
     entry->save(k, v, pv, b, d, m, ev, generation8);
+}
+
+void TTWriter::flush() {
+#ifdef USE_SSE2
+    _mm_clflush(entry);
+#elif defined(__GNUC__)
+    __builtin___clear_cache(reinterpret_cast<char*>(entry),
+                            reinterpret_cast<char*>(entry + sizeof(TTEntry)));
+#endif
 }
 
 
