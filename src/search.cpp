@@ -92,6 +92,13 @@ int correction_value(const Worker& w, const Position& pos, Stack* ss) {
     return (6384 * pcv + 3583 * macv + 6492 * micv + 6725 * (wnpcv + bnpcv) + 5880 * cntcv);
 }
 
+template<typename T>
+constexpr T blend(const T new_value, const T old_value, const double sensitivity) {
+    const T      difference = std::abs(new_value - old_value);
+    const double weight     = std::exp(-difference / sensitivity);
+    return static_cast<T>((1 - weight) * new_value + weight * (new_value + old_value) / 2);
+}
+
 // Add correctionHistory value to raw staticEval and guarantee evaluation
 // does not hit the tablebase range.
 Value to_corrected_static_eval(Value v, const int cv) {
@@ -1269,7 +1276,7 @@ moves_loop:  // When in check, search starts here
             rm.effort += nodes - nodeCount;
 
             rm.averageScore =
-              rm.averageScore != -VALUE_INFINITE ? (value + rm.averageScore) / 2 : value;
+              rm.averageScore != -VALUE_INFINITE ? blend(value, rm.averageScore, 7) : value;
 
             rm.meanSquaredScore = rm.meanSquaredScore != -VALUE_INFINITE * VALUE_INFINITE
                                   ? (value * std::abs(value) + rm.meanSquaredScore) / 2
