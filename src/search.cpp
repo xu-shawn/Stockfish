@@ -64,6 +64,10 @@ using namespace Search;
 
 namespace {
 
+int x1 = 1024, x2 = 1024, x3 = 874, x4 = 874, x5 = 853, x6 = 853, x7 = 628, x8 = 628;
+TUNE(SetRange(0, 2048), x1, x2, x3, x4, x5, x6, x7, x8);
+
+
 // Futility margin
 Value futility_margin(Depth d, bool noTtCutNode, bool improving, bool oppWorsening) {
     Value futilityMult       = 109 - 27 * noTtCutNode;
@@ -1857,19 +1861,22 @@ void update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus) {
 
 // Updates move sorting heuristics
 
+
 void update_quiet_histories(
   const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus) {
 
     Color us = pos.side_to_move();
-    workerThread.mainHistory[us][move.from_to()] << bonus;  // Untuned to prevent duplicate effort
+    workerThread.mainHistory[us][move.from_to()] << bonus * (bonus > 0 ? 1024 : 1024) / 1024;  // Untuned to prevent duplicate effort
 
     if (ss->ply < LOW_PLY_HISTORY_SIZE)
-        workerThread.lowPlyHistory[ss->ply][move.from_to()] << bonus * 874 / 1024;
+        workerThread.lowPlyHistory[ss->ply][move.from_to()]
+          << bonus * (bonus > 0 ? 874 : 874) / 1024;
 
-    update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus * 853 / 1024);
+    update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(),
+                                  bonus * (bonus > 0 ? 853 : 853) / 1024);
 
     int pIndex = pawn_structure_index(pos);
-    workerThread.pawnHistory[pIndex][pos.moved_piece(move)][move.to_sq()] << bonus * 628 / 1024;
+    workerThread.pawnHistory[pIndex][pos.moved_piece(move)][move.to_sq()] << bonus * (bonus > 0 ? 628 : 628) / 1024;
 }
 
 }
