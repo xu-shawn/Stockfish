@@ -245,8 +245,9 @@ void Search::Worker::iterative_deepening() {
     {
         (ss - i)->continuationHistory =
           &this->continuationHistory[0][0][NO_PIECE][0];  // Use as a sentinel
-        (ss - i)->continuationCorrectionHistory = &this->continuationCorrectionHistory[NO_PIECE][0];
-        (ss - i)->staticEval                    = VALUE_NONE;
+        (ss - i)->continuationCorrectionHistory =
+          &this->continuationCorrectionHistory[0][0][NO_PIECE][0];
+        (ss - i)->staticEval = VALUE_NONE;
     }
 
     for (int i = 0; i <= MAX_PLY + 2; ++i)
@@ -508,15 +509,19 @@ void Search::Worker::clear() {
     nonPawnCorrectionHistory[WHITE].fill(0);
     nonPawnCorrectionHistory[BLACK].fill(0);
 
-    for (auto& to : continuationCorrectionHistory)
-        for (auto& h : to)
-            h->fill(0);
-
     for (bool inCheck : {false, true})
+    {
         for (StatsType c : {NoCaptures, Captures})
+        {
             for (auto& to : continuationHistory[inCheck][c])
                 for (auto& h : to)
                     h->fill(-427);
+
+            for (auto& to : continuationCorrectionHistory[inCheck][c])
+                for (auto& h : to)
+                    h->fill(0);
+        }
+    }
 
     for (size_t i = 1; i < reductions.size(); ++i)
         reductions[i] = int(19.43 * std::log(i));
@@ -804,9 +809,10 @@ Value Search::Worker::search(
         // Null move dynamic reduction based on depth and eval
         Depth R = std::min(int(eval - beta) / 235, 7) + depth / 3 + 5;
 
-        ss->currentMove                   = Move::null();
-        ss->continuationHistory           = &thisThread->continuationHistory[0][0][NO_PIECE][0];
-        ss->continuationCorrectionHistory = &thisThread->continuationCorrectionHistory[NO_PIECE][0];
+        ss->currentMove         = Move::null();
+        ss->continuationHistory = &thisThread->continuationHistory[0][0][NO_PIECE][0];
+        ss->continuationCorrectionHistory =
+          &thisThread->continuationCorrectionHistory[0][0][NO_PIECE][0];
 
         pos.do_null_move(st, tt);
 
@@ -889,7 +895,8 @@ Value Search::Worker::search(
             ss->continuationHistory =
               &this->continuationHistory[ss->inCheck][true][pos.moved_piece(move)][move.to_sq()];
             ss->continuationCorrectionHistory =
-              &this->continuationCorrectionHistory[pos.moved_piece(move)][move.to_sq()];
+              &this->continuationCorrectionHistory[ss->inCheck][true][pos.moved_piece(move)]
+                                                  [move.to_sq()];
 
             thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
             pos.do_move(move, st);
@@ -1136,7 +1143,8 @@ moves_loop:  // When in check, search starts here
         ss->continuationHistory =
           &thisThread->continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
         ss->continuationCorrectionHistory =
-          &thisThread->continuationCorrectionHistory[movedPiece][move.to_sq()];
+          &thisThread
+             ->continuationCorrectionHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
         uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
 
         // Step 16. Make the move
@@ -1657,7 +1665,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
           &thisThread
              ->continuationHistory[ss->inCheck][capture][pos.moved_piece(move)][move.to_sq()];
         ss->continuationCorrectionHistory =
-          &thisThread->continuationCorrectionHistory[pos.moved_piece(move)][move.to_sq()];
+          &thisThread->continuationCorrectionHistory[ss->inCheck][capture][pos.moved_piece(move)]
+                                                    [move.to_sq()];
 
         // Step 7. Make and search the move
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
