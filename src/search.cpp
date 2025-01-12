@@ -1122,7 +1122,17 @@ moves_loop:  // When in check, search starts here
                      && thisThread->captureHistory[movedPiece][move.to_sq()]
                                                   [type_of(pos.piece_on(move.to_sq()))]
                           > 4321)
+            {
                 extension = 1;
+
+                if (depth > 3 && ttData.bound & BOUND_UPPER)
+                {
+                    value = -qsearch<NonPV>(pos, ss + 1, -alpha, -alpha + 1);
+
+                    if (value > alpha)
+                        extension = 2;
+                }
+            }
         }
 
         // Add extension to new depth
