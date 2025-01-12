@@ -1125,7 +1125,7 @@ moves_loop:  // When in check, search starts here
             {
                 extension = 1;
 
-                if (depth > 3 && ttData.bound & BOUND_UPPER)
+                if (depth > 3 && (ttData.bound & BOUND_LOWER))
                 {
                     value = -qsearch<NonPV>(pos, ss + 1, -alpha, -alpha + 1);
 
