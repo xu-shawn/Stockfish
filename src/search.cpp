@@ -1126,7 +1126,7 @@ moves_loop:  // When in check, search starts here
                           > 4321)
             {
                 extension    = 1;
-                attemptQSExt = depth > 3 && (ttData.bound & BOUND_LOWER);
+                attemptQSExt = move == ttData.move && depth > 3 && (ttData.bound & BOUND_LOWER);
             }
         }
 
