@@ -35,8 +35,8 @@ inline IndexType HalfKAv2_hm::make_index(Square s, Piece pc, Square ksq) {
 }
 
 // Get a list of indices for active features
-template<Color Perspective>
-void HalfKAv2_hm::append_active_indices(const Position& pos, IndexList& active) {
+template<Color Perspective, std::size_t Size>
+void HalfKAv2_hm::append_active_indices(const Position& pos, IndexList<Size>& active) {
     Square   ksq = pos.square<KING>(Perspective);
     Bitboard bb  = pos.pieces();
     while (bb)
@@ -47,17 +47,23 @@ void HalfKAv2_hm::append_active_indices(const Position& pos, IndexList& active) 
 }
 
 // Explicit template instantiations
-template void HalfKAv2_hm::append_active_indices<WHITE>(const Position& pos, IndexList& active);
-template void HalfKAv2_hm::append_active_indices<BLACK>(const Position& pos, IndexList& active);
+template void HalfKAv2_hm::append_active_indices<WHITE, HalfKAv2_hm::MaxActiveDimensions>(
+  const Position& pos, IndexList<HalfKAv2_hm::MaxActiveDimensions>& active);
+template void HalfKAv2_hm::append_active_indices<BLACK, HalfKAv2_hm::MaxActiveDimensions>(
+  const Position& pos, IndexList<HalfKAv2_hm::MaxActiveDimensions>& active);
+template void HalfKAv2_hm::append_active_indices<WHITE, HalfKAv2_hm::MaxEfficientActivation>(
+  const Position& pos, IndexList<HalfKAv2_hm::MaxEfficientActivation>& active);
+template void HalfKAv2_hm::append_active_indices<BLACK, HalfKAv2_hm::MaxEfficientActivation>(
+  const Position& pos, IndexList<HalfKAv2_hm::MaxEfficientActivation>& active);
 template IndexType HalfKAv2_hm::make_index<WHITE>(Square s, Piece pc, Square ksq);
 template IndexType HalfKAv2_hm::make_index<BLACK>(Square s, Piece pc, Square ksq);
 
 // Get a list of indices for recently changed features
-template<Color Perspective>
+template<Color Perspective, std::size_t Size>
 void HalfKAv2_hm::append_changed_indices(Square            ksq,
                                          const DirtyPiece& dp,
-                                         IndexList&        removed,
-                                         IndexList&        added) {
+                                         IndexList<Size>&  removed,
+                                         IndexList<Size>&  added) {
     for (int i = 0; i < dp.dirty_num; ++i)
     {
         if (dp.from[i] != SQ_NONE)
@@ -68,14 +74,26 @@ void HalfKAv2_hm::append_changed_indices(Square            ksq,
 }
 
 // Explicit template instantiations
-template void HalfKAv2_hm::append_changed_indices<WHITE>(Square            ksq,
-                                                         const DirtyPiece& dp,
-                                                         IndexList&        removed,
-                                                         IndexList&        added);
-template void HalfKAv2_hm::append_changed_indices<BLACK>(Square            ksq,
-                                                         const DirtyPiece& dp,
-                                                         IndexList&        removed,
-                                                         IndexList&        added);
+template void HalfKAv2_hm::append_changed_indices<WHITE, HalfKAv2_hm::MaxActiveDimensions>(
+  Square                                       ksq,
+  const DirtyPiece&                            dp,
+  IndexList<HalfKAv2_hm::MaxActiveDimensions>& removed,
+  IndexList<HalfKAv2_hm::MaxActiveDimensions>& added);
+template void HalfKAv2_hm::append_changed_indices<BLACK, HalfKAv2_hm::MaxActiveDimensions>(
+  Square                                       ksq,
+  const DirtyPiece&                            dp,
+  IndexList<HalfKAv2_hm::MaxActiveDimensions>& removed,
+  IndexList<HalfKAv2_hm::MaxActiveDimensions>& added);
+template void HalfKAv2_hm::append_changed_indices<WHITE, HalfKAv2_hm::MaxEfficientActivation>(
+  Square                                          ksq,
+  const DirtyPiece&                               dp,
+  IndexList<HalfKAv2_hm::MaxEfficientActivation>& removed,
+  IndexList<HalfKAv2_hm::MaxEfficientActivation>& added);
+template void HalfKAv2_hm::append_changed_indices<BLACK, HalfKAv2_hm::MaxEfficientActivation>(
+  Square                                          ksq,
+  const DirtyPiece&                               dp,
+  IndexList<HalfKAv2_hm::MaxEfficientActivation>& removed,
+  IndexList<HalfKAv2_hm::MaxEfficientActivation>& added);
 
 int HalfKAv2_hm::update_cost(const StateInfo* st) { return st->dirtyPiece.dirty_num; }
 

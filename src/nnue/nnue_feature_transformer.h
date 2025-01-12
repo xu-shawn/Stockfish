@@ -480,7 +480,7 @@ class FeatureTransformer {
         // That might depend on the feature set and generally relies on the
         // feature set's update cost calculation to be correct and never allow
         // updates with more added/removed features than MaxActiveDimensions.
-        FeatureSet::IndexList removed, added;
+        FeatureSet::IndexList<FeatureSet::MaxEfficientActivation> removed, added;
         FeatureSet::append_changed_indices<Perspective>(ksq, computed->next->dirtyPiece, removed,
                                                         added);
 
@@ -626,9 +626,9 @@ class FeatureTransformer {
                                           AccumulatorCaches::Cache<HalfDimensions>* cache) const {
         assert(cache != nullptr);
 
-        Square                ksq   = pos.square<KING>(Perspective);
-        auto&                 entry = (*cache)[ksq][Perspective];
-        FeatureSet::IndexList removed, added;
+        Square                  ksq   = pos.square<KING>(Perspective);
+        auto&                   entry = (*cache)[ksq][Perspective];
+        FeatureSet::IndexList<> removed, added;
 
         for (Color c : {WHITE, BLACK})
         {
