@@ -47,10 +47,20 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "uci.h"
 #include "ucioption.h"
 
 namespace Stockfish {
+
+int pcv_coeff      = 6922;
+int macv_coeff     = 3837;
+int micv_coeff     = 6238;
+int npcv_coeff     = 7490;
+int cntcv_coeff[6] = {6270, 0, 0, 0, 0, 0};
+
+TUNE(SetRange(0, 16384), pcv_coeff, macv_coeff, micv_coeff, npcv_coeff);
+TUNE(SetRange(0, 32768), cntcv_coeff);
 
 namespace TB = Tablebases;
 
@@ -85,11 +95,19 @@ int correction_value(const Worker& w, const Position& pos, Stack* ss) {
     const auto  micv  = w.minorPieceCorrectionHistory[us][minor_piece_index(pos)];
     const auto  wnpcv = w.nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)];
     const auto  bnpcv = w.nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)];
-    const auto  cntcv =
-      m.is_ok() ? (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
-                 : 0;
 
-    return (6922 * pcv + 3837 * macv + 6238 * micv + 7490 * (wnpcv + bnpcv) + 6270 * cntcv);
+    constexpr std::size_t cntcv_count = 6;
+
+    std::array<int, cntcv_count> cntcv{0};
+
+    if (m.is_ok())
+        for (std::size_t i = 0; i < cntcv_count; i++)
+            cntcv[i] =
+              (*(ss - i - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()];
+
+    return (pcv_coeff * pcv + macv_coeff * macv + micv_coeff * micv + npcv_coeff * (wnpcv + bnpcv)
+            + cntcv_coeff[0] * cntcv[0] + cntcv_coeff[1] * cntcv[1] + cntcv_coeff[2] * cntcv[2]
+            + cntcv_coeff[3] * cntcv[3] + cntcv_coeff[4] * cntcv[4] + cntcv_coeff[5] * cntcv[5]);
 }
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation
