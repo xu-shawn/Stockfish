@@ -1866,17 +1866,17 @@ void update_quiet_histories(
   const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus) {
 
     Color us = pos.side_to_move();
-    workerThread.mainHistory[us][move.from_to()] << bonus * (bonus > 0 ? 1024 : 1024) / 1024;  // Untuned to prevent duplicate effort
+    workerThread.mainHistory[us][move.from_to()] << bonus * (bonus > 0 ? x1 : x2) / 1024;  // Untuned to prevent duplicate effort
 
     if (ss->ply < LOW_PLY_HISTORY_SIZE)
         workerThread.lowPlyHistory[ss->ply][move.from_to()]
-          << bonus * (bonus > 0 ? 874 : 874) / 1024;
+          << bonus * (bonus > 0 ? x3 : x4) / 1024;
 
     update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(),
-                                  bonus * (bonus > 0 ? 853 : 853) / 1024);
+                                  bonus * (bonus > 0 ? x5 : x6) / 1024);
 
     int pIndex = pawn_structure_index(pos);
-    workerThread.pawnHistory[pIndex][pos.moved_piece(move)][move.to_sq()] << bonus * (bonus > 0 ? 628 : 628) / 1024;
+    workerThread.pawnHistory[pIndex][pos.moved_piece(move)][move.to_sq()] << bonus * (bonus > 0 ? x7 : x8) / 1024;
 }
 
 }
