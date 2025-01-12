@@ -521,6 +521,9 @@ void Search::Worker::clear() {
     for (size_t i = 1; i < reductions.size(); ++i)
         reductions[i] = int(19.43 * std::log(i));
 
+    for (size_t i = 1; i < log_table.size(); ++i)
+        log_table[i] = std::log(i);
+
     refreshTable.clear(networks[numaAccessToken]);
 }
 
@@ -1268,8 +1271,10 @@ moves_loop:  // When in check, search starts here
 
             rm.effort += nodes - nodeCount;
 
-            rm.averageScore =
-              rm.averageScore != -VALUE_INFINITE ? (value + rm.averageScore) / 2 : value;
+            rm.averageScore = rm.averageScore != -VALUE_INFINITE
+                              ? (value * (1 + log_table[depth] / 2) + rm.averageScore)
+                                  / (2 + log_table[depth] / 2)
+                              : value;
 
             rm.meanSquaredScore = rm.meanSquaredScore != -VALUE_INFINITE * VALUE_INFINITE
                                   ? (value * std::abs(value) + rm.meanSquaredScore) / 2
