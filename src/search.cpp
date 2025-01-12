@@ -47,10 +47,48 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "uci.h"
 #include "ucioption.h"
 
 namespace Stockfish {
+
+int fallingEvalBase        = 11000;
+int fallingEvalMultiplier0 = 2000;
+int fallingEvalMultiplier1 = 1000;
+
+int fallingEvalMin = 5800;
+int fallingEvalMax = 16670;
+
+int stableMoveCoefficient   = 14950;
+int unstableMoveCoefficient = 6870;
+
+int tmReductionNumerator   = 14800;
+int tmReductionDenominator = 21700;
+
+int bmInstabilityBase        = 10000;
+int bmInstabilityCoefficient = 18800;
+
+int nodesEffortTM  = 7390;
+int nodesEffortMin = 97000;
+
+int increaseDepthMultiplier = 5060;
+
+TUNE(fallingEvalBase,
+     fallingEvalMultiplier0,
+     fallingEvalMultiplier1,
+     fallingEvalMin,
+     fallingEvalMax,
+     stableMoveCoefficient,
+     unstableMoveCoefficient,
+     tmReductionNumerator,
+     tmReductionDenominator,
+     bmInstabilityBase,
+     bmInstabilityCoefficient,
+     nodesEffortTM,
+     increaseDepthMultiplier);
+
+TUNE(SetRange(95000, 100000), nodesEffortMin);
 
 namespace TB = Tablebases;
 
@@ -441,17 +479,25 @@ void Search::Worker::iterative_deepening() {
         // Do we have time for the next iteration? Can we stop searching now?
         if (limits.use_time_management() && !threads.stop && !mainThread->stopOnPonderhit)
         {
-            int nodesEffort = rootMoves[0].effort * 100 / std::max(size_t(1), size_t(nodes));
+            int nodesEffort = rootMoves[0].effort * 100000 / std::max(size_t(1), size_t(nodes));
 
-            double fallingEval = (11 + 2 * (mainThread->bestPreviousAverageScore - bestValue)
-                                  + (mainThread->iterValue[iterIdx] - bestValue))
-                               / 100.0;
-            fallingEval = std::clamp(fallingEval, 0.580, 1.667);
+            double fallingEval =
+              (fallingEvalBase
+               + fallingEvalMultiplier0 * (mainThread->bestPreviousAverageScore - bestValue)
+               + fallingEvalMultiplier1 * (mainThread->iterValue[iterIdx] - bestValue))
+              / 100000.0;
+            fallingEval =
+              std::clamp(fallingEval, fallingEvalMin / 10000.0, fallingEvalMax / 10000.0);
 
             // If the bestMove is stable over several iterations, reduce time accordingly
-            timeReduction    = lastBestMoveDepth + 8 < completedDepth ? 1.495 : 0.687;
-            double reduction = (1.48 + mainThread->previousTimeReduction) / (2.17 * timeReduction);
-            double bestMoveInstability = 1 + 1.88 * totBestMoveChanges / threads.size();
+            timeReduction    = lastBestMoveDepth + 8 < completedDepth
+                               ? stableMoveCoefficient / 10000.0
+                               : unstableMoveCoefficient / 10000.0;
+            double reduction = (tmReductionNumerator / 10000.0 + mainThread->previousTimeReduction)
+                             / (tmReductionDenominator / 10000.0 * timeReduction);
+            double bestMoveInstability =
+              bmInstabilityBase / 10000.0
+              + bmInstabilityCoefficient / 10000.0 * totBestMoveChanges / threads.size();
 
             double totalTime =
               mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability;
@@ -462,8 +508,8 @@ void Search::Worker::iterative_deepening() {
 
             auto elapsedTime = elapsed();
 
-            if (completedDepth >= 10 && nodesEffort >= 97 && elapsedTime > totalTime * 0.739
-                && !mainThread->ponder)
+            if (completedDepth >= 10 && nodesEffort >= nodesEffortMin
+                && elapsedTime > totalTime * nodesEffortTM / 10000.0 && !mainThread->ponder)
                 threads.stop = true;
 
             // Stop the search if we have exceeded the totalTime
@@ -477,7 +523,9 @@ void Search::Worker::iterative_deepening() {
                     threads.stop = true;
             }
             else
-                threads.increaseDepth = mainThread->ponder || elapsedTime <= totalTime * 0.506;
+                threads.increaseDepth =
+                  mainThread->ponder
+                  || elapsedTime <= totalTime * increaseDepthMultiplier / 10000.0;
         }
 
         mainThread->iterValue[iterIdx] = bestValue;
