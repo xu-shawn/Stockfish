@@ -1276,7 +1276,7 @@ moves_loop:  // When in check, search starts here
             rm.effort += nodes - nodeCount;
 
             rm.averageScore =
-              rm.averageScore != -VALUE_INFINITE ? blend(value, rm.averageScore, 7) : value;
+              rm.averageScore != -VALUE_INFINITE ? blend(value, rm.averageScore, 14) : value;
 
             rm.meanSquaredScore = rm.meanSquaredScore != -VALUE_INFINITE * VALUE_INFINITE
                                   ? (value * std::abs(value) + rm.meanSquaredScore) / 2
