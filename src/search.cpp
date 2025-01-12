@@ -1082,14 +1082,19 @@ moves_loop:  // When in check, search starts here
 
                 if (value < singularBeta)
                 {
-                    int corrValAdj = (std::abs(correctionValue) / 262144);
+                    int corrValAdj   = (std::abs(correctionValue) / 262144);
                     int doubleMargin = 249 * PvNode - 194 * !ttCapture - corrValAdj;
-                    int tripleMargin = 94 + 287 * PvNode - 249 * !ttCapture + 99 * ss->ttPv - corrValAdj;
-                    int quadMargin = 394 + 287 * PvNode - 249 * !ttCapture + 99 * ss->ttPv - corrValAdj;
+                    int tripleMargin =
+                      94 + 287 * PvNode - 249 * !ttCapture + 99 * ss->ttPv - corrValAdj;
+                    int quadMargin =
+                      394 + 287 * PvNode - 249 * !ttCapture + 99 * ss->ttPv - corrValAdj;
+                    int pentaMargin =
+                      854 + 887 * PvNode - 349 * !ttCapture + 299 * ss->ttPv - 2 * corrValAdj;
 
                     extension = 1 + (value < singularBeta - doubleMargin)
                               + (value < singularBeta - tripleMargin)
-                              + (value < singularBeta - quadMargin);
+                              + (value < singularBeta - quadMargin)
+                              + (value < singularBeta - pentaMargin);
 
                     depth += ((!PvNode) && (depth < 14));
                 }
