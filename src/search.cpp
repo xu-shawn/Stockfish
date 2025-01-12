@@ -1050,6 +1050,8 @@ moves_loop:  // When in check, search starts here
             }
         }
 
+        bool attemptQSExt = false;
+
         // Step 15. Extensions (~100 Elo)
         // We take care to not overdo to avoid search getting stuck.
         if (ss->ply < thisThread->rootDepth * 2)
@@ -1123,15 +1125,8 @@ moves_loop:  // When in check, search starts here
                                                   [type_of(pos.piece_on(move.to_sq()))]
                           > 4321)
             {
-                extension = 1;
-
-                if (depth > 3 && (ttData.bound & BOUND_LOWER))
-                {
-                    value = qsearch<NonPV>(pos, ss, -alpha - 1, -alpha);
-
-                    if (value > alpha)
-                        extension = 2;
-                }
+                extension    = 1;
+                attemptQSExt = depth > 3 && (ttData.bound & BOUND_LOWER);
             }
         }
 
@@ -1200,6 +1195,14 @@ moves_loop:  // When in check, search starts here
 
         // Decrease/increase reduction for moves with a good/bad history (~8 Elo)
         r -= ss->statScore * 1287 / 16384;
+
+        if (attemptQSExt)
+        {
+            value = -qsearch<NonPV>(pos, ss + 1, -(alpha + 1), -alpha);
+
+            if (value > alpha)
+                newDepth++;
+        }
 
         // Step 17. Late moves reduction / extension (LMR, ~117 Elo)
         if (depth >= 2 && moveCount > 1)
