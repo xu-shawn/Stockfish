@@ -53,14 +53,11 @@
 
 namespace Stockfish {
 
-int pcv_coeff      = 6922;
-int macv_coeff     = 3837;
-int micv_coeff     = 6238;
-int npcv_coeff     = 7490;
-int cntcv_coeff[6] = {6270, 0, 0, 0, 0, 0};
-
-TUNE(SetRange(0, 16384), pcv_coeff, macv_coeff, micv_coeff, npcv_coeff);
-TUNE(SetRange(0, 32768), cntcv_coeff);
+constexpr int pcv_coeff      = 7433;
+constexpr int macv_coeff     = 3945;
+constexpr int micv_coeff     = 6405;
+constexpr int npcv_coeff     = 8147;
+constexpr int cntcv_coeff[6] = {7048, 161, 1412, 791, 548, 1067};
 
 namespace TB = Tablebases;
 
