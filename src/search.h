@@ -327,6 +327,7 @@ class Worker {
     StateInfo rootState;
     RootMoves rootMoves;
     Depth     rootDepth, completedDepth;
+    Depth     rootDepthDelta;
     Value     rootDelta;
 
     size_t                    threadIdx;

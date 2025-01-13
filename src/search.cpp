@@ -180,7 +180,8 @@ void Search::Worker::start_searching() {
 
     // Stop the threads if not already stopped (also raise the stop if
     // "ponderhit" just reset threads.ponder)
-    threads.stop = true;
+    threads.stop             = true;
+    threads.highestRootDepth = 0;
 
     // Wait until all threads have finished
     threads.wait_for_search_finished();
@@ -280,6 +281,16 @@ void Search::Worker::iterative_deepening() {
     while (++rootDepth < MAX_PLY && !threads.stop
            && !(limits.depth && mainThread && rootDepth > limits.depth))
     {
+        std::int32_t currentHighest = threads.highestRootDepth;
+        while (currentHighest < rootDepth
+               && threads.highestRootDepth.compare_exchange_strong(currentHighest, rootDepth))
+        {}
+
+        if (currentHighest < rootDepth)
+            currentHighest = rootDepth;
+
+        rootDepthDelta = currentHighest - rootDepth;
+
         // Age out PV variability metric
         if (mainThread)
             totBestMoveChanges /= 2;
@@ -1154,6 +1165,8 @@ moves_loop:  // When in check, search starts here
         r += 307;
 
         r -= std::abs(correctionValue) / 34112;
+
+        r += rootDepthDelta * 200;
 
         // Increase reduction for cut nodes (~4 Elo)
         if (cutNode)
