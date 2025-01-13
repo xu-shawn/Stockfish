@@ -157,6 +157,7 @@ void Search::Worker::start_searching() {
     main_manager()->tm.init(limits, rootPos.side_to_move(), rootPos.game_ply(), options,
                             main_manager()->originalTimeAdjust);
     tt.new_search();
+    threads.highestRootDepth = 0;
 
     if (rootMoves.empty())
     {
@@ -180,8 +181,7 @@ void Search::Worker::start_searching() {
 
     // Stop the threads if not already stopped (also raise the stop if
     // "ponderhit" just reset threads.ponder)
-    threads.stop             = true;
-    threads.highestRootDepth = 0;
+    threads.stop = true;
 
     // Wait until all threads have finished
     threads.wait_for_search_finished();
