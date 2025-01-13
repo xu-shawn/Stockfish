@@ -124,8 +124,7 @@ using psqt_vec_t = int32x4_t;
     #define vec_add_16(a, b) vaddq_s16(a, b)
     #define vec_sub_16(a, b) vsubq_s16(a, b)
     #define vec_mulhi_16(a, b) vqdmulhq_s16(a, b)
-    #define vec_zero() \
-        vec_t { 0 }
+    #define vec_zero() vec_t{0}
     #define vec_set_16(a) vdupq_n_s16(a)
     #define vec_max_16(a, b) vmaxq_s16(a, b)
     #define vec_min_16(a, b) vminq_s16(a, b)
@@ -135,8 +134,7 @@ using psqt_vec_t = int32x4_t;
     #define vec_store_psqt(a, b) *(a) = (b)
     #define vec_add_psqt_32(a, b) vaddq_s32(a, b)
     #define vec_sub_psqt_32(a, b) vsubq_s32(a, b)
-    #define vec_zero_psqt() \
-        psqt_vec_t { 0 }
+    #define vec_zero_psqt() psqt_vec_t{0}
     #define NumRegistersSIMD 16
     #define MaxChunkSize 16
 
@@ -203,7 +201,7 @@ class SIMDTiling {
 
 // Input feature converter
 template<IndexType                                 TransformedFeatureDimensions,
-         Accumulator<TransformedFeatureDimensions> StateInfo::*accPtr>
+         Accumulator<TransformedFeatureDimensions> StateInfo::* accPtr>
 class FeatureTransformer {
 
     // Number of output dimensions for one side
@@ -230,14 +228,19 @@ class FeatureTransformer {
 
     static constexpr void order_packs([[maybe_unused]] uint64_t* v) {
 #if defined(USE_AVX512)  // _mm512_packs_epi16 ordering
-        uint64_t tmp0 = v[2], tmp1 = v[3];
-        v[2] = v[8], v[3] = v[9];
-        v[8] = v[4], v[9] = v[5];
-        v[4] = tmp0, v[5] = tmp1;
-        tmp0 = v[6], tmp1 = v[7];
-        v[6] = v[10], v[7] = v[11];
-        v[10] = v[12], v[11] = v[13];
-        v[12] = tmp0, v[13] = tmp1;
+
+        std::swap(v[12], v[6]);
+        std::swap(v[13], v[7]);
+
+        std::swap(v[6], v[10]);
+        std::swap(v[7], v[11]);
+
+        std::swap(v[4], v[2]);
+        std::swap(v[5], v[3]);
+
+        std::swap(v[2], v[8]);
+        std::swap(v[3], v[9]);
+
 #elif defined(USE_AVX2)  // _mm256_packs_epi16 ordering
         std::swap(v[2], v[4]);
         std::swap(v[3], v[5]);
@@ -246,14 +249,52 @@ class FeatureTransformer {
 
     static constexpr void inverse_order_packs([[maybe_unused]] uint64_t* v) {
 #if defined(USE_AVX512)  // Inverse _mm512_packs_epi16 ordering
-        uint64_t tmp0 = v[2], tmp1 = v[3];
-        v[2] = v[4], v[3] = v[5];
-        v[4] = v[8], v[5] = v[9];
-        v[8] = tmp0, v[9] = tmp1;
-        tmp0 = v[6], tmp1 = v[7];
-        v[6] = v[12], v[7] = v[13];
-        v[12] = v[10], v[13] = v[11];
-        v[10] = tmp0, v[11] = tmp1;
+
+        // Here, our goal is to concatenate two 512-bit
+        // vectors, without changing their order. To do
+        // this, we reorder the weights every 1024 bits
+        // by swapping the elements by 64-bit blocks.
+
+        // Current _mm512_packs_epi16 order:
+        // 01    23    45    67    // Vector 0
+        //    89    AB    CD    EF // Vector 1
+        // 01 89 23 AB 45 CD 67 EF // Packed Result
+
+        std::swap(v[2], v[8]);
+        std::swap(v[3], v[9]);
+
+        // Current _mm512_packs_epi16 order:
+        // 01    89    45    67    // Vector 0
+        //    23    AB    CD    EF // Vector 1
+        // 01 23 89 AB 45 CD 67 EF // Packed Result
+
+        std::swap(v[4], v[2]);
+        std::swap(v[5], v[3]);
+
+        // Current _mm512_packs_epi16 order:
+        // 01    45    89    67    // Vector 0
+        //    23    AB    CD    EF // Vector 1
+        // 01 23 45 AB 89 CD 67 EF // Packed Result
+
+        std::swap(v[6], v[10]);
+        std::swap(v[7], v[11]);
+
+        // Current _mm512_packs_epi16 order:
+        // 01    45    89    AB    // Vector 0
+        //    23    67    CD    EF // Vector 1
+        // 01 23 45 67 89 CD AB EF // Packed Result
+
+        std::swap(v[12], v[6]);  // Now v[6] holds the original v[10]
+        std::swap(v[13], v[7]);  // Now v[7] holds the original v[11]
+
+            // clang-format off
+
+        // Current _mm512_packs_epi16 order:
+        // 01    45    89    AB    // Vector 0
+        //    23    67    AB    EF // Vector 1
+        // 01 23 45 67 89 AB CD EF // Packed Result
+
+            // clang-format on
 #elif defined(USE_AVX2)  // Inverse _mm256_packs_epi16 ordering
         std::swap(v[2], v[4]);
         std::swap(v[3], v[5]);
