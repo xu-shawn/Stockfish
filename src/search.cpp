@@ -292,7 +292,7 @@ void Search::Worker::iterative_deepening() {
         size_t pvFirst = 0;
         pvLast         = 0;
 
-        if (!threads.increaseDepth)
+        if (!threads.increaseDepth && threadIdx % 3 != 1)
             searchAgainCounter++;
 
         // MultiPV loop. We perform a full root search for each PV line
