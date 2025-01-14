@@ -109,6 +109,10 @@ Value value_draw(size_t nodes) { return VALUE_DRAW - 1 + Value(nodes & 0x2); }
 Value value_to_tt(Value v, int ply);
 Value value_from_tt(Value v, int ply, int r50c);
 void  update_pv(Move* pv, Move move, const Move* childPv);
+void  update_correction_history(const Position& pos,
+                                Stack*          ss,
+                                Search::Worker& workerThread,
+                                int             bonus);
 void  update_continuation_histories(Stack* ss, Piece pc, Square to, int bonus);
 void  update_quiet_histories(
    const Position& pos, Stack* ss, Search::Worker& workerThread, Move move, int bonus);
@@ -1208,7 +1212,19 @@ moves_loop:  // When in check, search starts here
                 newDepth += doDeeperSearch - doShallowerSearch;
 
                 if (newDepth > d)
+                {
+                    const Value oldValue = value;
+
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+
+                    if (value <= alpha && !ss->inCheck && !(bestMove && pos.capture(bestMove)))
+                    {
+                        const auto bonus =
+                          std::clamp(int(value - oldValue) * newDepth / 8,
+                                     -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
+                        update_correction_history(pos, ss, *thisThread, bonus);
+                    }
+                }
 
                 // Post LMR continuation history updates (~1 Elo)
                 int bonus = (value >= beta) * 2048;
@@ -1426,22 +1442,9 @@ moves_loop:  // When in check, search starts here
         && ((bestValue < ss->staticEval && bestValue < beta)  // negative correction & no fail high
             || (bestValue > ss->staticEval && bestMove)))     // positive correction & no fail low
     {
-        const auto    m             = (ss - 1)->currentMove;
-        constexpr int nonPawnWeight = 165;
-
         auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / 8,
                                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
-        thisThread->pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)]
-          << bonus * 114 / 128;
-        thisThread->majorPieceCorrectionHistory[us][major_piece_index(pos)] << bonus * 163 / 128;
-        thisThread->minorPieceCorrectionHistory[us][minor_piece_index(pos)] << bonus * 146 / 128;
-        thisThread->nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)]
-          << bonus * nonPawnWeight / 128;
-        thisThread->nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)]
-          << bonus * nonPawnWeight / 128;
-
-        if (m.is_ok())
-            (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()] << bonus;
+        update_correction_history(pos, ss, *thisThread, bonus);
     }
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
@@ -1778,6 +1781,28 @@ void update_pv(Move* pv, Move move, const Move* childPv) {
     for (*pv++ = move; childPv && *childPv != Move::none();)
         *pv++ = *childPv++;
     *pv = Move::none();
+}
+
+void update_correction_history(const Position& pos,
+                               Stack*          ss,
+                               Search::Worker& workerThread,
+                               int             bonus) {
+    const Move  m  = (ss - 1)->currentMove;
+    const Color us = pos.side_to_move();
+
+    static constexpr int nonPawnWeight = 165;
+
+    workerThread.pawnCorrectionHistory[us][pawn_structure_index<Correction>(pos)]
+      << bonus * 114 / 128;
+    workerThread.majorPieceCorrectionHistory[us][major_piece_index(pos)] << bonus * 163 / 128;
+    workerThread.minorPieceCorrectionHistory[us][minor_piece_index(pos)] << bonus * 146 / 128;
+    workerThread.nonPawnCorrectionHistory[WHITE][us][non_pawn_index<WHITE>(pos)]
+      << bonus * nonPawnWeight / 128;
+    workerThread.nonPawnCorrectionHistory[BLACK][us][non_pawn_index<BLACK>(pos)]
+      << bonus * nonPawnWeight / 128;
+
+    if (m.is_ok())
+        (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()] << bonus;
 }
 
 
