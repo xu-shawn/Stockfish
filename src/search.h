@@ -322,6 +322,7 @@ class Worker {
     int                   selDepth, nmpMinPly;
 
     Value optimism[COLOR_NB];
+    Value rootScore, rootAvgScore;
 
     Position  rootPos;
     StateInfo rootState;

@@ -319,6 +319,8 @@ void Search::Worker::iterative_deepening() {
             optimism[us]  = 141 * avg / (std::abs(avg) + 83);
             optimism[~us] = -optimism[us];
 
+            rootScore = rootMoves[pvIdx].score;
+
             // Start with a small aspiration window and, in the case of a fail
             // high/low, re-search with a bigger window until we don't fail
             // high/low anymore.
@@ -1070,12 +1072,18 @@ moves_loop:  // When in check, search starts here
 
                 if (value < singularBeta)
                 {
-                    int corrValAdj   = std::abs(correctionValue) / 262144;
-                    int doubleMargin = 249 * PvNode - 194 * !ttCapture - corrValAdj;
+                    int corrValAdj = std::abs(correctionValue) / 262144;
+                    int doubleMargin =
+                      209 * PvNode - 194 * !ttCapture
+                      + 100 * (std::abs(rootAvgScore) < 20 && std::abs(rootScore) < 10)
+                      - corrValAdj;
                     int tripleMargin =
-                      94 + 287 * PvNode - 249 * !ttCapture + 99 * ss->ttPv - corrValAdj;
-                    int quadMargin =
-                      394 + 287 * PvNode - 249 * !ttCapture + 99 * ss->ttPv - corrValAdj;
+                      54 + 287 * PvNode - 249 * !ttCapture + 99 * ss->ttPv
+                      + 100 * (std::abs(rootAvgScore) < 20 && std::abs(rootScore) < 10)
+                      - corrValAdj;
+                    int quadMargin = 354 + 287 * PvNode - 249 * !ttCapture + 99 * ss->ttPv
+                                   + 100 * (std::abs(rootAvgScore) < 20 && std::abs(rootScore) < 10)
+                                   - corrValAdj;
 
                     extension = 1 + (value < singularBeta - doubleMargin)
                               + (value < singularBeta - tripleMargin)
