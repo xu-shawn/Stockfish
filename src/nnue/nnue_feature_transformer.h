@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <cstring>
 #include <iosfwd>
+#include <type_traits>
 #include <utility>
 
 #include "../position.h"
@@ -124,8 +125,7 @@ using psqt_vec_t = int32x4_t;
     #define vec_add_16(a, b) vaddq_s16(a, b)
     #define vec_sub_16(a, b) vsubq_s16(a, b)
     #define vec_mulhi_16(a, b) vqdmulhq_s16(a, b)
-    #define vec_zero() \
-        vec_t { 0 }
+    #define vec_zero() vec_t{0}
     #define vec_set_16(a) vdupq_n_s16(a)
     #define vec_max_16(a, b) vmaxq_s16(a, b)
     #define vec_min_16(a, b) vminq_s16(a, b)
@@ -135,8 +135,7 @@ using psqt_vec_t = int32x4_t;
     #define vec_store_psqt(a, b) *(a) = (b)
     #define vec_add_psqt_32(a, b) vaddq_s32(a, b)
     #define vec_sub_psqt_32(a, b) vsubq_s32(a, b)
-    #define vec_zero_psqt() \
-        psqt_vec_t { 0 }
+    #define vec_zero_psqt() psqt_vec_t{0}
     #define NumRegistersSIMD 16
     #define MaxChunkSize 16
 
@@ -171,9 +170,9 @@ struct Packing {
     static constexpr std::size_t epi16_block_size = 8;
     static constexpr std::size_t process_chunk    = epi16_block_size * packus_epi16_order.size();
 
-    template<typename T>
-    static void permute_for_packus_epi16(T* const v) {
-        std::array<T, epi16_block_size * packus_epi16_order.size()> buffer;
+    static constexpr auto permute_for_packus_epi16 = [](auto* const v) {
+        std::array<std::remove_pointer_t<decltype(v)>, epi16_block_size * packus_epi16_order.size()>
+          buffer;
 
         for (std::size_t i = 0; i < packus_epi16_order.size(); i++)
             for (std::size_t j = 0; j < epi16_block_size; j++)
@@ -181,11 +180,12 @@ struct Packing {
 
         for (std::size_t i = 0; i < buffer.size(); i++)
             v[i] = buffer[i];
-    }
+    };
 
-    template<typename T>
-    static void unpermute_for_packus_epi16(T* const v) {
-        std::array<T, epi16_block_size * packus_epi16_order.size()> buffer;
+
+    static constexpr auto unpermute_for_packus_epi16 = [](auto* const v) {
+        std::array<std::remove_pointer_t<decltype(v)>, epi16_block_size * packus_epi16_order.size()>
+          buffer;
 
         for (std::size_t i = 0; i < packus_epi16_order.size(); i++)
             for (std::size_t j = 0; j < epi16_block_size; j++)
@@ -193,7 +193,7 @@ struct Packing {
 
         for (std::size_t i = 0; i < buffer.size(); i++)
             v[i] = buffer[i];
-    }
+    };
 };
 
 
@@ -254,7 +254,7 @@ class SIMDTiling {
 
 // Input feature converter
 template<IndexType                                 TransformedFeatureDimensions,
-         Accumulator<TransformedFeatureDimensions> StateInfo::*accPtr>
+         Accumulator<TransformedFeatureDimensions> StateInfo::* accPtr>
 class FeatureTransformer {
 
     // Number of output dimensions for one side
@@ -280,15 +280,15 @@ class FeatureTransformer {
     }
 
     template<typename Function>
-    void permute_weights(Function biases_order_fn, Function weights_order_fn) {
+    void permute_weights(Function order_fn) {
         for (IndexType i = 0; i < HalfDimensions; i += Packing::process_chunk)
-            biases_order_fn(&biases[i]);
+            order_fn(&biases[i]);
 
         for (IndexType j = 0; j < InputDimensions; ++j)
         {
             auto* w = &weights[j * HalfDimensions];
             for (IndexType i = 0; i < HalfDimensions; i += Packing::process_chunk)
-                weights_order_fn(&w[i]);
+                order_fn(&w[i]);
         }
     }
 
@@ -311,8 +311,7 @@ class FeatureTransformer {
         read_leb_128<WeightType>(stream, weights, HalfDimensions * InputDimensions);
         read_leb_128<PSQTWeightType>(stream, psqtWeights, PSQTBuckets * InputDimensions);
 
-        permute_weights(Packing::permute_for_packus_epi16<BiasType>,
-                        Packing::permute_for_packus_epi16<WeightType>);
+        permute_weights(Packing::permute_for_packus_epi16);
         scale_weights(true);
         return !stream.fail();
     }
@@ -320,16 +319,14 @@ class FeatureTransformer {
     // Write network parameters
     bool write_parameters(std::ostream& stream) {
 
-        permute_weights(Packing::permute_for_packus_epi16<BiasType>,
-                        Packing::permute_for_packus_epi16<WeightType>);
+        permute_weights(Packing::permute_for_packus_epi16);
         scale_weights(false);
 
         write_leb_128<BiasType>(stream, biases, HalfDimensions);
         write_leb_128<WeightType>(stream, weights, HalfDimensions * InputDimensions);
         write_leb_128<PSQTWeightType>(stream, psqtWeights, PSQTBuckets * InputDimensions);
 
-        permute_weights(Packing::unpermute_for_packus_epi16<BiasType>,
-                        Packing::unpermute_for_packus_epi16<WeightType>);
+        permute_weights(Packing::unpermute_for_packus_epi16);
         scale_weights(true);
         return !stream.fail();
     }
