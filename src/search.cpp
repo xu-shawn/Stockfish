@@ -772,13 +772,6 @@ Value Search::Worker::search(
 
     opponentWorsening = ss->staticEval + (ss - 1)->staticEval > 2;
 
-    // Step 7. Razoring (~1 Elo)
-    // If eval is really low, check with qsearch if we can exceed alpha. If the
-    // search suggests we cannot exceed alpha, return a speculative fail low.
-    // For PvNodes, we must have a guard against mates being returned.
-    if (!PvNode && eval < alpha - 462 - 297 * depth * depth)
-        return qsearch<NonPV>(pos, ss, alpha - 1, alpha);
-
     // Step 8. Futility pruning: child node (~40 Elo)
     // The depth condition is important for mate finding.
     if (!ss->ttPv && depth < 14
@@ -788,6 +781,14 @@ Value Search::Worker::search(
              >= beta
         && eval >= beta && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
         return beta + (eval - beta) / 3;
+
+    // Step 7. Razoring (~1 Elo)
+    // If eval is really low, check with qsearch if we can exceed alpha. If the
+    // search suggests we cannot exceed alpha, return a speculative fail low.
+    // For PvNodes, we must have a guard against mates being returned.
+    if (!PvNode
+        && (eval < alpha - 462 - 297 * depth * depth || eval > beta + 462 + 297 * depth * depth))
+        return qsearch<NonPV>(pos, ss, alpha, beta);
 
     improving |= ss->staticEval >= beta + 97;
 
