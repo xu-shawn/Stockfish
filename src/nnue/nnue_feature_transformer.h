@@ -146,6 +146,57 @@ using psqt_vec_t = int32x4_t;
 #endif
 
 
+struct Packing {
+    // Returns the order by which 128-bit blocks of a 1024-bit data must
+    // be permuted so that calling packus on adjacent vectors of 16-bit
+    // integers loaded from the data results in the pre-permutation order
+    static constexpr auto packus_epi16_order = []() -> std::array<std::size_t, 8> {
+#if defined(USE_AVX512)
+        // _mm512_packus_epi16 after permutation:
+        //  0     2     4     6     // Vector 0
+        //     1     3     5     7  // Vector 1
+        //  0  1  2  3  4  5  6  7  // Packed Result
+        return {0, 2, 4, 6, 1, 3, 5, 7};
+#elif defined(USE_AVX2)
+        // _mm256_packus_epi16 after permutation:
+        // 0   2   // Vector 0      // 4   6   // Vector 2
+        //   1   3 // Vector 1      //   5   7 // Vector 3
+        // 0 1 2 3 // Packed Result // 4 5 6 7 // Packed Result
+        return {0, 2, 1, 3, 4, 6, 5, 7};
+#else
+        return {0, 1, 2, 3, 4, 5, 6, 7};
+#endif
+    }();
+
+    static constexpr std::size_t epi16_block_size = 8;
+    static constexpr std::size_t process_chunk    = epi16_block_size * packus_epi16_order.size();
+
+    template<typename T>
+    static void permute_for_packus_epi16(T* const v) {
+        std::array<T, epi16_block_size * packus_epi16_order.size()> buffer;
+
+        for (std::size_t i = 0; i < packus_epi16_order.size(); i++)
+            for (std::size_t j = 0; j < epi16_block_size; j++)
+                buffer[i * epi16_block_size + j] = v[packus_epi16_order[i] * epi16_block_size + j];
+
+        for (std::size_t i = 0; i < buffer.size(); i++)
+            v[i] = buffer[i];
+    }
+
+    template<typename T>
+    static void unpermute_for_packus_epi16(T* const v) {
+        std::array<T, epi16_block_size * packus_epi16_order.size()> buffer;
+
+        for (std::size_t i = 0; i < packus_epi16_order.size(); i++)
+            for (std::size_t j = 0; j < epi16_block_size; j++)
+                buffer[packus_epi16_order[i] * epi16_block_size + j] = v[i * epi16_block_size + j];
+
+        for (std::size_t i = 0; i < buffer.size(); i++)
+            v[i] = buffer[i];
+    }
+};
+
+
 // Compute optimal SIMD register count for feature transformer accumulation.
 template<IndexType TransformedFeatureWidth, IndexType HalfDimensions>
 class SIMDTiling {
@@ -228,98 +279,17 @@ class FeatureTransformer {
         return FeatureSet::HashValue ^ (OutputDimensions * 2);
     }
 
-    static constexpr void order_packus([[maybe_unused]] uint64_t* v) {
-#if defined(USE_AVX512)  // _mm512_packus_epi16 ordering
-        std::swap(v[12], v[6]);
-        std::swap(v[13], v[7]);
-
-        std::swap(v[6], v[10]);
-        std::swap(v[7], v[11]);
-
-        std::swap(v[4], v[2]);
-        std::swap(v[5], v[3]);
-
-        std::swap(v[2], v[8]);
-        std::swap(v[3], v[9]);
-#elif defined(USE_AVX2)  // _mm256_packus_epi16 ordering
-        std::swap(v[2], v[4]);
-        std::swap(v[3], v[5]);
-#endif
-    }
-
-    static constexpr void inverse_order_packus([[maybe_unused]] uint64_t* v) {
-#if defined(USE_AVX512)  // Inverse _mm512_packus_epi16 ordering
-
-        // Here, our goal is to concatenate two 512-bit
-        // vectors, without changing their order. To do
-        // this, we reorder the weights every 1024 bits
-        // by swapping the elements by 64-bit blocks.
-
-        // Current _mm512_packus_epi16 order:
-        // 01    23    45    67    // Vector 0
-        //    89    AB    CD    EF // Vector 1
-        // 01 89 23 AB 45 CD 67 EF // Packed Result
-
-        std::swap(v[2], v[8]);
-        std::swap(v[3], v[9]);
-
-        // Current _mm512_packus_epi16 order:
-        // 01    89    45    67    // Vector 0
-        //    23    AB    CD    EF // Vector 1
-        // 01 23 89 AB 45 CD 67 EF // Packed Result
-
-        std::swap(v[4], v[2]);
-        std::swap(v[5], v[3]);
-
-        // Current _mm512_packus_epi16 order:
-        // 01    45    89    67    // Vector 0
-        //    23    AB    CD    EF // Vector 1
-        // 01 23 45 AB 89 CD 67 EF // Packed Result
-
-        std::swap(v[6], v[10]);
-        std::swap(v[7], v[11]);
-
-        // Current _mm512_packus_epi16 order:
-        // 01    45    89    AB    // Vector 0
-        //    23    67    CD    EF // Vector 1
-        // 01 23 45 67 89 CD AB EF // Packed Result
-
-        std::swap(v[12], v[6]);  // Now v[6] holds the original v[10]
-        std::swap(v[13], v[7]);  // Now v[7] holds the original v[11]
-
-            // clang-format off
-
-        // Current _mm512_packus_epi16 order:
-        // 01    45    89    AB    // Vector 0
-        //    23    67    AB    EF // Vector 1
-        // 01 23 45 67 89 AB CD EF // Packed Result
-
-            // clang-format on
-#elif defined(USE_AVX2)  // Inverse _mm256_packus_epi16 ordering
-        std::swap(v[2], v[4]);
-        std::swap(v[3], v[5]);
-#endif
-    }
-
-    void permute_weights([[maybe_unused]] void (*order_fn)(uint64_t*)) {
-#if defined(USE_AVX2)
-    #if defined(USE_AVX512)
-        constexpr IndexType di = 16;
-    #else
-        constexpr IndexType di = 8;
-    #endif
-        uint64_t* b = reinterpret_cast<uint64_t*>(&biases[0]);
-        for (IndexType i = 0; i < HalfDimensions * sizeof(BiasType) / sizeof(uint64_t); i += di)
-            order_fn(&b[i]);
+    template<typename Function>
+    void permute_weights(Function biases_order_fn, Function weights_order_fn) {
+        for (IndexType i = 0; i < HalfDimensions; i += Packing::process_chunk)
+            biases_order_fn(&biases[i]);
 
         for (IndexType j = 0; j < InputDimensions; ++j)
         {
-            uint64_t* w = reinterpret_cast<uint64_t*>(&weights[j * HalfDimensions]);
-            for (IndexType i = 0; i < HalfDimensions * sizeof(WeightType) / sizeof(uint64_t);
-                 i += di)
-                order_fn(&w[i]);
+            auto* w = &weights[j * HalfDimensions];
+            for (IndexType i = 0; i < HalfDimensions; i += Packing::process_chunk)
+                weights_order_fn(&w[i]);
         }
-#endif
     }
 
     inline void scale_weights(bool read) {
@@ -341,7 +311,8 @@ class FeatureTransformer {
         read_leb_128<WeightType>(stream, weights, HalfDimensions * InputDimensions);
         read_leb_128<PSQTWeightType>(stream, psqtWeights, PSQTBuckets * InputDimensions);
 
-        permute_weights(inverse_order_packus);
+        permute_weights(Packing::permute_for_packus_epi16<BiasType>,
+                        Packing::permute_for_packus_epi16<WeightType>);
         scale_weights(true);
         return !stream.fail();
     }
@@ -349,14 +320,16 @@ class FeatureTransformer {
     // Write network parameters
     bool write_parameters(std::ostream& stream) {
 
-        permute_weights(order_packus);
+        permute_weights(Packing::permute_for_packus_epi16<BiasType>,
+                        Packing::permute_for_packus_epi16<WeightType>);
         scale_weights(false);
 
         write_leb_128<BiasType>(stream, biases, HalfDimensions);
         write_leb_128<WeightType>(stream, weights, HalfDimensions * InputDimensions);
         write_leb_128<PSQTWeightType>(stream, psqtWeights, PSQTBuckets * InputDimensions);
 
-        permute_weights(inverse_order_packus);
+        permute_weights(Packing::unpermute_for_packus_epi16<BiasType>,
+                        Packing::unpermute_for_packus_epi16<WeightType>);
         scale_weights(true);
         return !stream.fail();
     }
