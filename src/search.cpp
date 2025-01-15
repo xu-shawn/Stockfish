@@ -1208,7 +1208,14 @@ moves_loop:  // When in check, search starts here
                 newDepth += doDeeperSearch - doShallowerSearch;
 
                 if (newDepth > d)
+                {
+                    const Value oldValue = value;
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+
+                    if (value <= alpha)
+                        thisThread->mainHistory[us][move.from_to()]
+                          << std::clamp((value - oldValue) * 8, -1000, 1000);
+                }
 
                 // Post LMR continuation history updates (~1 Elo)
                 int bonus = (value >= beta) * 2048;
