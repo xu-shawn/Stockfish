@@ -47,6 +47,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "tune.h"
 #include "uci.h"
 #include "ucioption.h"
 
@@ -69,6 +70,19 @@ int dds       = 1024;
 int dss       = 1024;
 
 int highRReduction = 1024;
+
+TUNE(nextDepthReduction,
+     lmrDepthMargin,
+     lmrDepthCoeff,
+     lmrDepthHistory,
+     futilityValueCoeff,
+     futPruneLmrDepthMargin,
+     reductionBase,
+     newDepthNotAllNodeExt,
+     newDepthPVFirstBMExt,
+     ddsMargin,
+     dds,
+     dss);
 
 namespace TB = Tablebases;
 
@@ -1246,7 +1260,7 @@ moves_loop:  // When in check, search starts here
 
             // Note that if expected reduction is high, we reduce search depth by 1 here (~9 Elo)
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha,
-                                   newDepth - (r > 3444) * highRReduction, !cutNode);
+                                   (newDepth - (r > 3444) * highRReduction) / 1024, !cutNode);
         }
 
         // For PV nodes only, do a full PV search on the first move or after a fail high,
