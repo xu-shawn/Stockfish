@@ -53,26 +53,25 @@
 
 namespace Stockfish {
 
-int fallingEvalBase        = 11000;
-int fallingEvalMultiplier0 = 2000;
-int fallingEvalMultiplier1 = 1000;
+int fallingEvalBase        = 11396;
+int fallingEvalMultiplier0 = 2035;
+int fallingEvalMultiplier1 = 968;
 
-int fallingEvalMin = 5800;
-int fallingEvalMax = 16670;
+int fallingEvalMin = 5786;
+int fallingEvalMax = 16752;
 
-int stableMoveCoefficient   = 14950;
-int unstableMoveCoefficient = 6870;
+int stableMoveCoefficient   = 14857;
+int unstableMoveCoefficient = 7046;
 
-int tmReductionNumerator   = 14800;
-int tmReductionDenominator = 21700;
+int tmReductionNumerator   = 14540;
+int tmReductionDenominator = 21593;
 
-int bmInstabilityBase        = 10000;
-int bmInstabilityCoefficient = 18800;
+int bmInstabilityCoefficient = 18519;
 
-int nodesEffortTM  = 7390;
-int nodesEffortMin = 97000;
+int nodesEffortTM  = 6540;
+int nodesEffortMin = 97056;
 
-int increaseDepthMultiplier = 5060;
+int increaseDepthMultiplier = 5138;
 
 TUNE(fallingEvalBase,
      fallingEvalMultiplier0,
@@ -83,7 +82,6 @@ TUNE(fallingEvalBase,
      unstableMoveCoefficient,
      tmReductionNumerator,
      tmReductionDenominator,
-     bmInstabilityBase,
      bmInstabilityCoefficient,
      nodesEffortTM,
      increaseDepthMultiplier);
@@ -501,8 +499,7 @@ void Search::Worker::iterative_deepening() {
             double reduction = (tmReductionNumerator / 10000.0 + mainThread->previousTimeReduction)
                              / (tmReductionDenominator / 10000.0 * timeReduction);
             double bestMoveInstability =
-              bmInstabilityBase / 10000.0
-              + bmInstabilityCoefficient / 10000.0 * totBestMoveChanges / threads.size();
+              1 + bmInstabilityCoefficient / 10000.0 * totBestMoveChanges / threads.size();
 
             double totalTime =
               mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability;

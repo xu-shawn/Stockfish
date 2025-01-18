@@ -30,27 +30,27 @@
 
 namespace Stockfish {
 
-int mtg_base     = 5000;
-int ota_coeff    = 3285;
-int ota_constant = 4830;
+int mtg_base     = 5051;
+int ota_coeff    = 3128;
+int ota_constant = 4354;
 
-int opt_base  = 308000;
-int opt_coeff = 319000;
-int opt_max   = 506000;
+int opt_base  = 321160;
+int opt_coeff = 321123;
+int opt_max   = 508017;
 
-int max_constant_constant = 339000;
-int max_constant_coeff    = 301000;
-int max_constant_min      = 293000;
+int max_constant_constant = 339770;
+int max_constant_coeff    = 303950;
+int max_constant_min      = 294761;
 
-int opt_scale_constant     = 122000;
-int opt_scale_pow_base     = 295000;
-int opt_scale_pow_exponent = 462000;
-int opt_scale_max_coeff    = 213000;
+int opt_scale_constant     = 121431;
+int opt_scale_pow_base     = 294693;
+int opt_scale_pow_exponent = 461073;
+int opt_scale_max_coeff    = 213035;
 
-int max_scale_maximum = 664000;
-int max_scale_divisor = 120000;
+int max_scale_maximum = 667704;
+int max_scale_divisor = 119847;
 
-int maximum_time_clamp_coeff = 825000;
+int maximum_time_clamp_coeff = 825178;
 
 TUNE(SetRange(1000, 10000), mtg_base);
 TUNE(ota_coeff,
