@@ -86,7 +86,7 @@ TUNE(fallingEvalBase,
      nodesEffortTM,
      increaseDepthMultiplier);
 
-TUNE(SetRange(95000, 100000), nodesEffortMin);
+TUNE(SetRange(90000, 100000), nodesEffortMin);
 
 namespace TB = Tablebases;
 
