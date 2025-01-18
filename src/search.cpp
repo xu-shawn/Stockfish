@@ -1240,6 +1240,9 @@ moves_loop:  // When in check, search starts here
                 newDepth = std::max(newDepth, 1);
 
             value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
+
+            if (value >= beta)
+                depth = newDepth + 1;
         }
 
         // Step 19. Undo move
