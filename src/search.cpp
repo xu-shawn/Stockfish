@@ -47,42 +47,24 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
-#include "tune.h"
 #include "uci.h"
 #include "ucioption.h"
 
 namespace Stockfish {
 
-int nextDepthReduction     = 1024;
-int lmrDepthMargin         = 7168;
-int lmrDepthCoeff          = 243;
-int lmrDepthHistory        = 303;
-int futilityValueCoeff     = 142;
-int futPruneLmrDepthMargin = 12288;
-
-int reductionBase = 307;
-
-int newDepthNotAllNodeExt = 1024;
-int newDepthPVFirstBMExt  = 1024;
-
-int ddsMargin = 1024;
-int dds       = 1024;
-int dss       = 1024;
-
-int highRReduction = 1024;
-
-TUNE(nextDepthReduction,
-     lmrDepthMargin,
-     lmrDepthCoeff,
-     lmrDepthHistory,
-     futilityValueCoeff,
-     futPruneLmrDepthMargin,
-     reductionBase,
-     newDepthNotAllNodeExt,
-     newDepthPVFirstBMExt,
-     ddsMargin,
-     dds,
-     dss);
+constexpr int nextDepthReduction     = 583;
+constexpr int lmrDepthMargin         = 7930;
+constexpr int lmrDepthCoeff          = 277;
+constexpr int lmrDepthHistory        = 269;
+constexpr int futilityValueCoeff     = 142;
+constexpr int futPruneLmrDepthMargin = 12898;
+constexpr int reductionBase          = 254;
+constexpr int newDepthNotAllNodeExt  = 1105;
+constexpr int newDepthPVFirstBMExt   = 1030;
+constexpr int ddsMargin              = 1067;
+constexpr int dds                    = 953;
+constexpr int dss                    = 1003;
+constexpr int highRReduction         = 1024;
 
 namespace TB = Tablebases;
 
