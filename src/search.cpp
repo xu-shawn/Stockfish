@@ -786,7 +786,7 @@ Value Search::Worker::search(
                - (ss - 1)->statScore / 310
                + (ss->staticEval == eval) * (40 - std::abs(correctionValue) / 131072)
              >= beta
-        && eval >= beta && ((!ttData.move || !priorCapture) || ttCapture) && !is_loss(beta)
+        && eval >= beta && ((!ttData.move && !priorCapture) || ttCapture) && !is_loss(beta)
         && !is_win(eval))
         return beta + (eval - beta) / 3;
 
