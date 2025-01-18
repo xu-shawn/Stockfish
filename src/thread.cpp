@@ -312,7 +312,7 @@ Thread* ThreadPool::get_best_thread(TimePoint start) const {
     for (auto&& th : threads)
     {
         minScore = std::min(minScore, th->worker->rootMoves[0].score);
-        maxTime  = std::max<TimePoint>(maxTime, th->worker->rootMoves[0].score);
+        maxTime  = std::max<TimePoint>(maxTime, th->worker->rootMoves[0].lastFound);
     }
 
     TimePoint maxElapsed = maxTime - start;
