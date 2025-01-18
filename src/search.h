@@ -102,6 +102,7 @@ struct RootMove {
     int               selDepth         = 0;
     int               tbRank           = 0;
     Value             tbScore;
+    TimePoint         lastFound;
     std::vector<Move> pv;
 };
 

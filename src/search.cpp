@@ -197,7 +197,7 @@ void Search::Worker::start_searching() {
 
     if (int(options["MultiPV"]) == 1 && !limits.depth && !limits.mate && !skill.enabled()
         && rootMoves[0].pv[0] != Move::none())
-        bestThread = threads.get_best_thread()->worker.get();
+        bestThread = threads.get_best_thread(main_manager()->tm.start_time())->worker.get();
 
     main_manager()->bestPreviousScore        = bestThread->rootMoves[0].score;
     main_manager()->bestPreviousAverageScore = bestThread->rootMoves[0].averageScore;
@@ -1260,6 +1260,8 @@ moves_loop:  // When in check, search starts here
               *std::find(thisThread->rootMoves.begin(), thisThread->rootMoves.end(), move);
 
             rm.effort += nodes - nodeCount;
+
+            rm.lastFound = now();
 
             rm.averageScore =
               rm.averageScore != -VALUE_INFINITE ? (value + rm.averageScore) / 2 : value;

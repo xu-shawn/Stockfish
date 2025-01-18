@@ -49,6 +49,7 @@ class TimeManagement {
         return useNodesTime ? TimePoint(nodes()) : elapsed_time();
     }
     TimePoint elapsed_time() const { return now() - startTime; };
+    TimePoint start_time() const { return startTime; }
 
     void clear();
     void advance_nodes_time(std::int64_t nodes);

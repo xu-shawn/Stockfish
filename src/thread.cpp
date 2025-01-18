@@ -26,6 +26,7 @@
 #include <unordered_map>
 #include <utility>
 
+#include "misc.h"
 #include "movegen.h"
 #include "search.h"
 #include "syzygy/tbprobe.h"
@@ -180,7 +181,7 @@ void ThreadPool::set(const NumaConfig&                           numaConfig,
             const size_t    threadId = threads.size();
             const NumaIndex numaId   = doBindThreads ? boundThreadToNumaNode[threadId] : 0;
             auto            manager  = threadId == 0 ? std::unique_ptr<Search::ISearchManager>(
-                                             std::make_unique<Search::SearchManager>(updateContext))
+                             std::make_unique<Search::SearchManager>(updateContext))
                                                      : std::make_unique<Search::NullSearchManager>();
 
             // When not binding threads we want to force all access to happen
@@ -298,21 +299,28 @@ void ThreadPool::start_thinking(const OptionsMap&  options,
     main_thread()->start_searching();
 }
 
-Thread* ThreadPool::get_best_thread() const {
+Thread* ThreadPool::get_best_thread(TimePoint start) const {
 
-    Thread* bestThread = threads.front().get();
-    Value   minScore   = VALUE_NONE;
+    Thread*   bestThread = threads.front().get();
+    Value     minScore   = VALUE_NONE;
+    TimePoint maxTime    = 0;
 
     std::unordered_map<Move, int64_t, Move::MoveHash> votes(
       2 * std::min(size(), bestThread->worker->rootMoves.size()));
 
     // Find the minimum score of all threads
     for (auto&& th : threads)
+    {
         minScore = std::min(minScore, th->worker->rootMoves[0].score);
+        maxTime  = std::max<TimePoint>(maxTime, th->worker->rootMoves[0].score);
+    }
+
+    TimePoint maxElapsed = maxTime - start;
 
     // Vote according to score and depth, and select the best thread
-    auto thread_voting_value = [minScore](Thread* th) {
-        return (th->worker->rootMoves[0].score - minScore + 14) * int(th->worker->completedDepth);
+    auto thread_voting_value = [minScore, maxElapsed, start](Thread* th) {
+        return (th->worker->rootMoves[0].score - minScore + 14) * int(th->worker->completedDepth)
+             * (th->worker->rootMoves[0].lastFound - start) / maxElapsed;
     };
 
     for (auto&& th : threads)
