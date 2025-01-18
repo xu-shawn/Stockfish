@@ -1208,7 +1208,12 @@ moves_loop:  // When in check, search starts here
                 newDepth += doDeeperSearch - doShallowerSearch;
 
                 if (newDepth > d)
+                {
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+
+                    if (PvNode && ttData.move && value > (bestValue + 80 + 5 * newDepth))
+                        newDepth++;
+                }
 
                 // Post LMR continuation history updates (~1 Elo)
                 int bonus = (value >= beta) * 2048;
