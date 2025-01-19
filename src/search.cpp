@@ -934,7 +934,8 @@ moves_loop:  // When in check, search starts here
 
     value = bestValue;
 
-    int moveCount = 0;
+    int  moveCount = 0;
+    bool negExt    = false;
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -988,7 +989,7 @@ moves_loop:  // When in check, search starts here
         if (!rootNode && pos.non_pawn_material(us) && !is_loss(bestValue))
         {
             // Skip quiet moves if movecount exceeds our FutilityMoveCount threshold (~8 Elo)
-            if (moveCount >= futility_move_count(improving, depth))
+            if (moveCount >= futility_move_count(improving, depth + negExt))
                 mp.skip_quiet_moves();
 
             // Reduced depth of the next LMR search
@@ -1135,6 +1136,8 @@ moves_loop:  // When in check, search starts here
 
         // Add extension to new depth
         newDepth += extension;
+        if (moveCount == 1 && extension < 0)
+            negExt = true;
 
         // Update the current move (this must be done after singular extension search)
         ss->currentMove = move;
