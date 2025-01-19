@@ -53,41 +53,6 @@
 
 namespace Stockfish {
 
-int fallingEvalBase        = 11396;
-int fallingEvalMultiplier0 = 2035;
-int fallingEvalMultiplier1 = 968;
-
-int fallingEvalMin = 5786;
-int fallingEvalMax = 16752;
-
-int stableMoveCoefficient   = 14857;
-int unstableMoveCoefficient = 7046;
-
-int tmReductionNumerator   = 14540;
-int tmReductionDenominator = 21593;
-
-int bmInstabilityCoefficient = 18519;
-
-int nodesEffortTM  = 6540;
-int nodesEffortMin = 97056;
-
-int increaseDepthMultiplier = 5138;
-
-TUNE(fallingEvalBase,
-     fallingEvalMultiplier0,
-     fallingEvalMultiplier1,
-     fallingEvalMin,
-     fallingEvalMax,
-     stableMoveCoefficient,
-     unstableMoveCoefficient,
-     tmReductionNumerator,
-     tmReductionDenominator,
-     bmInstabilityCoefficient,
-     nodesEffortTM,
-     increaseDepthMultiplier);
-
-TUNE(SetRange(90000, 100000), nodesEffortMin);
-
 namespace TB = Tablebases;
 
 void syzygy_extend_pv(const OptionsMap&            options,
@@ -485,21 +450,16 @@ void Search::Worker::iterative_deepening() {
             int nodesEffort = rootMoves[0].effort * 100000 / std::max(size_t(1), size_t(nodes));
 
             double fallingEval =
-              (fallingEvalBase
-               + fallingEvalMultiplier0 * (mainThread->bestPreviousAverageScore - bestValue)
-               + fallingEvalMultiplier1 * (mainThread->iterValue[iterIdx] - bestValue))
-              / 100000.0;
-            fallingEval =
-              std::clamp(fallingEval, fallingEvalMin / 10000.0, fallingEvalMax / 10000.0);
+              (10.805 + 2.073 * (mainThread->bestPreviousAverageScore - bestValue)
+               + 0.951 * (mainThread->iterValue[iterIdx] - bestValue))
+              / 100.0;
+            fallingEval = std::clamp(fallingEval, 0.5755, 1.6604);
 
             // If the bestMove is stable over several iterations, reduce time accordingly
-            timeReduction    = lastBestMoveDepth + 8 < completedDepth
-                               ? stableMoveCoefficient / 10000.0
-                               : unstableMoveCoefficient / 10000.0;
-            double reduction = (tmReductionNumerator / 10000.0 + mainThread->previousTimeReduction)
-                             / (tmReductionDenominator / 10000.0 * timeReduction);
-            double bestMoveInstability =
-              1 + bmInstabilityCoefficient / 10000.0 * totBestMoveChanges / threads.size();
+            timeReduction = lastBestMoveDepth + 8 < completedDepth ? 1.5820 : 0.6792;
+            double reduction =
+              (1.4719 + mainThread->previousTimeReduction) / (2.1922 * timeReduction);
+            double bestMoveInstability = 1 + 1.8159 * totBestMoveChanges / threads.size();
 
             double totalTime =
               mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability;
@@ -510,8 +470,8 @@ void Search::Worker::iterative_deepening() {
 
             auto elapsedTime = elapsed();
 
-            if (completedDepth >= 10 && nodesEffort >= nodesEffortMin
-                && elapsedTime > totalTime * nodesEffortTM / 10000.0 && !mainThread->ponder)
+            if (completedDepth >= 10 && nodesEffort >= 97308 && elapsedTime > totalTime * 0.6650
+                && !mainThread->ponder)
                 threads.stop = true;
 
             // Stop the search if we have exceeded the totalTime
@@ -525,9 +485,7 @@ void Search::Worker::iterative_deepening() {
                     threads.stop = true;
             }
             else
-                threads.increaseDepth =
-                  mainThread->ponder
-                  || elapsedTime <= totalTime * increaseDepthMultiplier / 10000.0;
+                threads.increaseDepth = mainThread->ponder || elapsedTime <= totalTime * 0.4964;
         }
 
         mainThread->iterValue[iterIdx] = bestValue;
