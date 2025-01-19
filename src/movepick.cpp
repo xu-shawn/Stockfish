@@ -248,20 +248,17 @@ top:
         [[fallthrough]];
 
     case QUIET_INIT :
-        if (!skipQuiets)
-        {
-            cur      = endBadCaptures;
-            endMoves = beginBadQuiets = endBadQuiets = generate<QUIETS>(pos, cur);
+        cur      = endBadCaptures;
+        endMoves = beginBadQuiets = endBadQuiets = generate<QUIETS>(pos, cur);
 
-            score<QUIETS>();
-            partial_insertion_sort(cur, endMoves, quiet_threshold(depth));
-        }
+        score<QUIETS>();
+        partial_insertion_sort(cur, endMoves, quiet_threshold(depth));
 
         ++stage;
         [[fallthrough]];
 
     case GOOD_QUIET :
-        if (!skipQuiets && select([]() { return true; }))
+        if (select([]() { return true; }))
         {
             if ((cur - 1)->value > -7998 || (cur - 1)->value <= quiet_threshold(depth))
                 return *(cur - 1);
@@ -289,8 +286,7 @@ top:
         [[fallthrough]];
 
     case BAD_QUIET :
-        if (!skipQuiets)
-            return select([]() { return true; });
+        return select([]() { return true; });
 
         return Move::none();
 
@@ -314,7 +310,5 @@ top:
     assert(false);
     return Move::none();  // Silence warning
 }
-
-void MovePicker::skip_quiet_moves() { skipQuiets = true; }
 
 }  // namespace Stockfish
