@@ -46,6 +46,9 @@ int Eval::simple_eval(const Position& pos, Color c) {
 }
 
 bool Eval::use_smallnet(const Position& pos) {
+    if (pos.rule50_count() > 10)
+        return false;
+
     int simpleEval = simple_eval(pos, pos.side_to_move());
     return std::abs(simpleEval) > 962;
 }
