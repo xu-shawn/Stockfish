@@ -1348,7 +1348,7 @@ moves_loop:  // When in check, search starts here
                     alpha = value;  // Update alpha! Always alpha < beta
                 }
             }
-            else if (move == ttData.move && ttData.depth >= depth / 2
+            else if (!PvNode && move == ttData.move && ttData.depth >= depth / 2
                      && value < alpha - 100 - 40 * depth)
                 break;
         }
