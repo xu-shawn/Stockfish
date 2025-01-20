@@ -1251,7 +1251,8 @@ moves_loop:  // When in check, search starts here
 
             value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
 
-            if (newDepth == 0 && value >= beta && ss->ply <= thisThread->rootDepth * 2)
+            if (newDepth == 0 && (value <= alpha || value >= beta)
+                && ss->ply <= thisThread->rootDepth * 2)
                 value = -search<PV>(pos, ss + 1, -beta, -alpha, 1, false);
         }
 
