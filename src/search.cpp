@@ -799,6 +799,7 @@ Value Search::Worker::search(
         && eval >= beta && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
         return beta + (eval - beta) / 3;
 
+    improving &= ss->staticEval > (ss - 2)->staticEval + 6 * depth;
     improving |= ss->staticEval >= beta + 97;
 
     // Step 9. Null move search with verification search (~35 Elo)
