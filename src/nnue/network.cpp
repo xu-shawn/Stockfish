@@ -163,14 +163,10 @@ void Network<Arch, Transformer>::load(const std::string& rootDirectory, std::str
         if (evalFile.current != evalfilePath)
         {
             if (directory != "<internal>")
-            {
-                load_user_net(directory, evalfilePath);
-            }
+            { load_user_net(directory, evalfilePath); }
 
             if (directory == "<internal>" && evalfilePath == evalFile.defaultName)
-            {
-                load_internal();
-            }
+            { load_internal(); }
         }
     }
 }
@@ -216,7 +212,7 @@ Network<Arch, Transformer>::evaluate(const Position&                         pos
 
     constexpr uint64_t alignment = CacheLineSize;
 
-#if defined(ALIGNAS_ON_STACK_VARIABLES_BROKEN)
+#ifdef ALIGNAS_ON_STACK_VARIABLES_BROKEN
     TransformedFeatureType
       transformedFeaturesUnaligned[FeatureTransformer<FTDimensions, nullptr>::BufferSize
                                    + alignment / sizeof(TransformedFeatureType)];
