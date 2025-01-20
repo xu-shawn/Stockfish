@@ -936,6 +936,9 @@ moves_loop:  // When in check, search starts here
 
     int moveCount = 0;
 
+    if (!cutNode)
+        Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
+
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
     while ((move = mp.next_move()) != Move::none())
