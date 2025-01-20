@@ -41,13 +41,14 @@ class MovePicker {
     MovePicker(const Position&,
                Move,
                Depth,
+               Square,
                const ButterflyHistory*,
                const LowPlyHistory*,
                const CapturePieceToHistory*,
                const PieceToHistory**,
                const PawnHistory*,
                int);
-    MovePicker(const Position&, Move, int, const CapturePieceToHistory*);
+    MovePicker(const Position&, Move, Square, int, const CapturePieceToHistory*);
     Move next_move();
     void skip_quiet_moves();
 
@@ -66,6 +67,7 @@ class MovePicker {
     const PieceToHistory**       continuationHistory;
     const PawnHistory*           pawnHistory;
     Move                         ttMove;
+    Square                       prevSq;
     ExtMove *                    cur, *endMoves, *endBadCaptures, *beginBadQuiets, *endBadQuiets;
     int                          stage;
     int                          threshold;
