@@ -250,12 +250,14 @@ void Search::Worker::iterative_deepening() {
         (ss - i)->continuationCorrectionHistory = &this->continuationCorrectionHistory[NO_PIECE][0];
         (ss - i)->staticEval                    = VALUE_NONE;
         (ss - i)->reduction                     = 0;
+        (ss - i)->fractionalReduction           = 0;
     }
 
     for (int i = 0; i <= MAX_PLY + 2; ++i)
     {
-        (ss + i)->ply       = i;
-        (ss + i)->reduction = 0;
+        (ss + i)->ply                 = i;
+        (ss + i)->reduction           = 0;
+        (ss - i)->fractionalReduction = 0;
     }
 
     ss->pv = pv;
@@ -575,8 +577,7 @@ Value Search::Worker::search(
     Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
-    int   priorReduction = ss->reduction;
-    ss->reduction        = 0;
+    int   priorReduction = (ss - 1)->reduction;
     Piece movedPiece;
 
     ValueList<Move, 32> capturesSearched;
@@ -1156,8 +1157,12 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
-        r += 292;
+        // Base reduction offset
+        r += 364;
 
+        r += (ss - 1)->fractionalReduction;
+
+        // Increase reduction when correction is large (~1 Elo)
         r -= std::abs(correctionValue) / 33838;
 
         // Increase reduction for cut nodes (~4 Elo)
@@ -1198,15 +1203,18 @@ moves_loop:  // When in check, search starts here
             // To prevent problems when the max value is less than the min value,
             // std::clamp has been replaced by a more robust implementation.
 
-
             Depth d = std::max(
               1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));
+            Depth effectiveReduction = std::max(-1024 * !allNode - 1024 * (PvNode && !bestMove),
+                                                std::min(r, (newDepth - 1) * 1024));
 
-            (ss + 1)->reduction = newDepth - d;
+            ss->reduction           = newDepth - d;
+            ss->fractionalReduction = effectiveReduction % 1024;
 
-            value               = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
-            (ss + 1)->reduction = 0;
+            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
 
+            ss->reduction           = 0;
+            ss->fractionalReduction = 0;
 
             // Do a full-depth search when reduced LMR search fails high
             if (value > alpha && d < newDepth)
