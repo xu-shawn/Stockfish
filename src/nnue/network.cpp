@@ -454,7 +454,7 @@ bool Network<Arch, Transformer>::write_parameters(std::ostream&      stream,
     return bool(stream);
 }
 
-// Explicit template instantiation
+// Explicit template instantiations
 
 template class Network<
   NetworkArchitecture<TransformedFeatureDimensionsBig, L2Big, L3Big>,

@@ -57,6 +57,8 @@ struct AccumulatorCaches {
     template<IndexType Size>
     struct alignas(CacheLineSize) Cache {
 
+        static constexpr std::size_t Duplication = 1;
+
         struct alignas(CacheLineSize) Entry {
             BiasType       accumulation[Size];
             PSQTWeightType psqtAccumulation[PSQTBuckets];
@@ -66,7 +68,6 @@ struct AccumulatorCaches {
             // To initialize a refresh entry, we set all its bitboards empty,
             // so we put the biases in the accumulation, without any weights on top
             void clear(const BiasType* biases) {
-
                 std::memcpy(accumulation, biases, sizeof(accumulation));
                 std::memset((uint8_t*) this + offsetof(Entry, psqtAccumulation), 0,
                             sizeof(Entry) - offsetof(Entry, psqtAccumulation));
@@ -76,13 +77,14 @@ struct AccumulatorCaches {
         template<typename Network>
         void clear(const Network& network) {
             for (auto& entries1D : entries)
-                for (auto& entry : entries1D)
-                    entry.clear(network.featureTransformer->biases);
+                for (auto& entryCluster : entries1D)
+                    for (auto& entry : entryCluster)
+                        entry.clear(network.featureTransformer->biases);
         }
 
-        std::array<Entry, COLOR_NB>& operator[](Square sq) { return entries[sq]; }
+        Entry& get(const Square ksq, const Color perspective, const Position& pos);
 
-        std::array<std::array<Entry, COLOR_NB>, SQUARE_NB> entries;
+        std::array<std::array<std::array<Entry, Duplication>, COLOR_NB>, SQUARE_NB> entries;
     };
 
     template<typename Networks>
