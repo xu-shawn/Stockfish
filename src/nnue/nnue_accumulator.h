@@ -65,13 +65,12 @@ struct AccumulatorCaches {
             Bitboard       byColorBB[COLOR_NB];
             Bitboard       byTypeBB[PIECE_TYPE_NB];
 
-            // To initialize a refresh entry, we set all its bitboards empty,
-            // so we put the biases in the accumulation, without any weights on top
-            void clear(const BiasType* biases) {
-                std::memcpy(accumulation, biases, sizeof(accumulation));
-                std::memset((uint8_t*) this + offsetof(Entry, psqtAccumulation), 0,
-                            sizeof(Entry) - offsetof(Entry, psqtAccumulation));
-            }
+            void clear(const BiasType* biases);
+        };
+
+        struct EntryPair {
+            const Entry& best;
+            Entry&       worst;
         };
 
         template<typename Network>
@@ -82,7 +81,7 @@ struct AccumulatorCaches {
                         entry.clear(network.featureTransformer->biases);
         }
 
-        Entry& get(const Square ksq, const Color perspective, const Position& pos);
+        EntryPair get(const Square ksq, const Color perspective, const Position& pos);
 
         std::array<std::array<std::array<Entry, Duplication>, COLOR_NB>, SQUARE_NB> entries;
     };

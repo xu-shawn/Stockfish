@@ -665,8 +665,10 @@ class FeatureTransformer {
                                           AccumulatorCaches::Cache<HalfDimensions>* cache) const {
         assert(cache != nullptr);
 
-        Square                ksq   = pos.square<KING>(Perspective);
-        auto&                 entry = cache->get(ksq, Perspective, pos);
+        Square                ksq         = pos.square<KING>(Perspective);
+        auto                  entries     = cache->get(ksq, Perspective, pos);
+        const auto&           entry_read  = entries.best;
+        auto&                 entry_write = entries.worst;
         FeatureSet::IndexList removed, added;
 
         for (Color c : {WHITE, BLACK})
@@ -674,7 +676,7 @@ class FeatureTransformer {
             for (PieceType pt = PAWN; pt <= KING; ++pt)
             {
                 const Piece    piece    = make_piece(c, pt);
-                const Bitboard oldBB    = entry.byColorBB[c] & entry.byTypeBB[pt];
+                const Bitboard oldBB    = entry_read.byColorBB[c] & entry_read.byTypeBB[pt];
                 const Bitboard newBB    = pos.pieces(c, pt);
                 Bitboard       toRemove = oldBB & ~newBB;
                 Bitboard       toAdd    = newBB & ~oldBB;
@@ -703,10 +705,11 @@ class FeatureTransformer {
         {
             auto* accTile = reinterpret_cast<vec_t*>(
               &accumulator.accumulation[Perspective][j * Tiling::TileHeight]);
-            auto* entryTile = reinterpret_cast<vec_t*>(&entry.accumulation[j * Tiling::TileHeight]);
+            auto* entryReadTile =
+              reinterpret_cast<const vec_t*>(&entry_read.accumulation[j * Tiling::TileHeight]);
 
             for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-                acc[k] = entryTile[k];
+                acc[k] = entryReadTile[k];
 
             std::size_t i = 0;
             for (; i < std::min(removed.size(), added.size()); ++i)
@@ -740,8 +743,11 @@ class FeatureTransformer {
                     acc[k] = vec_add_16(acc[k], column[k]);
             }
 
+            auto* entryWriteTile =
+              reinterpret_cast<vec_t*>(&entry_write.accumulation[j * Tiling::TileHeight]);
+
             for (IndexType k = 0; k < Tiling::NumRegs; k++)
-                vec_store(&entryTile[k], acc[k]);
+                vec_store(&entryWriteTile[k], acc[k]);
             for (IndexType k = 0; k < Tiling::NumRegs; k++)
                 vec_store(&accTile[k], acc[k]);
         }
@@ -750,11 +756,11 @@ class FeatureTransformer {
         {
             auto* accTilePsqt = reinterpret_cast<psqt_vec_t*>(
               &accumulator.psqtAccumulation[Perspective][j * Tiling::PsqtTileHeight]);
-            auto* entryTilePsqt =
-              reinterpret_cast<psqt_vec_t*>(&entry.psqtAccumulation[j * Tiling::PsqtTileHeight]);
+            auto* entryReadTilePsqt = reinterpret_cast<const psqt_vec_t*>(
+              &entry_read.psqtAccumulation[j * Tiling::PsqtTileHeight]);
 
             for (std::size_t k = 0; k < Tiling::NumPsqtRegs; ++k)
-                psqt[k] = entryTilePsqt[k];
+                psqt[k] = entryReadTilePsqt[k];
 
             for (std::size_t i = 0; i < removed.size(); ++i)
             {
@@ -775,8 +781,11 @@ class FeatureTransformer {
                     psqt[k] = vec_add_psqt_32(psqt[k], columnPsqt[k]);
             }
 
+            auto* entryWriteTilePsqt =
+              reinterpret_cast<vec_t*>(&entry_write.psqtAccumulation[j * Tiling::PsqtTileHeight]);
+
             for (std::size_t k = 0; k < Tiling::NumPsqtRegs; ++k)
-                vec_store_psqt(&entryTilePsqt[k], psqt[k]);
+                vec_store_psqt(&entryWriteTilePsqt[k], psqt[k]);
             for (std::size_t k = 0; k < Tiling::NumPsqtRegs; ++k)
                 vec_store_psqt(&accTilePsqt[k], psqt[k]);
         }
@@ -787,36 +796,38 @@ class FeatureTransformer {
         {
             const IndexType offset = HalfDimensions * index;
             for (IndexType j = 0; j < HalfDimensions; ++j)
-                entry.accumulation[j] -= weights[offset + j];
+                entry_write.accumulation[j] = entry_read.accumulation[j] - weights[offset + j];
 
             for (std::size_t k = 0; k < PSQTBuckets; ++k)
-                entry.psqtAccumulation[k] -= psqtWeights[index * PSQTBuckets + k];
+                entry_write.psqtAccumulation[k] =
+                  entry_read.psqtAccumulation[k] - psqtWeights[index * PSQTBuckets + k];
         }
         for (const auto index : added)
         {
             const IndexType offset = HalfDimensions * index;
             for (IndexType j = 0; j < HalfDimensions; ++j)
-                entry.accumulation[j] += weights[offset + j];
+                entry_write.accumulation[j] = entry_read.accumulation[j] + weights[offset + j];
 
             for (std::size_t k = 0; k < PSQTBuckets; ++k)
-                entry.psqtAccumulation[k] += psqtWeights[index * PSQTBuckets + k];
+                entry_write.psqtAccumulation[k] =
+                  entry_read.psqtAccumulation[k] + psqtWeights[index * PSQTBuckets + k];
         }
 
         // The accumulator of the refresh entry has been updated.
         // Now copy its content to the actual accumulator we were refreshing.
 
-        std::memcpy(accumulator.accumulation[Perspective], entry.accumulation,
+        std::memcpy(accumulator.accumulation[Perspective], entry_write.accumulation,
                     sizeof(BiasType) * HalfDimensions);
 
-        std::memcpy(accumulator.psqtAccumulation[Perspective], entry.psqtAccumulation,
+        std::memcpy(accumulator.psqtAccumulation[Perspective], entry_write.psqtAccumulation,
                     sizeof(int32_t) * PSQTBuckets);
 #endif
 
         for (Color c : {WHITE, BLACK})
-            entry.byColorBB[c] = pos.pieces(c);
+            entry_write.byColorBB[c] = pos.pieces(c);
 
         for (PieceType pt = PAWN; pt <= KING; ++pt)
-            entry.byTypeBB[pt] = pos.pieces(pt);
+            entry_write.byTypeBB[pt] = pos.pieces(pt);
     }
 
 
