@@ -57,7 +57,7 @@ struct AccumulatorCaches {
     template<IndexType Size>
     struct alignas(CacheLineSize) Cache {
 
-        static constexpr std::size_t Duplication = 1;
+        static constexpr std::size_t Duplication = 2;
 
         struct alignas(CacheLineSize) Entry {
             BiasType       accumulation[Size];

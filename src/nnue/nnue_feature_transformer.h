@@ -746,9 +746,9 @@ class FeatureTransformer {
             auto* entryWriteTile =
               reinterpret_cast<vec_t*>(&entry_write.accumulation[j * Tiling::TileHeight]);
 
-            for (IndexType k = 0; k < Tiling::NumRegs; k++)
+            for (IndexType k = 0; k < Tiling::NumRegs; ++k)
                 vec_store(&entryWriteTile[k], acc[k]);
-            for (IndexType k = 0; k < Tiling::NumRegs; k++)
+            for (IndexType k = 0; k < Tiling::NumRegs; ++k)
                 vec_store(&accTile[k], acc[k]);
         }
 
@@ -781,8 +781,8 @@ class FeatureTransformer {
                     psqt[k] = vec_add_psqt_32(psqt[k], columnPsqt[k]);
             }
 
-            auto* entryWriteTilePsqt =
-              reinterpret_cast<vec_t*>(&entry_write.psqtAccumulation[j * Tiling::PsqtTileHeight]);
+            auto* entryWriteTilePsqt = reinterpret_cast<psqt_vec_t*>(
+              &entry_write.psqtAccumulation[j * Tiling::PsqtTileHeight]);
 
             for (std::size_t k = 0; k < Tiling::NumPsqtRegs; ++k)
                 vec_store_psqt(&entryWriteTilePsqt[k], psqt[k]);
