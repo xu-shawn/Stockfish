@@ -49,8 +49,10 @@ enum PawnHistoryType {
     Correction
 };
 
+inline int zobrist_index(const Position& pos) { return pos.key() & (CORRECTION_HISTORY_SIZE - 1); }
+
 template<PawnHistoryType T = Normal>
-inline int pawn_structure_index(const Position& pos) {
+int pawn_structure_index(const Position& pos) {
     return pos.pawn_key() & ((T == Normal ? PAWN_HISTORY_SIZE : CORRECTION_HISTORY_SIZE) - 1);
 }
 
@@ -136,6 +138,7 @@ enum CorrHistType {
     NonPawn,       // By Non-pawn material positions and color
     PieceTo,       // By [piece][to] move
     Continuation,  // Combined history of move pairs
+    Single,        // By color and Zobrist key
 };
 
 namespace Detail {
