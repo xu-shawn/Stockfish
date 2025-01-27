@@ -163,7 +163,7 @@ struct CorrHistTypedef<Continuation> {
 
 template<>
 struct CorrHistTypedef<PSQT> {
-    using type = MultiArray<std::int16_t, PIECE_NB, SQUARE_NB, COLOR_NB>;
+    using type = Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, PIECE_NB, SQUARE_NB, COLOR_NB>;
 };
 
 }

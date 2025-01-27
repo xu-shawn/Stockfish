@@ -33,6 +33,7 @@
 #include <string>
 #include <utility>
 
+#include "bitboard.h"
 #include "evaluate.h"
 #include "history.h"
 #include "misc.h"
@@ -94,7 +95,23 @@ int correction_value(const Worker& w, const Position& pos, const Stack* ss) {
       m.is_ok() ? (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
                  : 0;
 
-    return (7000 * pcv + 6300 * micv + 7550 * (wnpcv + bnpcv) + 6320 * cntcv);
+    auto psqtcv = 0;
+
+    for (const Color c : {WHITE, BLACK})
+    {
+        for (const PieceType pt : {PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING})
+        {
+            Bitboard piece_bb = pos.pieces(c, pt);
+
+            while (piece_bb)
+            {
+                const Square sq = pop_lsb(piece_bb);
+                psqtcv += w.psqtCorrectionHistory[make_piece(c, pt)][sq][us];
+            }
+        }
+    }
+
+    return (7000 * pcv + 6300 * micv + 7550 * (wnpcv + bnpcv) + 6320 * cntcv + 200 * psqtcv);
 }
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation
@@ -121,7 +138,22 @@ void update_correction_history(const Position& pos,
       << bonus * nonPawnWeight / 128;
 
     if (m.is_ok())
-        (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()] << bonus;
+        (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
+          << bonus * 128 / 128;
+
+    for (const Color c : {WHITE, BLACK})
+    {
+        for (const PieceType pt : {PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING})
+        {
+            Bitboard piece_bb = pos.pieces(c, pt);
+
+            while (piece_bb)
+            {
+                const Square sq = pop_lsb(piece_bb);
+                workerThread.psqtCorrectionHistory[make_piece(c, pt)][sq][us] << bonus * 128 / 128;
+            }
+        }
+    }
 }
 
 // History and stats update bonus, based on depth
@@ -537,6 +569,7 @@ void Search::Worker::clear() {
     captureHistory.fill(-631);
     pawnHistory.fill(-1210);
     pawnCorrectionHistory.fill(0);
+    psqtCorrectionHistory.fill(0);
     minorPieceCorrectionHistory.fill(0);
     nonPawnCorrectionHistory[WHITE].fill(0);
     nonPawnCorrectionHistory[BLACK].fill(0);
