@@ -291,6 +291,7 @@ class Worker {
     CorrectionHistory<Minor>        minorPieceCorrectionHistory;
     CorrectionHistory<NonPawn>      nonPawnCorrectionHistory[COLOR_NB];
     CorrectionHistory<Continuation> continuationCorrectionHistory;
+    CorrectionHistory<PSQT>         psqtCorrectionHistory;
 
    private:
     void iterative_deepening();

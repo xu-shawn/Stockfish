@@ -136,6 +136,7 @@ enum CorrHistType {
     NonPawn,       // By non-pawn material positions and color
     PieceTo,       // By [piece][to] move
     Continuation,  // Combined history of move pairs
+    PSQT,          // By [piece][square][side]
 };
 
 namespace Detail {
@@ -158,6 +159,11 @@ struct CorrHistTypedef<PieceTo> {
 template<>
 struct CorrHistTypedef<Continuation> {
     using type = MultiArray<CorrHistTypedef<PieceTo>::type, PIECE_NB, SQUARE_NB>;
+};
+
+template<>
+struct CorrHistTypedef<PSQT> {
+    using type = MultiArray<std::int16_t, PIECE_NB, SQUARE_NB, COLOR_NB>;
 };
 
 }
