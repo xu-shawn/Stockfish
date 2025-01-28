@@ -1115,6 +1115,10 @@ moves_loop:  // When in check, search starts here
                     extension = -2;
             }
 
+            else if (PvNode && move == ttData.move && ttData.depth >= depth / 2
+                     && (ttData.bound & BOUND_UPPER) && ttData.value > beta + depth * depth)
+                extension = 1;
+
             // Extension for capturing the previous moved piece
             else if (PvNode && move.to_sq() == prevSq
                      && thisThread->captureHistory[movedPiece][move.to_sq()]
