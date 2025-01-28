@@ -111,7 +111,9 @@ int correction_value(const Worker& w, const Position& pos, const Stack* ss) {
         }
     }
 
-    return (7000 * pcv + 6300 * micv + 7550 * (wnpcv + bnpcv) + 6320 * cntcv + 200 * psqtcv);
+    psqtcv /= pos.count<ALL_PIECES>();
+
+    return (6000 * pcv + 5200 * micv + 6250 * (wnpcv + bnpcv) + 5320 * cntcv + 6300 * psqtcv);
 }
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation
