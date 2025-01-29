@@ -1116,7 +1116,7 @@ moves_loop:  // When in check, search starts here
             }
 
             else if (PvNode && move == ttData.move && !ttCapture && ttData.depth >= depth / 2
-                     && (ttData.bound & BOUND_UPPER) && ttData.value > beta + depth * depth / 2)
+                     && (ttData.bound & BOUND_UPPER) && ttData.value > beta + depth * depth)
                 extension = 1;
 
             // Extension for capturing the previous moved piece
