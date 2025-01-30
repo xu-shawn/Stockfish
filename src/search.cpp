@@ -848,8 +848,12 @@ Value Search::Worker::search(
     // Step 10. Internal iterative reductions
     // For PV nodes without a ttMove as well as for deep enough cutNodes, we decrease depth.
     // (* Scaler) Especially if they make IIR more aggressive.
-    //if (((PvNode || cutNode) && depth >= 7 - 4 * PvNode) && !ttData.move)
-    //    depth -= 2;
+    if ((PvNode || (cutNode && depth >= 7)) && !ttData.move)
+        depth -= 2;
+
+    // Use qsearch if depth <= 0
+    if (depth <= 0)
+        return qsearch<PV>(pos, ss, alpha, beta);
 
     // Step 11. ProbCut
     // If we have a good enough capture (or queen promotion) and a reduced search
@@ -1236,6 +1240,8 @@ moves_loop:  // When in check, search starts here
 
             // Extend move from transposition table if we are about to dive into qsearch.
             if (move == ttData.move && thisThread->rootDepth > 8)
+                newDepth = std::max(newDepth, 1);
+            else if ((ss-1)->isTTMove && moveCount == 1 && r < - 5000)
                 newDepth = std::max(newDepth, 1);
 
             value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
