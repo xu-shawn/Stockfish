@@ -936,7 +936,8 @@ moves_loop:  // When in check, search starts here
 
     value = bestValue;
 
-    int moveCount = 0;
+    int   moveCount = 0;
+    Depth bmDepth   = DEPTH_UNSEARCHED;
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -1242,6 +1243,9 @@ moves_loop:  // When in check, search starts here
             if (move == ttData.move && thisThread->rootDepth > 8)
                 newDepth = std::max(newDepth, 1);
 
+            if constexpr (PvNode)
+                newDepth = std::max(newDepth, bmDepth);
+
             value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
         }
 
@@ -1336,6 +1340,9 @@ moves_loop:  // When in check, search starts here
                     // Reduce other moves if we have found at least one score improvement
                     if (depth > 2 && depth < 14 && !is_decisive(value))
                         depth -= 2;
+
+                    if constexpr (PvNode)
+                        bmDepth = depth;
 
                     assert(depth > 0);
                     alpha = value;  // Update alpha! Always alpha < beta
