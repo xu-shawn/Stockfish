@@ -800,7 +800,15 @@ Value Search::Worker::search(
                - (ss - 1)->statScore / 310 + 40 - std::abs(correctionValue) / 131072
              >= beta
         && eval >= beta && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
+    {
+        if (!priorCapture && prevSq != SQ_NONE && ((ss - 1)->moveCount == 1 + (ss - 1)->ttHit))
+        {
+            const int malus = -stat_malus(depth);
+            thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << malus * 128 / 1024;
+        }
+
         return beta + (eval - beta) / 3;
+    }
 
     // Step 9. Null move search with verification search
     if (cutNode && (ss - 1)->currentMove != Move::null() && eval >= beta
