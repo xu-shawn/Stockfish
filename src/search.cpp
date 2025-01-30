@@ -1150,7 +1150,7 @@ moves_loop:  // When in check, search starts here
 
         r += 307 - moveCount * 64;
 
-        r -= std::abs(correctionValue) / 34112;
+        r -= std::abs(correctionValue + 927180) / 34112;
 
         // Increase reduction for cut nodes
         if (cutNode)
@@ -1240,8 +1240,6 @@ moves_loop:  // When in check, search starts here
 
             // Extend move from transposition table if we are about to dive into qsearch.
             if (move == ttData.move && thisThread->rootDepth > 8)
-                newDepth = std::max(newDepth, 1);
-            else if ((ss-1)->isTTMove && moveCount == 1 && r < - 6000)
                 newDepth = std::max(newDepth, 1);
 
             value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
