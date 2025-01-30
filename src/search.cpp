@@ -801,7 +801,7 @@ Value Search::Worker::search(
              >= beta
         && eval >= beta && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
     {
-        if (!priorCapture && prevSq != SQ_NONE && ((ss - 1)->moveCount == 1 + (ss - 1)->ttHit))
+        if (!priorCapture && prevSq != SQ_NONE)
         {
             const int malus = -stat_malus(depth);
             thisThread->mainHistory[~us][((ss - 1)->currentMove).from_to()] << malus * 128 / 1024;
