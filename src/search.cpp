@@ -1150,7 +1150,7 @@ moves_loop:  // When in check, search starts here
 
         r += 307 - moveCount * 64;
 
-        r -= std::abs(correctionValue + 5 * 927180 / 4) / 34112;
+        r -= std::abs(correctionValue) / 34112;
 
         // Increase reduction for cut nodes
         if (cutNode)
@@ -1334,7 +1334,7 @@ moves_loop:  // When in check, search starts here
                 else
                 {
                     // Reduce other moves if we have found at least one score improvement
-                    if (depth > 2 && depth < 14 && !is_decisive(value))
+                    if (depth > 3 && depth < 14 && !is_decisive(value))
                         depth -= 2;
 
                     assert(depth > 0);
