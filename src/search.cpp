@@ -981,9 +981,6 @@ moves_loop:  // When in check, search starts here
 
         Depth r = reduction(improving, depth, moveCount, delta);
 
-        if (ss->ttPv)
-            r += 256;
-
         // Step 14. Pruning at shallow depth.
         // Depth conditions are important for mate finding.
         if (!rootNode && pos.non_pawn_material(us) && !is_loss(bestValue))
@@ -1144,7 +1141,7 @@ moves_loop:  // When in check, search starts here
 
         // Decrease reduction for PvNodes (*Scaler)
         if (ss->ttPv)
-            r -= 1037 + (ttData.value > alpha) * 965 + (ttData.depth >= depth) * 960 + 256;
+            r -= 1037 + (ttData.value > alpha) * 965 + (ttData.depth >= depth) * 960;
 
         if (PvNode)
             r -= 1018;
@@ -1153,7 +1150,7 @@ moves_loop:  // When in check, search starts here
 
         r += 307 - moveCount * 64;
 
-        r -= std::abs(correctionValue) / 34112;
+        r -= std::abs(correctionValue + 927180 / 4) / 34112;
 
         // Increase reduction for cut nodes
         if (cutNode)
