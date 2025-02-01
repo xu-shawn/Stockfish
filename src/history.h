@@ -165,6 +165,42 @@ struct CorrHistTypedef<Continuation> {
 template<CorrHistType T>
 using CorrectionHistory = typename Detail::CorrHistTypedef<T>::type;
 
+template<typename T, int D>
+class ComplexityEntry {
+
+    static_assert(std::is_arithmetic<T>::value, "Not an arithmetic type");
+    static_assert(D <= std::numeric_limits<T>::max(), "D overflows T");
+
+    T entry;
+
+   public:
+    ComplexityEntry& operator=(const T& v) {
+        assert(v >= 0);
+        entry = v;
+        return *this;
+    }
+    operator const T&() const { return entry; }
+
+    void operator<<(int bonus) {
+        // Make sure that bonus is in range [-D, D]
+        int oldEntry     = entry;
+        int clampedBonus = std::clamp(bonus, -entry, D);
+        entry += clampedBonus - entry * clampedBonus / D;
+
+        if (entry < 0)
+        {
+            sync_cout << oldEntry << " " << bonus << sync_endl;
+        }
+
+        assert(entry <= D);
+        assert(entry >= 0);
+    }
+};
+
+using ComplexityHistory = MultiArray<ComplexityEntry<std::int16_t, CORRECTION_HISTORY_LIMIT>,
+                                     CORRECTION_HISTORY_SIZE,
+                                     COLOR_NB>;
+
 }  // namespace Stockfish
 
 #endif  // #ifndef HISTORY_H_INCLUDED

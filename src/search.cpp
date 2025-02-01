@@ -936,7 +936,8 @@ moves_loop:  // When in check, search starts here
 
     value = bestValue;
 
-    int moveCount = 0;
+    int       moveCount  = 0;
+    const int complexity = complexityHistory[pawn_structure_index<Correction>(pos)][us];
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -1149,6 +1150,8 @@ moves_loop:  // When in check, search starts here
 
         r -= std::abs(correctionValue) / 34112;
 
+        r -= complexity;
+
         // Increase reduction for cut nodes
         if (cutNode)
             r += 2355 - (ttData.depth >= depth && ss->ttPv) * 1141;
@@ -1186,8 +1189,6 @@ moves_loop:  // When in check, search starts here
             // beyond the first move depth.
             // To prevent problems when the max value is less than the min value,
             // std::clamp has been replaced by a more robust implementation.
-
-
             Depth d = std::max(
               1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));
 
@@ -1441,6 +1442,12 @@ moves_loop:  // When in check, search starts here
 
         if (m.is_ok())
             (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()] << bonus;
+
+        auto complexityBonus =
+          std::clamp(std::abs(bestValue - ss->staticEval) - 150, -CORRECTION_HISTORY_LIMIT / 4,
+                     CORRECTION_HISTORY_LIMIT / 4);
+
+        thisThread->complexityHistory[pawn_structure_index<Correction>(pos)][us] << complexityBonus;
     }
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
