@@ -555,6 +555,9 @@ void Search::Worker::clear() {
     for (size_t i = 1; i < reductions.size(); ++i)
         reductions[i] = int(2143 / 100.0 * std::log(i));
 
+    for (size_t i = 1; i < logx128.size(); ++i)
+        logx128[i] = int(128 * std::log(i));
+
     refreshTable.clear(networks[numaAccessToken]);
 }
 
@@ -1089,7 +1092,9 @@ moves_loop:  // When in check, search starts here
                 && is_valid(ttData.value) && !is_decisive(ttData.value)
                 && (ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 3)
             {
-                Value singularBeta  = ttData.value - (52 + 74 * (ss->ttPv && !PvNode)) * depth / 64;
+                Value singularBeta = ttData.value
+                                   - (52 + 74 * (ss->ttPv && !PvNode))
+                                       * std::min((384 + 384 * logx128[depth]), depth * 128) / 8192;
                 Depth singularDepth = newDepth / 2;
 
                 ss->excludedMove = move;
@@ -1099,11 +1104,10 @@ moves_loop:  // When in check, search starts here
 
                 if (value < singularBeta)
                 {
-                    int corrValAdj = std::abs(correctionValue) / 262144;
-                    int doubleMargin =
-                      249 * PvNode - 194 * !ttCapture - corrValAdj - 25 * (ttData.value >= beta);
-                    int tripleMargin = 94 + 287 * PvNode - 249 * !ttCapture + 99 * ss->ttPv
-                                     - corrValAdj - 50 * (ttData.value >= beta);
+                    int corrValAdj   = std::abs(correctionValue) / 262144;
+                    int doubleMargin = 249 * PvNode - 194 * !ttCapture - corrValAdj;
+                    int tripleMargin =
+                      94 + 287 * PvNode - 249 * !ttCapture + 99 * ss->ttPv - corrValAdj;
 
                     extension = 1 + (value < singularBeta - doubleMargin)
                               + (value < singularBeta - tripleMargin);
