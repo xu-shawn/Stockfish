@@ -1181,6 +1181,8 @@ moves_loop:  // When in check, search starts here
         if (ttCapture && !capture)
             r += 1087 + (depth < 8) * 990;
 
+        r += 512 - nodes.load(std::memory_order_relaxed) & 1023;
+
         // Increase reduction if next ply has a lot of fail high
         if ((ss + 1)->cutoffCnt > 3)
             r += 940 + allNode * 887;
