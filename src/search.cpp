@@ -1185,10 +1185,6 @@ moves_loop:  // When in check, search starts here
         if ((ss + 1)->cutoffCnt > 3)
             r += 940 + allNode * 887;
 
-        // For first picked move (ttMove) reduce reduction
-        else if (move == ttData.move)
-            r -= 1960;
-
         if (capture)
             ss->statScore =
               7 * int(PieceValue[pos.captured_piece()])
@@ -1242,15 +1238,7 @@ moves_loop:  // When in check, search starts here
 
         // Step 18. Full-depth search when LMR is skipped
         else if (!PvNode || moveCount > 1)
-        {
-            // Increase reduction if ttMove is not present
-            if (!ttData.move)
-                r += 2111;
-
-            // Note that if expected reduction is high, we reduce search depth here
-            value =
-              -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth - (r > 3444), !cutNode);
-        }
+            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
 
         // For PV nodes only, do a full PV search on the first move or after a fail high,
         // otherwise let the parent node fail low with value <= alpha and try another move.
