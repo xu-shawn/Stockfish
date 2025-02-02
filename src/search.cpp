@@ -936,7 +936,8 @@ moves_loop:  // When in check, search starts here
 
     value = bestValue;
 
-    int moveCount = 0;
+    int   moveCount   = 0;
+    Depth ttMoveDepth = 0;
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -1181,6 +1182,9 @@ moves_loop:  // When in check, search starts here
         // Decrease/increase reduction for moves with a good/bad history
         r -= ss->statScore * 1451 / 16384;
 
+        if (move == ttData.move)
+            ttMoveDepth = newDepth;
+
         // Step 17. Late moves reduction / extension (LMR)
         if (depth >= 2 && moveCount > 1)
         {
@@ -1225,6 +1229,9 @@ moves_loop:  // When in check, search starts here
             // Increase reduction if ttMove is not present
             if (!ttData.move)
                 r += 2111;
+
+            if (moveCount > 1)
+                newDepth = std::max(newDepth, ttMoveDepth);
 
             // Note that if expected reduction is high, we reduce search depth here
             value =
