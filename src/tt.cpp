@@ -96,18 +96,17 @@ void TTEntry::save(
     if (!move16)
         move16 = m;
 
-    if ((b & BOUND_LOWER) && int16_t(v) > value16)
-        move16 = m;
+    const bool canReplace =
+      b == BOUND_EXACT || uint16_t(k) != key16 || d - DEPTH_ENTRY_OFFSET + 2 * pv > depth8 - 4;
 
     // Overwrite less valuable entries (cheapest checks first)
-    if (b == BOUND_EXACT || uint16_t(k) != key16 || d - DEPTH_ENTRY_OFFSET + 2 * pv > depth8 - 4
-        || relative_age(generation8))
+    if (canReplace || relative_age(generation8))
     {
         assert(d > DEPTH_ENTRY_OFFSET);
         assert(d < 256 + DEPTH_ENTRY_OFFSET);
 
         // Preserve the old ttmove if we don't have a new one
-        if (m)
+        if (m && canReplace)
             move16 = m;
 
         key16     = uint16_t(k);
