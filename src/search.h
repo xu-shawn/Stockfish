@@ -284,6 +284,7 @@ class Worker {
     LowPlyHistory    lowPlyHistory;
 
     CapturePieceToHistory captureHistory;
+    QSearchHistory        qsearchHistory;
     ContinuationHistory   continuationHistory[2][2];
     PawnHistory           pawnHistory;
 
@@ -321,6 +322,7 @@ class Worker {
     size_t                pvIdx, pvLast;
     std::atomic<uint64_t> nodes, tbHits, bestMoveChanges;
     int                   selDepth, nmpMinPly;
+    int                   qsearchHorizon;
 
     Value optimism[COLOR_NB];
 

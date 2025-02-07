@@ -46,6 +46,7 @@ class MovePicker {
                const CapturePieceToHistory*,
                const PieceToHistory**,
                const PawnHistory*,
+               const QSearchHistory*,
                int);
     MovePicker(const Position&, Move, int, const CapturePieceToHistory*);
     Move next_move();
@@ -65,6 +66,7 @@ class MovePicker {
     const CapturePieceToHistory* captureHistory;
     const PieceToHistory**       continuationHistory;
     const PawnHistory*           pawnHistory;
+    const QSearchHistory*        qsearchHistory;
     Move                         ttMove;
     ExtMove *                    cur, *endMoves, *endBadCaptures, *beginBadQuiets, *endBadQuiets;
     int                          stage;
@@ -73,6 +75,7 @@ class MovePicker {
     int                          ply;
     bool                         skipQuiets = false;
     ExtMove                      moves[MAX_MOVES];
+    SearchType                   searchType;
 };
 
 }  // namespace Stockfish

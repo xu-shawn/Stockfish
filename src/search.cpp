@@ -149,6 +149,11 @@ void update_all_stats(const Position&      pos,
                       Depth                depth,
                       bool                 isTTMove,
                       int                  moveCount);
+void update_qsearch_history(const Position&      pos,
+                            Search::Worker&      workerThread,
+                            Move                 bestMove,
+                            ValueList<Move, 32>& capturesSearched,
+                            Depth                depth);
 
 }  // namespace
 
@@ -341,6 +346,8 @@ void Search::Worker::iterative_deepening() {
 
             // Reset UCI info selDepth for each depth and each PV line
             selDepth = 0;
+
+            qsearchHorizon = rootDepth;
 
             // Reset aspiration window starting size
             delta     = 5 + std::abs(rootMoves[pvIdx].meanSquaredScore) / 13000;
@@ -950,7 +957,8 @@ moves_loop:  // When in check, search starts here
 
 
     MovePicker mp(pos, ttData.move, depth, &thisThread->mainHistory, &thisThread->lowPlyHistory,
-                  &thisThread->captureHistory, contHist, &thisThread->pawnHistory, ss->ply);
+                  &thisThread->captureHistory, contHist, &thisThread->pawnHistory,
+                  &thisThread->qsearchHistory, ss->ply);
 
     value = bestValue;
 
@@ -1492,6 +1500,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     bool  pvHit, givesCheck, capture;
     int   moveCount;
 
+    ValueList<Move, 32> capturesSearched;
+
     // Step 1. Initialize node
     if (PvNode)
     {
@@ -1507,6 +1517,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     // Used to send selDepth info to GUI (selDepth counts from 1, ply from 0)
     if (PvNode && thisThread->selDepth < ss->ply + 1)
         thisThread->selDepth = ss->ply + 1;
+
+    thisThread->qsearchHorizon = std::max(thisThread->qsearchHorizon, ss->ply);
 
     // Step 2. Check for an immediate draw or maximum ply reached
     if (pos.is_draw(ss->ply) || ss->ply >= MAX_PLY)
@@ -1586,7 +1598,8 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     // the moves. We presently use two stages of move generator in quiescence search:
     // captures, or evasions only when in check.
     MovePicker mp(pos, ttData.move, DEPTH_QS, &thisThread->mainHistory, &thisThread->lowPlyHistory,
-                  &thisThread->captureHistory, contHist, &thisThread->pawnHistory, ss->ply);
+                  &thisThread->captureHistory, contHist, &thisThread->pawnHistory,
+                  &thisThread->qsearchHistory, ss->ply);
 
     // Step 5. Loop through all pseudo-legal moves until no moves remain or a beta
     // cutoff occurs.
@@ -1681,6 +1694,9 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
                     break;  // Fail high
             }
         }
+
+        if (capture)
+            capturesSearched.push_back(move);
     }
 
     // Step 9. Check for mate
@@ -1692,8 +1708,15 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         return mated_in(ss->ply);  // Plies to mate from the root
     }
 
-    if (!is_decisive(bestValue) && bestValue >= beta)
-        bestValue = (3 * bestValue + beta) / 4;
+    if (bestMove)
+    {
+        if (pos.capture(bestMove))
+            update_qsearch_history(pos, *thisThread, bestMove, capturesSearched,
+                                   qsearchHorizon - ss->ply);
+
+        if (!is_decisive(bestValue) && bestValue >= beta)
+            bestValue = (3 * bestValue + beta) / 4;
+    }
 
     // Save gathered info in transposition table. The static evaluation
     // is saved as it was before adjustment by correction history.
@@ -1801,7 +1824,7 @@ void update_all_stats(const Position&      pos,
                       int                  moveCount) {
 
     CapturePieceToHistory& captureHistory = workerThread.captureHistory;
-    Piece                  moved_piece    = pos.moved_piece(bestMove);
+    Piece                  movedPiece     = pos.moved_piece(bestMove);
     PieceType              captured;
 
     int bonus = stat_bonus(depth) + 298 * isTTMove;
@@ -1819,7 +1842,7 @@ void update_all_stats(const Position&      pos,
     {
         // Increase stats for the best move in case it was a capture move
         captured = type_of(pos.piece_on(bestMove.to_sq()));
-        captureHistory[moved_piece][bestMove.to_sq()][captured] << bonus * 1236 / 1024;
+        captureHistory[movedPiece][bestMove.to_sq()][captured] << bonus * 1236 / 1024;
     }
 
     // Extra penalty for a quiet early move that was not a TT move in
@@ -1830,9 +1853,9 @@ void update_all_stats(const Position&      pos,
     // Decrease stats for all non-best capture moves
     for (Move move : capturesSearched)
     {
-        moved_piece = pos.moved_piece(move);
-        captured    = type_of(pos.piece_on(move.to_sq()));
-        captureHistory[moved_piece][move.to_sq()][captured] << -malus * 1224 / 1024;
+        movedPiece = pos.moved_piece(move);
+        captured   = type_of(pos.piece_on(move.to_sq()));
+        captureHistory[movedPiece][move.to_sq()][captured] << -malus * 1224 / 1024;
     }
 }
 
@@ -1868,6 +1891,25 @@ void update_quiet_histories(
 
     int pIndex = pawn_structure_index(pos);
     workerThread.pawnHistory[pIndex][pos.moved_piece(move)][move.to_sq()] << bonus * 615 / 1024;
+}
+
+void update_qsearch_history(const Position&      pos,
+                            Search::Worker&      workerThread,
+                            Move                 bestMove,
+                            ValueList<Move, 32>& capturesSearched,
+                            Depth                depth) {
+    Piece     movedPiece = pos.moved_piece(bestMove);
+    PieceType captured   = type_of(pos.piece_on(bestMove.to_sq()));
+
+    workerThread.qsearchHistory[movedPiece][bestMove.to_sq()][captured] << stat_bonus(depth);
+
+    for (const Move move : capturesSearched)
+    {
+        movedPiece = pos.moved_piece(move);
+        captured   = type_of(pos.piece_on(move.to_sq()));
+
+        workerThread.qsearchHistory[movedPiece][move.to_sq()][captured] << stat_malus(depth);
+    }
 }
 
 }

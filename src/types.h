@@ -429,6 +429,11 @@ class Move {
     std::uint16_t data;
 };
 
+enum class SearchType {
+    Search,
+    QSearch
+};
+
 }  // namespace Stockfish
 
 #endif  // #ifndef TYPES_H_INCLUDED

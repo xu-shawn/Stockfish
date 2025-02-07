@@ -22,6 +22,7 @@
 #include <limits>
 
 #include "bitboard.h"
+#include "history.h"
 #include "misc.h"
 #include "position.h"
 
@@ -86,6 +87,7 @@ MovePicker::MovePicker(const Position&              p,
                        const CapturePieceToHistory* cph,
                        const PieceToHistory**       ch,
                        const PawnHistory*           ph,
+                       const QSearchHistory*        qh,
                        int                          pl) :
     pos(p),
     mainHistory(mh),
@@ -93,6 +95,7 @@ MovePicker::MovePicker(const Position&              p,
     captureHistory(cph),
     continuationHistory(ch),
     pawnHistory(ph),
+    qsearchHistory(qh),
     ttMove(ttm),
     depth(d),
     ply(pl) {
@@ -102,6 +105,11 @@ MovePicker::MovePicker(const Position&              p,
 
     else
         stage = (depth > 0 ? MAIN_TT : QSEARCH_TT) + !(ttm && pos.pseudo_legal(ttm));
+
+    if (depth > 0)
+        searchType = SearchType::Search;
+    else
+        searchType = SearchType::QSearch;
 }
 
 // MovePicker constructor for ProbCut: we generate captures with Static Exchange
@@ -110,7 +118,8 @@ MovePicker::MovePicker(const Position& p, Move ttm, int th, const CapturePieceTo
     pos(p),
     captureHistory(cph),
     ttMove(ttm),
-    threshold(th) {
+    threshold(th),
+    searchType(SearchType::Search) {
     assert(!pos.checkers());
 
     stage = PROBCUT_TT
@@ -144,9 +153,16 @@ void MovePicker::score() {
 
     for (auto& m : *this)
         if constexpr (Type == CAPTURES)
+        {
+            const Square to         = m.to_sq();
+            const Piece  movedPiece = pos.moved_piece(m);
+            const Piece  captured   = pos.piece_on(to);
             m.value =
-              7 * int(PieceValue[pos.piece_on(m.to_sq())])
-              + (*captureHistory)[pos.moved_piece(m)][m.to_sq()][type_of(pos.piece_on(m.to_sq()))];
+              7 * int(PieceValue[captured]) + (*captureHistory)[movedPiece][to][type_of(captured)];
+
+            if (searchType == SearchType::QSearch)
+                m.value += (*qsearchHistory)[movedPiece][to][type_of(captured)];
+        }
 
         else if constexpr (Type == QUIETS)
         {
