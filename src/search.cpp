@@ -1140,7 +1140,7 @@ moves_loop:  // When in check, search starts here
             }
         }
 
-        r -= 256 * pos.threats_created(move);
+        r -= 512 * pos.threats_created(move);
 
         // Step 16. Make the move
         pos.do_move(move, st, givesCheck, &tt);
