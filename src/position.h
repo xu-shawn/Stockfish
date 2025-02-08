@@ -167,6 +167,7 @@ class Position {
     int   rule50_count() const;
     Value non_pawn_material(Color c) const;
     Value non_pawn_material() const;
+    int   threats_created(const Move move) const;
 
     // Position consistency check, for debugging
     bool pos_is_ok() const;

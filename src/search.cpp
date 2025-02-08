@@ -1140,6 +1140,8 @@ moves_loop:  // When in check, search starts here
             }
         }
 
+        r -= 256 * pos.threats_created(move);
+
         // Step 16. Make the move
         pos.do_move(move, st, givesCheck, &tt);
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
@@ -1165,7 +1167,9 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
-        r += 316 - moveCount * 32;
+        r += 316;
+
+        r -= moveCount * 32;
 
         r -= std::abs(correctionValue) / 31568;
 

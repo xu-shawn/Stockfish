@@ -1267,6 +1267,29 @@ void Position::flip() {
 }
 
 
+int Position::threats_created(const Move move) const {
+    const Color     stm      = side_to_move();
+    const Square    to       = move.to_sq();
+    const PieceType moved    = type_of(piece_on(move.from_sq()));
+    const Bitboard  occupied = pieces();
+
+    switch (moved)
+    {
+    case PAWN :
+        return popcount(pawn_attacks_bb(stm, to) & pieces(~stm, KNIGHT, BISHOP, ROOK, QUEEN));
+    case KNIGHT :
+        return popcount(attacks_bb<KNIGHT>(to) & pieces(~stm, ROOK, QUEEN));
+    case BISHOP :
+        return popcount(attacks_bb<BISHOP>(to, occupied) & pieces(~stm, ROOK, QUEEN));
+    case ROOK :
+        return popcount(attacks_bb<ROOK>(to, occupied) & pieces(~stm, QUEEN));
+    default :
+        assert(moved == QUEEN || moved == KING);
+        return 0;
+    }
+}
+
+
 // Performs some consistency checks for the position object
 // and raise an assert if something wrong is detected.
 // This is meant to be helpful when debugging.
