@@ -1213,7 +1213,8 @@ moves_loop:  // When in check, search starts here
 
             ss->reduction = newDepth - d;
 
-            value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+
             ss->reduction = 0;
 
 
@@ -1228,7 +1229,11 @@ moves_loop:  // When in check, search starts here
                 newDepth += doDeeperSearch - doShallowerSearch;
 
                 if (newDepth > d)
+                {
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+                    if (value >= beta && doShallowerSearch)
+                        newDepth++;
+                }
 
                 // Post LMR continuation history updates
                 int bonus = (value >= beta) * 2010;
