@@ -887,6 +887,8 @@ Value Search::Worker::search(
     {
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
+        bool ttSkipped = bool(ttData.move);
+
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &thisThread->captureHistory);
         Depth      probCutDepth = std::max(depth - 4, 0);
 
@@ -914,6 +916,8 @@ Value Search::Worker::search(
             ss->continuationCorrectionHistory =
               &this->continuationCorrectionHistory[movedPiece][move.to_sq()];
 
+            ttSkipped |= ss->isTTMove;
+
             // Perform a preliminary qsearch to verify that the move holds
             value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
 
@@ -926,9 +930,10 @@ Value Search::Worker::search(
 
             if (value >= probCutBeta)
             {
+                const Move savedMove = ttSkipped ? ttData.move : move;
                 // Save ProbCut data into transposition table
                 ttWriter.write(posKey, value_to_tt(value, ss->ply), ss->ttPv, BOUND_LOWER,
-                               probCutDepth + 1, move, unadjustedStaticEval, tt.generation());
+                               probCutDepth + 1, savedMove, unadjustedStaticEval, tt.generation());
 
                 if (!is_decisive(value))
                     return value - (probCutBeta - beta);
@@ -1206,16 +1211,14 @@ moves_loop:  // When in check, search starts here
             // beyond the first move depth.
             // To prevent problems when the max value is less than the min value,
             // std::clamp has been replaced by a more robust implementation.
-
-
             Depth d = std::max(
               1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));
 
             ss->reduction = newDepth - d;
 
-            value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
-            ss->reduction = 0;
+            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
 
+            ss->reduction = 0;
 
             // Do a full-depth search when reduced LMR search fails high
             if (value > alpha && d < newDepth)
