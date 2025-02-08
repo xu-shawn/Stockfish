@@ -54,6 +54,7 @@ struct StateInfo {
     // Not copied when making a move (will be recomputed anyhow)
     Key        key;
     Bitboard   checkersBB;
+    Bitboard   threats;
     StateInfo* previous;
     StateInfo* next;
     Bitboard   blockersForKing[COLOR_NB];
@@ -121,6 +122,7 @@ class Position {
     Bitboard blockers_for_king(Color c) const;
     Bitboard check_squares(PieceType pt) const;
     Bitboard pinners(Color c) const;
+    Bitboard threats() const;
 
     // Attacks to/from a given square
     Bitboard attackers_to(Square s) const;
@@ -183,6 +185,7 @@ class Position {
     void set_castling_right(Color c, Square rfrom);
     void set_state() const;
     void set_check_info() const;
+    void update_threats() const;
 
     // Other helpers
     void move_piece(Square from, Square to);
@@ -291,6 +294,8 @@ inline Bitboard Position::blockers_for_king(Color c) const { return st->blockers
 inline Bitboard Position::pinners(Color c) const { return st->pinners[c]; }
 
 inline Bitboard Position::check_squares(PieceType pt) const { return st->checkSquares[pt]; }
+
+inline Bitboard Position::threats() const { return st->threats; }
 
 inline Key Position::key() const { return adjust_key50<false>(st->key); }
 

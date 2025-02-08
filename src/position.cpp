@@ -329,6 +329,19 @@ void Position::set_check_info() const {
 }
 
 
+void Position::update_threats() const {
+    const Color us = side_to_move();
+
+    Bitboard threatenedByPawn = attacks_by<PAWN>(~us);
+    Bitboard threatenedByMinor =
+      attacks_by<KNIGHT>(~us) | attacks_by<BISHOP>(~us) | threatenedByPawn;
+    Bitboard threatenedByRook = attacks_by<ROOK>(~us) | threatenedByMinor;
+
+    st->threats = (pieces(us, QUEEN) & threatenedByRook) | (pieces(us, ROOK) & threatenedByMinor)
+                | (pieces(us, KNIGHT, BISHOP) & threatenedByPawn);
+}
+
+
 // Computes the hash keys of the position, and other
 // data that once computed is updated incrementally as moves are made.
 // The function is only used when a new position is set up
@@ -882,6 +895,9 @@ void Position::do_move(Move                      m,
 
     // Update king attacks used for fast check detection
     set_check_info();
+
+    // Update threatened pieces
+    update_threats();
 
     // Calculate the repetition info. It is the ply distance from the previous
     // occurrence of the same position, negative in the 3-fold case, or zero
