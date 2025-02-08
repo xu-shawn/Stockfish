@@ -1140,7 +1140,7 @@ moves_loop:  // When in check, search starts here
             }
         }
 
-        r -= 512 * pos.threats_created(move);
+        r -= 1024 * pos.threats_created(move);
 
         // Step 16. Make the move
         pos.do_move(move, st, givesCheck, &tt);
@@ -1167,7 +1167,7 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
-        r += 316;
+        r += 366;
 
         r -= moveCount * 32;
 
