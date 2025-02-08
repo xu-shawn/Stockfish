@@ -824,7 +824,7 @@ Value Search::Worker::search(
         && eval - futility_margin(depth, cutNode && !ss->ttHit, improving, opponentWorsening)
                - (ss - 1)->statScore / 326 + 37 - std::abs(correctionValue) / 132821
              >= beta
-        && eval >= beta && threatenedCount <= 1 && (!ttData.move || ttCapture) && !is_loss(beta)
+        && eval >= beta && threatenedCount <= 2 && (!ttData.move || ttCapture) && !is_loss(beta)
         && !is_win(eval))
         return beta + (eval - beta) / 3;
 
