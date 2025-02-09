@@ -344,9 +344,9 @@ void Search::Worker::iterative_deepening() {
 
             // Reset aspiration window starting size
             delta     = 5 + std::abs(rootMoves[pvIdx].meanSquaredScore) / 13000;
-            Value avg = rootMoves[pvIdx].averageScore;
-            alpha     = std::max(avg - delta, -VALUE_INFINITE);
-            beta      = std::min(avg + delta, VALUE_INFINITE);
+            Value avg = rootAverageScore = rootMoves[pvIdx].averageScore;
+            alpha                        = std::max(avg - delta, -VALUE_INFINITE);
+            beta                         = std::min(avg + delta, VALUE_INFINITE);
 
             // Adjust optimism based on root move's averageScore
             optimism[us]  = 138 * avg / (std::abs(avg) + 81);
@@ -1727,7 +1727,7 @@ TimePoint Search::Worker::elapsed_time() const { return main_manager()->tm.elaps
 
 Value Search::Worker::evaluate(const Position& pos) {
     return Eval::evaluate(networks[numaAccessToken], pos, refreshTable,
-                          optimism[pos.side_to_move()]);
+                          optimism[pos.side_to_move()], rootAverageScore);
 }
 
 namespace {
