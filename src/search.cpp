@@ -601,8 +601,7 @@ Value Search::Worker::search(
     Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
-    int   priorReduction = (ss - 1)->reduction;
-    (ss - 1)->reduction  = 0;
+    int   priorReduction;
     Piece movedPiece;
 
     ValueList<Move, 32> capturesSearched;
@@ -649,8 +648,10 @@ Value Search::Worker::search(
 
     bestMove            = Move::none();
     (ss + 2)->cutoffCnt = 0;
-    Square prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
-    ss->statScore = 0;
+    Square prevSq  = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
+    ss->statScore  = 0;
+    priorReduction = (ss - 1)->reduction;
+    (ss - 1)->reduction = 0;
 
     // Step 4. Transposition table lookup
     excludedMove                   = ss->excludedMove;
@@ -954,7 +955,8 @@ moves_loop:  // When in check, search starts here
 
     value = bestValue;
 
-    int moveCount = 0;
+    int moveCount  = 0;
+    int maxHistory = -4000;
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -1045,8 +1047,10 @@ moves_loop:  // When in check, search starts here
                   + (*contHist[1])[movedPiece][move.to_sq()]
                   + thisThread->pawnHistory[pawn_structure_index(pos)][movedPiece][move.to_sq()];
 
+                maxHistory = std::max(history, maxHistory);
+
                 // Continuation history based pruning
-                if (history < -4107 * depth)
+                if (history < maxHistory - 4107 * depth)
                     continue;
 
                 history += 68 * thisThread->mainHistory[us][move.from_to()] / 32;
@@ -1165,7 +1169,9 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
-        r += 316 - moveCount * 32;
+        r += 316;
+
+        r -= moveCount * 32;
 
         r -= std::abs(correctionValue) / 31568;
 
