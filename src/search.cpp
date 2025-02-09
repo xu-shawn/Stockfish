@@ -1103,9 +1103,10 @@ moves_loop:  // When in check, search starts here
                 {
                     int corrValAdj1  = std::abs(correctionValue) / 265083;
                     int corrValAdj2  = std::abs(correctionValue) / 253680;
-                    int doubleMargin = 267 * PvNode - 181 * !ttCapture - corrValAdj1;
-                    int tripleMargin =
-                      96 + 282 * PvNode - 250 * !ttCapture + 103 * ss->ttPv - corrValAdj2;
+                    int doubleMargin = 267 * PvNode - 181 * !ttCapture - corrValAdj1
+                                     - 67 * (pos.non_pawn_material() < 10000);
+                    int tripleMargin = 96 + 282 * PvNode - 250 * !ttCapture + 103 * ss->ttPv
+                                     - corrValAdj2 - 78 * (pos.non_pawn_material() < 10000);
 
                     extension = 1 + (value < singularBeta - doubleMargin)
                               + (value < singularBeta - tripleMargin);
