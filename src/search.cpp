@@ -1047,10 +1047,10 @@ moves_loop:  // When in check, search starts here
                   + (*contHist[1])[movedPiece][move.to_sq()]
                   + thisThread->pawnHistory[pawn_structure_index(pos)][movedPiece][move.to_sq()];
 
-                maxHistory = std::max(history, maxHistory);
+                maxHistory = std::clamp(history, maxHistory, 4000);
 
                 // Continuation history based pruning
-                if (history < maxHistory - 4107 * depth)
+                if (history < maxHistory / 2 - 4107 * depth)
                     continue;
 
                 history += 68 * thisThread->mainHistory[us][move.from_to()] / 32;
