@@ -292,6 +292,8 @@ class Worker {
     CorrectionHistory<NonPawn>      nonPawnCorrectionHistory[COLOR_NB];
     CorrectionHistory<Continuation> continuationCorrectionHistory;
 
+    Value optimism[COLOR_NB];
+
    private:
     void iterative_deepening();
 
@@ -321,8 +323,6 @@ class Worker {
     size_t                pvIdx, pvLast;
     std::atomic<uint64_t> nodes, tbHits, bestMoveChanges;
     int                   selDepth, nmpMinPly;
-
-    Value optimism[COLOR_NB];
 
     Position  rootPos;
     StateInfo rootState;
