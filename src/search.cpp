@@ -97,7 +97,7 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
     const auto rawCorrectionValue =
       6995 * pcv + 6593 * micv + 7753 * (wnpcv + bnpcv) + 6049 * cntcv;
 
-    return rawCorrectionValue * std::max(w.optimism[us], 128) / 128;
+    return rawCorrectionValue * std::clamp(w.optimism[us], 64, 96) / 64;
 }
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation
