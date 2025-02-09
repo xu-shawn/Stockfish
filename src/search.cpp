@@ -1165,7 +1165,9 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
-        r += 316 - moveCount * 32;
+        r += 166;
+
+        r -= moveCount * 32;
 
         r -= std::abs(correctionValue) / 31568;
 
@@ -1194,6 +1196,8 @@ moves_loop:  // When in check, search starts here
             ss->statScore = 2 * thisThread->mainHistory[us][move.from_to()]
                           + (*contHist[0])[movedPiece][move.to_sq()]
                           + (*contHist[1])[movedPiece][move.to_sq()] - 3591;
+
+        r -= (ss->statScore - (ss - 1)->statScore) * 256 / 16384;
 
         // Decrease/increase reduction for moves with a good/bad history
         r -= ss->statScore * 1407 / 16384;
