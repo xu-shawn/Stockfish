@@ -1057,7 +1057,8 @@ moves_loop:  // When in check, search starts here
 
                 // Futility pruning: parent node
                 if (!ss->inCheck && lmrDepth < 12 && futilityValue <= alpha
-                    && !pos.threats_created(move))
+                    && (pos.attackers_to_exist(move.to_sq(), pos.pieces(), us)
+                        || !pos.threats_created(move)))
                 {
                     if (bestValue <= futilityValue && !is_decisive(bestValue)
                         && !is_win(futilityValue))
