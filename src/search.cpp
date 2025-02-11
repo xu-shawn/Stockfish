@@ -956,6 +956,10 @@ moves_loop:  // When in check, search starts here
 
     int moveCount = 0;
 
+    uint64_t       maxNodes   = 0;
+    const uint64_t startNodes = nodes.load(std::memory_order_relaxed);
+    Move           nodesMove  = Move::null();
+
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
     while ((move = mp.next_move()) != Move::none())
@@ -1154,7 +1158,7 @@ moves_loop:  // When in check, search starts here
           &thisThread->continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
         ss->continuationCorrectionHistory =
           &thisThread->continuationCorrectionHistory[movedPiece][move.to_sq()];
-        uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
+        uint64_t nodeCount = nodes.load(std::memory_order_relaxed);
 
         // Decrease reduction for PvNodes (*Scaler)
         if (ss->ttPv)
@@ -1274,12 +1278,20 @@ moves_loop:  // When in check, search starts here
         if (threads.stop.load(std::memory_order_relaxed))
             return VALUE_ZERO;
 
+        const uint64_t nodesDiff = nodes.load(std::memory_order_relaxed) - nodeCount;
+
+        if (nodesDiff > maxNodes)
+        {
+            maxNodes  = nodesDiff;
+            nodesMove = move;
+        }
+
         if (rootNode)
         {
             RootMove& rm =
               *std::find(thisThread->rootMoves.begin(), thisThread->rootMoves.end(), move);
 
-            rm.effort += nodes - nodeCount;
+            rm.effort += nodesDiff;
 
             rm.averageScore =
               rm.averageScore != -VALUE_INFINITE ? (value + rm.averageScore) / 2 : value;
@@ -1429,10 +1441,19 @@ moves_loop:  // When in check, search starts here
     if (PvNode)
         bestValue = std::min(bestValue, maxValue);
 
+    Move storedMove = bestMove;
+
     // If no good move is found and the previous position was ttPv, then the previous
     // opponent move is probably good and the new position is added to the search tree.
     if (bestValue <= alpha)
+    {
         ss->ttPv = ss->ttPv || (ss - 1)->ttPv;
+
+        const uint64_t newNodes = nodes.load(std::memory_order_relaxed) - startNodes;
+
+        if (depth > 6 && maxNodes * 2 > newNodes && !ttData.move)
+            storedMove = nodesMove;
+    }
 
     // Write gathered information in transposition table. Note that the
     // static evaluation is saved as it was before correction history.
@@ -1441,7 +1462,7 @@ moves_loop:  // When in check, search starts here
                        bestValue >= beta    ? BOUND_LOWER
                        : PvNode && bestMove ? BOUND_EXACT
                                             : BOUND_UPPER,
-                       depth, bestMove, unadjustedStaticEval, tt.generation());
+                       depth, storedMove, unadjustedStaticEval, tt.generation());
 
     // Adjust correction history
     if (!ss->inCheck && !(bestMove && pos.capture(bestMove))
