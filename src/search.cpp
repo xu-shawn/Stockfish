@@ -41,7 +41,6 @@
 #include "nnue/network.h"
 #include "nnue/nnue_accumulator.h"
 #include "nnue/nnue_common.h"
-#include "nnue/nnue_misc.h"
 #include "position.h"
 #include "syzygy/tbprobe.h"
 #include "thread.h"
@@ -126,10 +125,10 @@ void update_correction_history(const Position& pos,
 }
 
 // History and stats update bonus, based on depth
-int stat_bonus(Depth d) { return std::min(158 * d - 98, 1622); }
+int stat_bonus(Depth d) { return std::min(117600 * d - 71344, 1244992); }
 
 // History and stats update malus, based on depth
-int stat_malus(Depth d) { return std::min(802 * d - 243, 2850); }
+int stat_malus(Depth d) { return std::min(779788 * d - 271806, 2958308); }
 
 // Add a small random component to draw evaluations to avoid 3-fold blindness
 Value value_draw(size_t nodes) { return VALUE_DRAW - 1 + Value(nodes & 0x2); }
@@ -672,19 +671,19 @@ Value Search::Worker::search(
     if (!PvNode && !excludedMove && ttData.depth > depth - (ttData.value <= beta)
         && is_valid(ttData.value)  // Can happen when !ttHit or when access race in probe()
         && (ttData.bound & (ttData.value >= beta ? BOUND_LOWER : BOUND_UPPER))
-        && (cutNode == (ttData.value >= beta) || depth > 9))
+        && (cutNode == (ttData.value >= beta) || depth > 5))
     {
         // If ttMove is quiet, update move sorting heuristics on TT hit
         if (ttData.move && ttData.value >= beta)
         {
             // Bonus for a quiet ttMove that fails high
             if (!ttCapture)
-                update_quiet_histories(pos, ss, *this, ttData.move, stat_bonus(depth) * 784 / 1024);
+                update_quiet_histories(pos, ss, *this, ttData.move, stat_bonus(depth) / 1024);
 
             // Extra penalty for early quiet moves of the previous ply
             if (prevSq != SQ_NONE && (ss - 1)->moveCount <= 3 && !priorCapture)
                 update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
-                                              -stat_malus(depth + 1) * 1018 / 1024);
+                                              -stat_malus(depth + 1) / 1024);
         }
 
         // Partial workaround for the graph history interaction problem
@@ -759,7 +758,6 @@ Value Search::Worker::search(
     else if (excludedMove)
     {
         // Providing the hint that this node's accumulator will be used often
-        Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
         unadjustedStaticEval = eval = ss->staticEval;
     }
     else if (ss->ttHit)
@@ -768,8 +766,6 @@ Value Search::Worker::search(
         unadjustedStaticEval = ttData.eval;
         if (!is_valid(unadjustedStaticEval))
             unadjustedStaticEval = evaluate(pos);
-        else if (PvNode)
-            Eval::NNUE::hint_common_parent_position(pos, networks[numaAccessToken], refreshTable);
 
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 
@@ -808,6 +804,8 @@ Value Search::Worker::search(
 
     if (priorReduction >= 3 && !opponentWorsening)
         depth++;
+    if (priorReduction >= 1 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 200)
+        depth--;
 
     // Step 7. Razoring
     // If eval is really low, skip search entirely and return the qsearch value.
@@ -1053,7 +1051,10 @@ moves_loop:  // When in check, search starts here
 
                 lmrDepth += history / 3576;
 
-                Value futilityValue = ss->staticEval + (bestMove ? 49 : 135) + 150 * lmrDepth;
+                Value futilityValue = ss->staticEval + (bestMove ? 49 : 143) + 116 * lmrDepth;
+
+                if (bestValue < ss->staticEval - 150 && lmrDepth < 7)
+                    futilityValue += 108;
 
                 // Futility pruning: parent node
                 if (!ss->inCheck && lmrDepth < 12 && futilityValue <= alpha)
@@ -1169,7 +1170,7 @@ moves_loop:  // When in check, search starts here
 
         // Increase reduction for cut nodes
         if (cutNode)
-            r += 2608;
+            r += 2608 + 1024 * !ttData.move;
 
         // Increase reduction if ttMove is a capture but the current move is not a capture
         if (ttCapture && !capture)
@@ -1402,7 +1403,7 @@ moves_loop:  // When in check, search starts here
 
         bonusScale = std::max(bonusScale, 0);
 
-        const int scaledBonus = stat_bonus(depth) * bonusScale;
+        const int scaledBonus = std::min(160 * depth - 106, 1523) * bonusScale;
 
         update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq,
                                       scaledBonus * 416 / 32768);
@@ -1421,7 +1422,7 @@ moves_loop:  // When in check, search starts here
         Piece capturedPiece = pos.captured_piece();
         assert(capturedPiece != NO_PIECE);
         thisThread->captureHistory[pos.piece_on(prevSq)][prevSq][type_of(capturedPiece)]
-          << stat_bonus(depth) * 2;
+          << std::min(330 * depth - 198, 3320);
     }
 
     if (PvNode)
@@ -1802,8 +1803,8 @@ void update_all_stats(const Position&      pos,
     Piece                  moved_piece    = pos.moved_piece(bestMove);
     PieceType              captured;
 
-    int bonus = stat_bonus(depth) + 298 * isTTMove;
-    int malus = stat_malus(depth) - 32 * (moveCount - 1);
+    int bonus = std::min(162 * depth - 92, 1587) + 298 * isTTMove;
+    int malus = std::min(694 * depth - 230, 2503) - 32 * (moveCount - 1);
 
     if (!pos.capture_stage(bestMove))
     {
