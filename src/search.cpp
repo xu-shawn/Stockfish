@@ -1451,7 +1451,7 @@ moves_loop:  // When in check, search starts here
 
         const uint64_t newNodes = nodes.load(std::memory_order_relaxed) - startNodes;
 
-        if (depth > 6 && maxNodes * 2 > newNodes && !ttData.move)
+        if (depth >= 5 && maxNodes * 5 > newNodes * 4 && !ttData.move)
             storedMove = nodesMove;
     }
 
