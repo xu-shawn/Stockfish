@@ -41,15 +41,17 @@ class TranspositionTable;
 struct StateInfo {
 
     // Copied when making a move
-    Key    materialKey;
-    Key    pawnKey;
-    Key    minorPieceKey;
-    Key    nonPawnKey[COLOR_NB];
-    Value  nonPawnMaterial[COLOR_NB];
-    int    castlingRights;
-    int    rule50;
-    int    pliesFromNull;
-    Square epSquare;
+    Bitboard byTypeBB[PIECE_TYPE_NB];
+    Bitboard byColorBB[COLOR_NB];
+    Key      materialKey;
+    Key      pawnKey;
+    Key      minorPieceKey;
+    Key      nonPawnKey[COLOR_NB];
+    Value    nonPawnMaterial[COLOR_NB];
+    int      castlingRights;
+    int      rule50;
+    int      pliesFromNull;
+    Square   epSquare;
 
     // Not copied when making a move (will be recomputed anyhow)
     Key        key;
@@ -176,6 +178,7 @@ class Position {
     StateInfo* state() const;
 
     void put_piece(Piece pc, Square s);
+    template<bool UpdateST = true>
     void remove_piece(Square s);
 
    private:
@@ -193,8 +196,6 @@ class Position {
 
     // Data members
     Piece      board[SQUARE_NB];
-    Bitboard   byTypeBB[PIECE_TYPE_NB];
-    Bitboard   byColorBB[COLOR_NB];
     int        pieceCount[PIECE_NB];
     int        castlingRightsMask[SQUARE_NB];
     Square     castlingRookSquare[CASTLING_RIGHT_NB];
@@ -218,14 +219,14 @@ inline bool Position::empty(Square s) const { return piece_on(s) == NO_PIECE; }
 
 inline Piece Position::moved_piece(Move m) const { return piece_on(m.from_sq()); }
 
-inline Bitboard Position::pieces(PieceType pt) const { return byTypeBB[pt]; }
+inline Bitboard Position::pieces(PieceType pt) const { return st->byTypeBB[pt]; }
 
 template<typename... PieceTypes>
 inline Bitboard Position::pieces(PieceType pt, PieceTypes... pts) const {
     return pieces(pt) | pieces(pts...);
 }
 
-inline Bitboard Position::pieces(Color c) const { return byColorBB[c]; }
+inline Bitboard Position::pieces(Color c) const { return st->byColorBB[c]; }
 
 template<typename... PieceTypes>
 inline Bitboard Position::pieces(Color c, PieceTypes... pts) const {
@@ -337,18 +338,24 @@ inline Piece Position::captured_piece() const { return st->capturedPiece; }
 inline void Position::put_piece(Piece pc, Square s) {
 
     board[s] = pc;
-    byTypeBB[ALL_PIECES] |= byTypeBB[type_of(pc)] |= s;
-    byColorBB[color_of(pc)] |= s;
+    st->byTypeBB[ALL_PIECES] |= st->byTypeBB[type_of(pc)] |= s;
+    st->byColorBB[color_of(pc)] |= s;
     pieceCount[pc]++;
     pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
 }
 
+template<bool UpdateST>
 inline void Position::remove_piece(Square s) {
 
     Piece pc = board[s];
-    byTypeBB[ALL_PIECES] ^= s;
-    byTypeBB[type_of(pc)] ^= s;
-    byColorBB[color_of(pc)] ^= s;
+
+    if constexpr (UpdateST)
+    {
+        st->byTypeBB[ALL_PIECES] ^= s;
+        st->byTypeBB[type_of(pc)] ^= s;
+        st->byColorBB[color_of(pc)] ^= s;
+    }
+
     board[s] = NO_PIECE;
     pieceCount[pc]--;
     pieceCount[make_piece(color_of(pc), ALL_PIECES)]--;
@@ -358,9 +365,9 @@ inline void Position::move_piece(Square from, Square to) {
 
     Piece    pc     = board[from];
     Bitboard fromTo = from | to;
-    byTypeBB[ALL_PIECES] ^= fromTo;
-    byTypeBB[type_of(pc)] ^= fromTo;
-    byColorBB[color_of(pc)] ^= fromTo;
+    st->byTypeBB[ALL_PIECES] ^= fromTo;
+    st->byTypeBB[type_of(pc)] ^= fromTo;
+    st->byColorBB[color_of(pc)] ^= fromTo;
     board[from] = NO_PIECE;
     board[to]   = pc;
 }
