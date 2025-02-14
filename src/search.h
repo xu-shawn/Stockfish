@@ -25,6 +25,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <fstream>
 #include <functional>
 #include <memory>
 #include <string>
@@ -348,6 +349,8 @@ class Worker {
 
     // Used by NNUE
     Eval::NNUE::AccumulatorCaches refreshTable;
+
+    std::ofstream search_data;
 
     friend class Stockfish::ThreadPool;
     friend class SearchManager;
