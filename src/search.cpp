@@ -1055,7 +1055,7 @@ moves_loop:  // When in check, search starts here
 
                 lmrDepth += history / 3576;
 
-                Value futilityValue = ss->staticEval + (bestMove ? 49 : 143) + 116 * lmrDepth;
+                Value futilityValue = ss->staticEval + 20 + !bestMove * 96 + 106 * lmrDepth;
 
                 if (bestValue < ss->staticEval - 150 && lmrDepth < 7)
                     futilityValue += 108;
