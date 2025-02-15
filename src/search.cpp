@@ -166,7 +166,7 @@ Search::Worker::Worker(SharedState&                    sharedState,
     networks(sharedState.networks),
     refreshTable(networks[token]),
     search_data("thread" + std::to_string(threadId) + "_data" + std::to_string(now()) + ".log") {
-    search_data << "time,rootDepth,adjustedDepth,nodes,score,bound" << std::endl;
+    search_data << "time,rootDepth,adjustedDepth,nodes,score,alpha,beta,bound" << std::endl;
     clear();
 }
 
@@ -393,8 +393,8 @@ void Search::Worker::iterative_deepening() {
                 if (bestValue <= alpha)
                 {
                     search_data << now() << "," << rootDepth << "," << adjustedDepth << ","
-                                << nodes.load(std::memory_order_relaxed) << "," << bestValue
-                                << ",UPPERBOUND" << std::endl;
+                                << nodes.load(std::memory_order_relaxed) << "," << bestValue << ","
+                                << alpha << "," << beta << ",UPPERBOUND" << std::endl;
                     beta  = (alpha + beta) / 2;
                     alpha = std::max(bestValue - delta, -VALUE_INFINITE);
 
@@ -405,16 +405,16 @@ void Search::Worker::iterative_deepening() {
                 else if (bestValue >= beta)
                 {
                     search_data << now() << "," << rootDepth << "," << adjustedDepth << ","
-                                << nodes.load(std::memory_order_relaxed) << "," << bestValue
-                                << ",LOWERBOUND" << std::endl;
+                                << nodes.load(std::memory_order_relaxed) << "," << bestValue << ","
+                                << alpha << "," << beta << ",LOWERBOUND" << std::endl;
                     beta = std::min(bestValue + delta, VALUE_INFINITE);
                     ++failedHighCnt;
                 }
                 else
                 {
                     search_data << now() << "," << rootDepth << "," << adjustedDepth << ","
-                                << nodes.load(std::memory_order_relaxed) << "," << bestValue
-                                << ",EXACT" << std::endl;
+                                << nodes.load(std::memory_order_relaxed) << "," << bestValue << ","
+                                << alpha << "," << beta << ",EXACT" << std::endl;
                     break;
                 }
 
