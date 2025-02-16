@@ -47,6 +47,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "types.h"
 #include "uci.h"
 #include "ucioption.h"
 
@@ -745,6 +746,9 @@ Value Search::Worker::search(
             }
         }
     }
+
+    if (priorReduction > 0 && ttHit && !is_decisive(alpha) && ttData.bound == BOUND_EXACT)
+        return VALUE_TB_LOSS_IN_MAX_PLY + 1;
 
     // Step 6. Static evaluation of the position
     Value      unadjustedStaticEval = VALUE_NONE;
