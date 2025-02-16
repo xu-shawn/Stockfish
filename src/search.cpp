@@ -1172,6 +1172,9 @@ moves_loop:  // When in check, search starts here
 
         r -= std::abs(correctionValue) / 31568;
 
+        if (ttData.bound == BOUND_EXACT)
+            r -= 1024;
+
         // Increase reduction for cut nodes
         if (cutNode)
             r += 2608 + 1024 * !ttData.move;
