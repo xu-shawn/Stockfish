@@ -403,7 +403,15 @@ void Search::Worker::iterative_deepening() {
                     ++failedHighCnt;
                 }
                 else
-                    break;
+                {
+                    if (failedHighCnt)
+                    {
+                        failedHighCnt = 0;
+                        continue;
+                    }
+                    else
+                        break;
+                }
 
                 delta += delta / 3;
 
