@@ -18,12 +18,16 @@
 
 #include "movepick.h"
 
+#include <algorithm>
 #include <cassert>
 #include <limits>
 
+#include "search.h"
 #include "bitboard.h"
 #include "misc.h"
+#include "movegen.h"
 #include "position.h"
+#include "syzygy/tbprobe.h"
 
 namespace Stockfish {
 
@@ -52,22 +56,45 @@ enum Stages {
     // generate qsearch moves
     QSEARCH_TT,
     QCAPTURE_INIT,
-    QCAPTURE
+    QCAPTURE,
+
+    ROOT_TT,
+    ROOT_INIT,
+    ROOT
 };
 
 // Sort moves in descending order up to and including a given limit.
 // The order of moves smaller than the limit is left unspecified.
-void partial_insertion_sort(ExtMove* begin, ExtMove* end, int limit) {
+template<typename BidirectionalIterator, typename Pred, typename Comp>
+void partial_insertion_sort(BidirectionalIterator begin,
+                            BidirectionalIterator end,
+                            Pred                  predicate,
+                            Comp                  comparator) {
+    using std::next;
+    using std::prev;
+    using std::advance;
 
-    for (ExtMove *sortedEnd = begin, *p = begin + 1; p < end; ++p)
-        if (p->value >= limit)
+    for (BidirectionalIterator sortedEnd = begin, p = next(begin); p < end; advance(p, 1))
+        if (predicate(*p))
         {
-            ExtMove tmp = *p, *q;
-            *p          = *++sortedEnd;
-            for (q = sortedEnd; q != begin && *(q - 1) < tmp; --q)
-                *q = *(q - 1);
+            const auto tmp = *p;
+
+            advance(sortedEnd, 1);
+            *p = *sortedEnd;
+
+            BidirectionalIterator q;
+            for (q = sortedEnd; q != begin && comparator(*prev(q), tmp); advance(q, -1))
+                *q = *prev(q);
+
             *q = tmp;
         }
+}
+
+template<typename BidirectionalIterator, typename Pred>
+void partial_insertion_sort(BidirectionalIterator begin,
+                            BidirectionalIterator end,
+                            Pred                  predicate) {
+    partial_insertion_sort(begin, end, predicate, std::less{});
 }
 
 }  // namespace
@@ -211,6 +238,8 @@ Move MovePicker::select(Pred filter) {
 // new pseudo-legal move on every call until there are no more moves left,
 // picking the move with the highest score from a list of generated moves.
 Move MovePicker::next_move() {
+    using std::begin;
+    using std::end;
 
     auto quiet_threshold = [](Depth d) { return -3560 * d; };
 
@@ -222,6 +251,7 @@ top:
     case EVASION_TT :
     case QSEARCH_TT :
     case PROBCUT_TT :
+    case ROOT_TT :
         ++stage;
         return ttMove;
 
@@ -232,7 +262,7 @@ top:
         endMoves             = generate<CAPTURES>(pos, cur);
 
         score<CAPTURES>();
-        partial_insertion_sort(cur, endMoves, std::numeric_limits<int>::min());
+        partial_insertion_sort(cur, endMoves, [](const ExtMove&) { return true; });
         ++stage;
         goto top;
 
@@ -254,7 +284,10 @@ top:
             endMoves = beginBadQuiets = endBadQuiets = generate<QUIETS>(pos, cur);
 
             score<QUIETS>();
-            partial_insertion_sort(cur, endMoves, quiet_threshold(depth));
+            partial_insertion_sort(cur, endMoves,
+                                   [threshold = quiet_threshold(depth)](const ExtMove& move) {
+                                       return move.value >= threshold;
+                                   });
         }
 
         ++stage;
@@ -299,7 +332,7 @@ top:
         endMoves = generate<EVASIONS>(pos, cur);
 
         score<EVASIONS>();
-        partial_insertion_sort(cur, endMoves, std::numeric_limits<int>::min());
+        partial_insertion_sort(cur, endMoves, [](const ExtMove&) { return true; });
         ++stage;
         [[fallthrough]];
 
@@ -309,10 +342,36 @@ top:
 
     case PROBCUT :
         return select([&]() { return pos.see_ge(*cur, threshold); });
+
+    case ROOT_INIT :
+        cur      = moves;
+        endMoves = cur;
+
+        {
+            Search::RootMoves sorted_rm = *rootMoves;
+            std::stable_sort(begin(sorted_rm), end(sorted_rm),
+                             [](const Search::RootMove& lhs, const Search::RootMove& rhs) {
+                                 return lhs.effort > rhs.effort;
+                             });
+
+            for (const auto& rm : sorted_rm)
+                *endMoves++ = rm.pv.front();
+        }
+
+        ++stage;
+        [[fallthrough]];
+
+    case ROOT :
+        return select([]() { return true; });
     }
 
     assert(false);
     return Move::none();  // Silence warning
+}
+
+void MovePicker::setup_root(const Search::RootMoves& rm) {
+    stage     = ROOT_TT;
+    rootMoves = &rm;
 }
 
 void MovePicker::skip_quiet_moves() { skipQuiets = true; }

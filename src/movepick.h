@@ -21,6 +21,7 @@
 
 #include "history.h"
 #include "movegen.h"
+#include "syzygy/tbprobe.h"
 #include "types.h"
 
 namespace Stockfish {
@@ -49,6 +50,7 @@ class MovePicker {
                int);
     MovePicker(const Position&, Move, int, const CapturePieceToHistory*);
     Move next_move();
+    void setup_root(const Search::RootMoves&);
     void skip_quiet_moves();
 
    private:
@@ -73,6 +75,7 @@ class MovePicker {
     int                          ply;
     bool                         skipQuiets = false;
     ExtMove                      moves[MAX_MOVES];
+    const Search::RootMoves*     rootMoves = nullptr;
 };
 
 }  // namespace Stockfish
