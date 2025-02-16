@@ -364,8 +364,9 @@ void Search::Worker::iterative_deepening() {
                     bestValue = search<Root>(rootPos, ss, alpha, beta, mainThreadDepth, false);
                     alpha     = bestValue;
                     beta      = alpha + 1;
-                } while (mainThreadDepth
-                         != std::max(threads.main_thread()->worker->root_depth(), 1));
+                } while (!threads.stop
+                         && mainThreadDepth
+                              != std::max(threads.main_thread()->worker->root_depth(), 1));
             }
             else
             {
