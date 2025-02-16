@@ -277,6 +277,9 @@ class Worker {
 
     bool is_mainthread() const { return threadIdx == 0; }
 
+    Depth root_depth() const { return rootDepth; }
+    Value root_score() const { return rootScore; }
+
     void ensure_network_replicated();
 
     // Public because they need to be updatable by the stats
@@ -324,11 +327,13 @@ class Worker {
 
     Value optimism[COLOR_NB];
 
-    Position  rootPos;
-    StateInfo rootState;
-    RootMoves rootMoves;
-    Depth     rootDepth, completedDepth;
-    Value     rootDelta;
+    Position           rootPos;
+    StateInfo          rootState;
+    RootMoves          rootMoves;
+    std::atomic<Depth> rootDepth;
+    std::atomic<Value> rootScore;
+    Depth              completedDepth;
+    Value              rootDelta;
 
     size_t                    threadIdx;
     NumaReplicatedAccessToken numaAccessToken;

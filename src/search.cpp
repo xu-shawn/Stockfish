@@ -187,6 +187,9 @@ void Search::Worker::start_searching() {
                             main_manager()->originalTimeAdjust);
     tt.new_search();
 
+    rootScore = VALUE_DRAW;
+    rootDepth = 0;
+
     if (rootMoves.empty())
     {
         rootMoves.emplace_back(Move::none());
@@ -310,8 +313,9 @@ void Search::Worker::iterative_deepening() {
     lowPlyHistory.fill(95);
 
     // Iterative deepening loop until requested to stop or the target depth is reached
-    while (++rootDepth < MAX_PLY && !threads.stop
-           && !(limits.depth && mainThread && rootDepth > limits.depth))
+    while (!threads.stop
+           && !(mainThread && rootDepth.fetch_add(1) < MAX_PLY && limits.depth
+                && rootDepth > limits.depth))
     {
         // Age out PV variability metric
         if (mainThread)
@@ -342,72 +346,91 @@ void Search::Worker::iterative_deepening() {
             // Reset UCI info selDepth for each depth and each PV line
             selDepth = 0;
 
-            // Reset aspiration window starting size
-            delta     = 5 + std::abs(rootMoves[pvIdx].meanSquaredScore) / 13000;
-            Value avg = rootMoves[pvIdx].averageScore;
-            alpha     = std::max(avg - delta, -VALUE_INFINITE);
-            beta      = std::min(avg + delta, VALUE_INFINITE);
-
             // Adjust optimism based on root move's averageScore
+            Value avg     = rootMoves[pvIdx].averageScore;
             optimism[us]  = 138 * avg / (std::abs(avg) + 81);
             optimism[~us] = -optimism[us];
 
-            // Start with a small aspiration window and, in the case of a fail
-            // high/low, re-search with a bigger window until we don't fail
-            // high/low anymore.
-            int failedHighCnt = 0;
-            while (true)
+            if (!is_mainthread())
             {
-                // Adjust the effective depth searched, but ensure at least one
-                // effective increment for every four searchAgain steps (see issue #2717).
-                Depth adjustedDepth =
-                  std::max(1, rootDepth - failedHighCnt - 3 * (searchAgainCounter + 1) / 4);
-                rootDelta = beta - alpha;
-                bestValue = search<Root>(rootPos, ss, alpha, beta, adjustedDepth, false);
+                Depth mainThreadDepth = std::max(threads.main_thread()->worker->root_depth(), 1);
+                Value mainThreadValue = threads.main_thread()->worker->root_score();
+                alpha     = std::clamp(mainThreadValue, -VALUE_INFINITE, VALUE_INFINITE - 1);
+                beta      = alpha + 1;
+                rootDelta = 1;
 
-                // Bring the best move to the front. It is critical that sorting
-                // is done with a stable algorithm because all the values but the
-                // first and eventually the new best one is set to -VALUE_INFINITE
-                // and we want to keep the same order for all the moves except the
-                // new PV that goes to the front. Note that in the case of MultiPV
-                // search the already searched PV lines are preserved.
-                std::stable_sort(rootMoves.begin() + pvIdx, rootMoves.begin() + pvLast);
-
-                // If search has been stopped, we break immediately. Sorting is
-                // safe because RootMoves is still valid, although it refers to
-                // the previous iteration.
-                if (threads.stop)
-                    break;
-
-                // When failing high/low give some update before a re-search. To avoid
-                // excessive output that could hang GUIs like Fritz 19, only start
-                // at nodes > 10M (rather than depth N, which can be reached quickly)
-                if (mainThread && multiPV == 1 && (bestValue <= alpha || bestValue >= beta)
-                    && nodes > 10000000)
-                    main_manager()->pv(*this, threads, tt, rootDepth);
-
-                // In case of failing low/high increase aspiration window and re-search,
-                // otherwise exit the loop.
-                if (bestValue <= alpha)
+                do
                 {
-                    beta  = (alpha + beta) / 2;
-                    alpha = std::max(bestValue - delta, -VALUE_INFINITE);
+                    bestValue = search<Root>(rootPos, ss, alpha, beta, mainThreadDepth, false);
+                    alpha     = bestValue;
+                    beta      = alpha + 1;
+                } while (mainThreadDepth
+                         != std::max(threads.main_thread()->worker->root_depth(), 1));
+            }
+            else
+            {
+                // Reset aspiration window starting size
+                delta = 5 + std::abs(rootMoves[pvIdx].meanSquaredScore) / 13000;
+                alpha = std::max(avg - delta, -VALUE_INFINITE);
+                beta  = std::min(avg + delta, VALUE_INFINITE);
 
-                    failedHighCnt = 0;
-                    if (mainThread)
-                        mainThread->stopOnPonderhit = false;
-                }
-                else if (bestValue >= beta)
+                // Start with a small aspiration window and, in the case of a fail
+                // high/low, re-search with a bigger window until we don't fail
+                // high/low anymore.
+                int failedHighCnt = 0;
+                while (true)
                 {
-                    beta = std::min(bestValue + delta, VALUE_INFINITE);
-                    ++failedHighCnt;
+                    // Adjust the effective depth searched, but ensure at least one
+                    // effective increment for every four searchAgain steps (see issue #2717).
+                    Depth adjustedDepth =
+                      std::max(1, rootDepth - failedHighCnt - 3 * (searchAgainCounter + 1) / 4);
+                    rootDelta = beta - alpha;
+                    bestValue = search<Root>(rootPos, ss, alpha, beta, adjustedDepth, false);
+
+                    // Bring the best move to the front. It is critical that sorting
+                    // is done with a stable algorithm because all the values but the
+                    // first and eventually the new best one is set to -VALUE_INFINITE
+                    // and we want to keep the same order for all the moves except the
+                    // new PV that goes to the front. Note that in the case of MultiPV
+                    // search the already searched PV lines are preserved.
+                    std::stable_sort(rootMoves.begin() + pvIdx, rootMoves.begin() + pvLast);
+
+                    // If search has been stopped, we break immediately. Sorting is
+                    // safe because RootMoves is still valid, although it refers to
+                    // the previous iteration.
+                    if (threads.stop)
+                        break;
+
+                    // When failing high/low give some update before a re-search. To avoid
+                    // excessive output that could hang GUIs like Fritz 19, only start
+                    // at nodes > 10M (rather than depth N, which can be reached quickly)
+                    if (mainThread && multiPV == 1 && (bestValue <= alpha || bestValue >= beta)
+                        && nodes > 10000000)
+                        main_manager()->pv(*this, threads, tt, rootDepth);
+
+                    // In case of failing low/high increase aspiration window and re-search,
+                    // otherwise exit the loop.
+                    if (bestValue <= alpha)
+                    {
+                        beta  = (alpha + beta) / 2;
+                        alpha = std::max(bestValue - delta, -VALUE_INFINITE);
+
+                        failedHighCnt = 0;
+                        if (mainThread)
+                            mainThread->stopOnPonderhit = false;
+                    }
+                    else if (bestValue >= beta)
+                    {
+                        beta = std::min(bestValue + delta, VALUE_INFINITE);
+                        ++failedHighCnt;
+                    }
+                    else
+                        break;
+
+                    delta += delta / 3;
+
+                    assert(alpha >= -VALUE_INFINITE && beta <= VALUE_INFINITE);
                 }
-                else
-                    break;
-
-                delta += delta / 3;
-
-                assert(alpha >= -VALUE_INFINITE && beta <= VALUE_INFINITE);
             }
 
             // Sort the PV lines searched so far and update the GUI
