@@ -1251,6 +1251,9 @@ moves_loop:  // When in check, search starts here
                                    newDepth - (r > 3554) - (r > 5373 && newDepth > 2), !cutNode);
         }
 
+        const Value adjustedAlpha =
+          alpha - (PvNode && !is_decisive(alpha) && depth < 6 && ss->ply > rootDepth - 4);
+
         // For PV nodes only, do a full PV search on the first move or after a fail high,
         // otherwise let the parent node fail low with value <= alpha and try another move.
         if (PvNode && (moveCount == 1 || value > alpha))
@@ -1262,7 +1265,7 @@ moves_loop:  // When in check, search starts here
             if (move == ttData.move && thisThread->rootDepth > 8)
                 newDepth = std::max(newDepth, 1);
 
-            value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
+            value = -search<PV>(pos, ss + 1, -beta, -adjustedAlpha, newDepth, false);
         }
 
         // Step 19. Undo move
@@ -1331,14 +1334,15 @@ moves_loop:  // When in check, search starts here
 
         // In case we have an alternative move equal in eval to the current bestmove,
         // promote it to bestmove by pretending it just exceeds alpha (but not beta).
-        int inc = (value == bestValue && ss->ply + 2 >= thisThread->rootDepth
-                   && (int(nodes) & 15) == 0 && !is_win(std::abs(value) + 1));
+        int inc =
+          (alpha == adjustedAlpha && value == bestValue && ss->ply + 2 >= thisThread->rootDepth
+           && (int(nodes) & 15) == 0 && !is_win(std::abs(value) + 1));
 
-        if (value + inc > bestValue)
+        if (value >= bestValue)
         {
             bestValue = value;
 
-            if (value + inc > alpha)
+            if (value + inc > adjustedAlpha)
             {
                 bestMove = move;
 
