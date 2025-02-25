@@ -1403,7 +1403,7 @@ moves_loop:  // When in check, search starts here
                 capturesSearched.push_back(move);
 
                 if (mp.good_capture())
-                    triedCapturesBB &= move.to_sq();
+                    triedCapturesBB |= move.to_sq();
             }
             else
                 quietsSearched.push_back(move);
