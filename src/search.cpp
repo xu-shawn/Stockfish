@@ -96,30 +96,18 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
     return 6995 * pcv + 6593 * micv + 7753 * (wnpcv + bnpcv) + 6049 * cntcv;
 }
 
-int risk_tolerance(const Position& pos, Value v) {
-    // Returns (some constant of) second derivative of sigmoid.
-    static constexpr auto sigmoid_d2 = [](int x, int y) {
-        return -345600 * x / (x * x + 3 * y * y);
-    };
+int risk_tolerance(const Value v) {
+    const int value_scale = std::abs(v);
 
-    int material = pos.count<PAWN>() + 3 * pos.count<KNIGHT>() + 3 * pos.count<BISHOP>()
-                 + 5 * pos.count<ROOK>() + 9 * pos.count<QUEEN>();
+    return (v > 0 ? 1 : -1) * [&] {
+        if (value_scale < 230)
+            return 3 * value_scale / 2;
 
-    int m = std::clamp(material, 17, 78);
+        if (value_scale < 517)
+            return -60 * value_scale / 16 + 1207;
 
-    // a and b are the crude approximation of the wdl model.
-    // The win rate is: 1/(1+exp((a-v)/b))
-    // The loss rate is 1/(1+exp((v+a)/b))
-    int a = ((-m * 3220 / 256 + 2361) * m / 256 - 586) * m / 256 + 421;
-    int b = ((m * 7761 / 256 - 2674) * m / 256 + 314) * m / 256 + 51;
-
-
-    // The risk utility is therefore d/dv^2 (1/(1+exp(-(v-a)/b)) -1/(1+exp(-(-v-a)/b)))
-    // -115200x/(x^2+3) = -345600(ab) / (a^2+3b^2) (multiplied by some constant) (second degree pade approximant)
-    int winning_risk = sigmoid_d2(v - a, b);
-    int losing_risk  = -sigmoid_d2(-v - a, b);
-
-    return (winning_risk + losing_risk) * 60 / b;
+        return std::min(value_scale - 1500, 0);
+    }();
 }
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation
@@ -1193,7 +1181,7 @@ moves_loop:  // When in check, search starts here
         r -= std::abs(correctionValue) / 31568;
 
         if (PvNode && !is_decisive(bestValue))
-            r -= risk_tolerance(pos, bestValue);
+            r -= risk_tolerance(bestValue);
 
         // Increase reduction for cut nodes
         if (cutNode)
