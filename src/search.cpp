@@ -976,6 +976,8 @@ moves_loop:  // When in check, search starts here
 
     int moveCount = 0;
 
+    const Value oldAlpha = alpha;
+
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
     while ((move = mp.next_move()) != Move::none())
@@ -1188,8 +1190,8 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
-        r += 316 - moveCount * 32;
-
+        r += 316;
+        r -= moveCount * 32;
         r -= std::abs(correctionValue) / 31568;
 
         if (PvNode && !is_decisive(bestValue))
@@ -1239,7 +1241,8 @@ moves_loop:  // When in check, search starts here
 
             ss->reduction = newDepth - d;
 
-            value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+
             ss->reduction = 0;
 
 
@@ -1287,7 +1290,8 @@ moves_loop:  // When in check, search starts here
             if (move == ttData.move && thisThread->rootDepth > 8)
                 newDepth = std::max(newDepth, 1);
 
-            value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
+            value = -search<PV>(pos, ss + 1, -beta, -(alpha * depth + oldAlpha) / (depth + 1),
+                                newDepth, false);
         }
 
         // Step 19. Undo move
