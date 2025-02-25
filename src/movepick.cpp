@@ -317,4 +317,8 @@ top:
 
 void MovePicker::skip_quiet_moves() { skipQuiets = true; }
 
-}  // namespace Stockfish
+bool MovePicker::good_capture() { return stage == GOOD_CAPTURE; }
+
+bool MovePicker::bad_capture() { return stage == BAD_CAPTURE; }
+
+}

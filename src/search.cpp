@@ -976,6 +976,8 @@ moves_loop:  // When in check, search starts here
 
     int moveCount = 0;
 
+    Bitboard triedCapturesBB = 0;
+
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
     while ((move = mp.next_move()) != Move::none())
@@ -1203,6 +1205,9 @@ moves_loop:  // When in check, search starts here
         if (ttCapture && !capture)
             r += 1123 + (depth < 8) * 982;
 
+        if (mp.bad_capture() && (triedCapturesBB & move.to_sq()))
+            r += 512;
+
         // Increase reduction if next ply has a lot of fail high
         if ((ss + 1)->cutoffCnt > 3)
             r += 981 + allNode * 833;
@@ -1394,7 +1399,12 @@ moves_loop:  // When in check, search starts here
         if (move != bestMove && moveCount <= 32)
         {
             if (capture)
+            {
                 capturesSearched.push_back(move);
+
+                if (mp.good_capture())
+                    triedCapturesBB &= move.to_sq();
+            }
             else
                 quietsSearched.push_back(move);
         }
