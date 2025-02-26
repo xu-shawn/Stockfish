@@ -1708,7 +1708,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
                 else
                     break;  // Fail high
             }
-            else if (ss->ttPv && move == ttData.move && !mul_hi64(threadIdx, threads.size()))
+            else if (ss->ttPv && move == ttData.move && !mul_hi64(posKey, threads.size()))
                 break;
         }
     }
