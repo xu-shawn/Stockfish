@@ -424,8 +424,6 @@ void Search::Worker::iterative_deepening() {
                 else
                     break;
 
-                delta += delta / 3;
-
                 assert(alpha >= -VALUE_INFINITE && beta <= VALUE_INFINITE);
             }
 
