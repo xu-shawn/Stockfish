@@ -1246,22 +1246,31 @@ moves_loop:  // When in check, search starts here
             // Do a full-depth search when reduced LMR search fails high
             if (value > alpha && d < newDepth)
             {
-                // Adjust full-depth search based on LMR results - if the result was
-                // good enough search deeper, if it was bad enough search shallower.
-                const bool doDeeperSearch    = value > (bestValue + 41 + 2 * newDepth);
-                const bool doShallowerSearch = value < bestValue + 9;
+                if (d < newDepth)
+                {
+                    // Adjust full-depth search based on LMR results - if the result was
+                    // good enough search deeper, if it was bad enough search shallower.
+                    const bool doDeeperSearch    = value > (bestValue + 41 + 2 * newDepth);
+                    const bool doShallowerSearch = value < bestValue + 9;
 
-                newDepth += doDeeperSearch - doShallowerSearch;
+                    newDepth += doDeeperSearch - doShallowerSearch;
 
-                if (newDepth > d)
-                    value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+                    if (newDepth > d)
+                        value =
+                          -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
 
-                // Post LMR continuation history updates
-                int bonus = (value >= beta) * 2010;
-                update_continuation_histories(ss, movedPiece, move.to_sq(), bonus);
+                    // Post LMR continuation history updates
+                    int bonus = (value >= beta) * 2010;
+                    update_continuation_histories(ss, movedPiece, move.to_sq(), bonus);
+                }
+                else
+                {
+                    const bool doDeeperSearch    = value > (bestValue + 41 + 2 * newDepth);
+                    const bool doShallowerSearch = value < bestValue + 9;
+
+                    newDepth += doDeeperSearch - doShallowerSearch;
+                }
             }
-            else if (value > alpha && value < bestValue + 9)
-                newDepth--;
         }
 
         // Step 18. Full-depth search when LMR is skipped
