@@ -1031,10 +1031,6 @@ moves_loop:  // When in check, search starts here
         // Depth conditions are important for mate finding.
         if (!rootNode && pos.non_pawn_material(us) && !is_loss(bestValue))
         {
-            // Skip quiet moves if movecount exceeds our FutilityMoveCount threshold
-            if (moveCount >= futility_move_count(improving, depth))
-                mp.skip_quiet_moves();
-
             // Reduced depth of the next LMR search
             int lmrDepth = newDepth - r / 1024;
 
