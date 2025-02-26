@@ -371,6 +371,8 @@ void Search::Worker::iterative_deepening() {
             optimism[us]  = 138 * avg / (std::abs(avg) + 81);
             optimism[~us] = -optimism[us];
 
+            Move prevBestMove = rootMoves[pvIdx].pv[0];
+
             // Start with a small aspiration window and, in the case of a fail
             // high/low, re-search with a bigger window until we don't fail
             // high/low anymore.
@@ -381,8 +383,9 @@ void Search::Worker::iterative_deepening() {
                 // effective increment for every four searchAgain steps (see issue #2717).
                 Depth adjustedDepth =
                   std::max(1, rootDepth - failedHighCnt - 3 * (searchAgainCounter + 1) / 4);
-                rootDelta = beta - alpha;
-                bestValue = search<Root>(rootPos, ss, alpha, beta, adjustedDepth, false);
+                rootDelta           = beta - alpha;
+                bestValue           = search<Root>(rootPos, ss, alpha, beta, adjustedDepth, false);
+                const Move bestMove = rootMoves[pvIdx].pv[0];
 
                 // Bring the best move to the front. It is critical that sorting
                 // is done with a stable algorithm because all the values but the
@@ -419,10 +422,12 @@ void Search::Worker::iterative_deepening() {
                 else if (bestValue >= beta)
                 {
                     beta = std::min(bestValue + delta, VALUE_INFINITE);
-                    ++failedHighCnt;
+                    failedHighCnt += 1 + (bestMove != prevBestMove);
                 }
                 else
                     break;
+
+                prevBestMove = bestMove;
 
                 delta += delta / 3;
 
