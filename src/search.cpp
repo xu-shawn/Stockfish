@@ -1049,8 +1049,10 @@ moves_loop:  // When in check, search starts here
                 // Futility pruning for captures
                 if (!givesCheck && lmrDepth < 7 && !ss->inCheck)
                 {
-                    Value futilityValue = ss->staticEval + 242 + 238 * lmrDepth
-                                        + PieceValue[capturedPiece] + 95 * captHist / 700;
+                    Value futilityValue =
+                      ss->staticEval + 242 + 238 * lmrDepth + PieceValue[capturedPiece]
+                      + 95 * captHist / 700
+                      + 40 * (mp.bad_capture() && (triedCapturesBB & move.to_sq()));
                     if (futilityValue <= alpha)
                         continue;
                 }
@@ -1204,9 +1206,6 @@ moves_loop:  // When in check, search starts here
         // Increase reduction if ttMove is a capture but the current move is not a capture
         if (ttCapture && !capture)
             r += 1123 + (depth < 8) * 982;
-
-        if (mp.bad_capture() && (triedCapturesBB & move.to_sq()))
-            r += 512;
 
         // Increase reduction if next ply has a lot of fail high
         if ((ss + 1)->cutoffCnt > 3)
