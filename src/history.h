@@ -30,6 +30,7 @@
 
 #include "misc.h"
 #include "position.h"
+#include "types.h"
 
 namespace Stockfish {
 
@@ -37,6 +38,19 @@ constexpr int PAWN_HISTORY_SIZE        = 512;    // has to be a power of 2
 constexpr int CORRECTION_HISTORY_SIZE  = 32768;  // has to be a power of 2
 constexpr int CORRECTION_HISTORY_LIMIT = 1024;
 constexpr int LOW_PLY_HISTORY_SIZE     = 4;
+constexpr int CORRECTION_BUCKET_SIZE   = 4;
+// clang-format off
+constexpr std::array<int, SQUARE_NB> CORRECTION_BUCKET = {
+    0, 0, 1, 1, 1, 1, 0, 0,
+    0, 2, 2, 2, 2, 2, 2, 0,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+};
+// clang-format on
 
 static_assert((PAWN_HISTORY_SIZE & (PAWN_HISTORY_SIZE - 1)) == 0,
               "PAWN_HISTORY_SIZE has to be a power of 2");
@@ -61,6 +75,10 @@ inline int minor_piece_index(const Position& pos) {
 template<Color c>
 inline int non_pawn_index(const Position& pos) {
     return pos.non_pawn_key(c) & (CORRECTION_HISTORY_SIZE - 1);
+}
+
+inline int correction_bucket(const Position& pos) {
+    return CORRECTION_BUCKET[pos.square<KING>(pos.side_to_move())];
 }
 
 // StatsEntry is the container of various numerical statistics. We use a class
@@ -143,6 +161,15 @@ namespace Detail {
 template<CorrHistType>
 struct CorrHistTypedef {
     using type = Stats<std::int16_t, CORRECTION_HISTORY_LIMIT, CORRECTION_HISTORY_SIZE, COLOR_NB>;
+};
+
+template<>
+struct CorrHistTypedef<Pawn> {
+    using type = Stats<std::int16_t,
+                       CORRECTION_HISTORY_LIMIT,
+                       CORRECTION_HISTORY_SIZE,
+                       CORRECTION_BUCKET_SIZE,
+                       COLOR_NB>;
 };
 
 template<>
