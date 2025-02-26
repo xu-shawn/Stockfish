@@ -1089,6 +1089,9 @@ moves_loop:  // When in check, search starts here
                     continue;
                 }
 
+                if (lmrDepth < 0 && history < 1000)
+                    continue;
+
                 lmrDepth = std::max(lmrDepth, 0);
 
                 // Prune moves with negative SEE
