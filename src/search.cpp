@@ -377,6 +377,9 @@ void Search::Worker::iterative_deepening() {
             int failedHighCnt = 0;
             while (true)
             {
+                pvNodes = 0;
+                newPv   = 0;
+
                 // Adjust the effective depth searched, but ensure at least one
                 // effective increment for every four searchAgain steps (see issue #2717).
                 Depth adjustedDepth =
@@ -401,7 +404,8 @@ void Search::Worker::iterative_deepening() {
                 // When failing high/low give some update before a re-search. To avoid
                 // excessive output that could hang GUIs like Fritz 19, only start
                 // at nodes > 10M (rather than depth N, which can be reached quickly)
-                if (mainThread && multiPV == 1 && (bestValue <= alpha || bestValue >= beta)
+                if (mainThread && multiPV == 1
+                    && (bestValue <= alpha || bestValue >= beta || newPv > pvNodes / 2)
                     && nodes > 10000000)
                     main_manager()->pv(*this, threads, tt, rootDepth);
 
@@ -415,16 +419,20 @@ void Search::Worker::iterative_deepening() {
                     failedHighCnt = 0;
                     if (mainThread)
                         mainThread->stopOnPonderhit = false;
+
+                    delta += delta / 3;
                 }
                 else if (bestValue >= beta)
                 {
                     beta = std::min(bestValue + delta, VALUE_INFINITE);
                     ++failedHighCnt;
+
+                    delta += delta / 3;
                 }
+                else if (newPv > pvNodes / 2)
+                    failedHighCnt = 0;
                 else
                     break;
-
-                delta += delta / 3;
 
                 assert(alpha >= -VALUE_INFINITE && beta <= VALUE_INFINITE);
             }
@@ -1455,7 +1463,11 @@ moves_loop:  // When in check, search starts here
     }
 
     if (PvNode)
+    {
+        pvNodes++;
+        newPv += (ttHit && !ttData.is_pv);
         bestValue = std::min(bestValue, maxValue);
+    }
 
     // If no good move is found and the previous position was ttPv, then the previous
     // opponent move is probably good and the new position is added to the search tree.
