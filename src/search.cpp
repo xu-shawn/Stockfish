@@ -402,8 +402,8 @@ void Search::Worker::iterative_deepening() {
                 // When failing high/low give some update before a re-search. To avoid
                 // excessive output that could hang GUIs like Fritz 19, only start
                 // at nodes > 10M (rather than depth N, which can be reached quickly)
-                if (mainThread && multiPV == 1 && (bestValue <= alpha || bestValue >= beta)
-                    && nodes > 10000000)
+                if (mainThread && !options["UCI_Minimal"] && multiPV == 1
+                    && (bestValue <= alpha || bestValue >= beta) && nodes > 10000000)
                     main_manager()->pv(*this, threads, tt, rootDepth);
 
                 // In case of failing low/high increase aspiration window and re-search,
@@ -433,7 +433,7 @@ void Search::Worker::iterative_deepening() {
             // Sort the PV lines searched so far and update the GUI
             std::stable_sort(rootMoves.begin() + pvFirst, rootMoves.begin() + pvIdx + 1);
 
-            if (mainThread
+            if (mainThread && !options["UCI_Minimal"]
                 && (threads.stop || pvIdx + 1 == multiPV || nodes > 10000000)
                 // A thread that aborted search can have mated-in/TB-loss PV and
                 // score that cannot be trusted, i.e. it can be delayed or refuted
@@ -541,6 +541,9 @@ void Search::Worker::iterative_deepening() {
 
     if (!mainThread)
         return;
+
+    if (options["UCI_Minimal"])
+        main_manager()->pv(*this, threads, tt, rootDepth);
 
     mainThread->previousTimeReduction = timeReduction;
 
@@ -999,7 +1002,7 @@ moves_loop:  // When in check, search starts here
 
         ss->moveCount = ++moveCount;
 
-        if (rootNode && is_mainthread() && nodes > 10000000)
+        if (rootNode && is_mainthread() && !options["UCI_Minimal"] && nodes > 10000000)
         {
             main_manager()->updates.onIter(
               {depth, UCIEngine::move(move, pos.is_chess960()), moveCount + thisThread->pvIdx});
