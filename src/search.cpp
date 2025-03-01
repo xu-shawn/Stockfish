@@ -570,7 +570,7 @@ void Search::Worker::clear() {
         for (StatsType c : {NoCaptures, Captures})
             for (auto& to : continuationHistory[inCheck][c])
                 for (auto& h : to)
-                    h.fill(-468);
+                    h.fill(-968);
 
     for (size_t i = 1; i < reductions.size(); ++i)
         reductions[i] = int(2954 / 128.0 * std::log(i));
