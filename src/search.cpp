@@ -96,17 +96,13 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
     return 7685 * pcv + 7495 * micv + 9144 * (wnpcv + bnpcv) + 6469 * cntcv;
 }
 
-int risk_tolerance(const Position& pos, Value v) {
+int risk_tolerance(Value v) {
     // Returns (some constant of) second derivative of sigmoid.
     static constexpr auto sigmoid_d2 = [](int x, int y) {
         return -355752 * x / (x * x + 3 * y * y);
     };
 
-    int material = (67 * pos.count<PAWN>() + 182 * pos.count<KNIGHT>() + 182 * pos.count<BISHOP>()
-                    + 337 * pos.count<ROOK>() + 553 * pos.count<QUEEN>())
-                 / 64;
-
-    int m = std::clamp(material, 17, 78);
+    constexpr int m = 45;
 
     // a and b are the crude approximation of the wdl model.
     // The win rate is: 1/(1+exp((a-v)/b))
@@ -1193,7 +1189,7 @@ moves_loop:  // When in check, search starts here
         r -= std::abs(correctionValue) / 29696;
 
         if (PvNode && !is_decisive(bestValue))
-            r -= risk_tolerance(pos, bestValue);
+            r -= risk_tolerance(bestValue);
 
         // Increase reduction for cut nodes
         if (cutNode)
