@@ -807,7 +807,7 @@ Value Search::Worker::search(
     }
 
     // Use static evaluation difference to improve quiet move ordering
-    if ((ss - 1)->currentMove && !(ss - 1)->inCheck && !priorCapture)
+    if ((ss - 1)->currentMove.is_ok() && !(ss - 1)->inCheck && !priorCapture)
     {
         const int bonus =
           std::clamp(-10 * int((ss - 1)->staticEval + ss->staticEval), -1950, 1416) + 655;
@@ -818,7 +818,7 @@ Value Search::Worker::search(
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
               << bonus * 1196 / 1024;
 
-        update_continuation_histories(ss, pos.piece_on(prevSq), prevSq, bonus * 256 / 1024);
+        update_continuation_histories(ss - 1, pos.piece_on(prevSq), prevSq, bonus * 256 / 1024);
     }
 
     // Set up the improving flag, which is true if current static evaluation is
