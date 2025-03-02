@@ -1049,7 +1049,7 @@ moves_loop:  // When in check, search starts here
                 {
                     Value futilityValue = ss->staticEval + 242 + 230 * lmrDepth
                                         + PieceValue[capturedPiece] + 133 * captHist / 1024;
-                    if (futilityValue <= alpha)
+                    if (futilityValue <= alpha && pos.see_ge(move, futilityValue - alpha))
                         continue;
                 }
 
