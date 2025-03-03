@@ -513,7 +513,7 @@ void Search::Worker::iterative_deepening() {
             double bestMoveInstability = 0.9929 + 1.8519 * totBestMoveChanges / threads.size();
 
             const int    sharpnessFactor = win_rate_model(std::abs(bestValue), rootPos);
-            const double sharpness = 1 + 1.5 * sigmoid_derivative((sharpnessFactor - 500) / 40.0);
+            const double sharpness = 1 + 0.5 * sigmoid_derivative((sharpnessFactor - 500) / 40.0);
 
             double totalTime =
               mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability * sharpness;
