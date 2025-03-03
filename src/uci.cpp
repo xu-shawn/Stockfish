@@ -522,6 +522,8 @@ WinRateParams win_rate_params(const Position& pos) {
     return {a, b};
 }
 
+}
+
 // The win rate model is 1 / (1 + exp((a - eval) / b)), where a = p_a(material) and b = p_b(material).
 // It fits the LTC fishtest statistics rather accurately.
 int win_rate_model(Value v, const Position& pos) {
@@ -530,7 +532,6 @@ int win_rate_model(Value v, const Position& pos) {
 
     // Return the win rate in per mille units, rounded to the nearest integer.
     return int(0.5 + 1000 / (1 + std::exp((a - double(v)) / b)));
-}
 }
 
 std::string UCIEngine::format_score(const Score& s) {

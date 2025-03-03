@@ -75,6 +75,8 @@ class UCIEngine {
     void init_search_update_listeners();
 };
 
+int win_rate_model(Value v, const Position& pos);
+
 }  // namespace Stockfish
 
 #endif  // #ifndef UCI_H_INCLUDED
