@@ -151,9 +151,9 @@ void update_correction_history(const Position& pos,
           << bonus * 143 / 128;
 }
 
-int sigmoid(const double x) { return 1 / (1 + std::exp(-x)); }
+double sigmoid(const double x) { return 1 / (1 + std::exp(-x)); }
 
-int sigmoid_derivative(const double x) { return sigmoid(x) * (1 - sigmoid(x)); }
+double sigmoid_derivative(const double x) { return sigmoid(x) * (1 - sigmoid(x)); }
 
 // Add a small random component to draw evaluations to avoid 3-fold blindness
 Value value_draw(size_t nodes) { return VALUE_DRAW - 1 + Value(nodes & 0x2); }
@@ -512,8 +512,8 @@ void Search::Worker::iterative_deepening() {
               (1.4540 + mainThread->previousTimeReduction) / (2.1593 * timeReduction);
             double bestMoveInstability = 0.9929 + 1.8519 * totBestMoveChanges / threads.size();
 
-            const double sharpnessFactor = win_rate_model(std::abs(bestValue), rootPos) / 1000.0;
-            const double sharpness = 1 + 1.5 * sigmoid_derivative((sharpnessFactor - 500) / 20);
+            const int    sharpnessFactor = win_rate_model(std::abs(bestValue), rootPos);
+            const double sharpness = 1 + 1.5 * sigmoid_derivative((sharpnessFactor - 500) / 40.0);
 
             double totalTime =
               mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability * sharpness;
