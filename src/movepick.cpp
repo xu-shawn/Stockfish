@@ -22,6 +22,7 @@
 #include <limits>
 
 #include "bitboard.h"
+#include "history.h"
 #include "misc.h"
 #include "position.h"
 
@@ -106,8 +107,13 @@ MovePicker::MovePicker(const Position&              p,
 
 // MovePicker constructor for ProbCut: we generate captures with Static Exchange
 // Evaluation (SEE) greater than or equal to the given threshold.
-MovePicker::MovePicker(const Position& p, Move ttm, int th, const CapturePieceToHistory* cph) :
+MovePicker::MovePicker(const Position&              p,
+                       Move                         ttm,
+                       int                          th,
+                       const ButterflyHistory*      mh,
+                       const CapturePieceToHistory* cph) :
     pos(p),
+    mainHistory(mh),
     captureHistory(cph),
     ttMove(ttm),
     threshold(th) {
@@ -144,9 +150,12 @@ void MovePicker::score() {
 
     for (auto& m : *this)
         if constexpr (Type == CAPTURES)
+        {
             m.value =
               7 * int(PieceValue[pos.piece_on(m.to_sq())])
-              + (*captureHistory)[pos.moved_piece(m)][m.to_sq()][type_of(pos.piece_on(m.to_sq()))];
+              + (*captureHistory)[pos.moved_piece(m)][m.to_sq()][type_of(pos.piece_on(m.to_sq()))]
+              + (*mainHistory)[pos.side_to_move()][m.from_to()] / 16;
+        }
 
         else if constexpr (Type == QUIETS)
         {
