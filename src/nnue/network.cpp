@@ -447,14 +447,12 @@ bool Network<Arch, Transformer>::write_parameters(std::ostream&      stream,
     return bool(stream);
 }
 
-// Explicit template instantiation
+// Explicit template instantiations
 
-template class Network<
-  NetworkArchitecture<TransformedFeatureDimensionsBig, L2Big, L3Big>,
-  FeatureTransformer<TransformedFeatureDimensionsBig, &StateInfo::accumulatorBig>>;
+template class Network<NetworkArchitecture<TransformedFeatureDimensionsBig, L2Big, L3Big>,
+                       FeatureTransformer<TransformedFeatureDimensionsBig>>;
 
-template class Network<
-  NetworkArchitecture<TransformedFeatureDimensionsSmall, L2Small, L3Small>,
-  FeatureTransformer<TransformedFeatureDimensionsSmall, &StateInfo::accumulatorSmall>>;
+template class Network<NetworkArchitecture<TransformedFeatureDimensionsSmall, L2Small, L3Small>,
+                       FeatureTransformer<TransformedFeatureDimensionsSmall>>;
 
 }  // namespace Stockfish::Eval::NNUE
