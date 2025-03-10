@@ -21,6 +21,7 @@
 #ifndef NNUE_ACCUMULATOR_H_INCLUDED
 #define NNUE_ACCUMULATOR_H_INCLUDED
 
+#include <cstddef>
 #include <cstdint>
 
 #include "nnue_architecture.h"
@@ -93,6 +94,37 @@ struct AccumulatorCaches {
 
     Cache<TransformedFeatureDimensionsBig>   big;
     Cache<TransformedFeatureDimensionsSmall> small;
+};
+
+
+struct AccumulatorState {
+    Accumulator<TransformedFeatureDimensionsBig> m_accumulatorBig;
+    Accumulator<TransformedFeatureDimensionsBig> m_accumulatorSmall;
+    DirtyPiece                                   m_dirtyPiece;
+
+    void reset(const DirtyPiece& dirtyPiece);
+};
+
+
+template<std::size_t Size>
+class AccumulatorStack {
+   public:
+    AccumulatorStack() :
+        m_current_idx{} {}
+
+    void push(const DirtyPiece& dirtyPiece) {
+        m_current_idx++;
+        m_accumulators[m_current_idx].reset(dirtyPiece);
+    };
+
+    void undo() { m_current_idx--; }
+
+    template<IndexType Dimensions>
+    void evaluate(const Position& pos, AccumulatorCaches::Cache<Dimensions>& cache);
+
+   private:
+    std::array<AccumulatorState, Size> m_accumulators;
+    std::size_t                        m_current_idx;
 };
 
 }  // namespace Stockfish::Eval::NNUE
