@@ -41,11 +41,6 @@ using BiasType       = std::int16_t;
 using WeightType     = std::int16_t;
 using PSQTWeightType = std::int32_t;
 
-enum IncUpdateDirection {
-    FORWARD,
-    BACKWARDS
-};
-
 // If vector instructions are enabled, we update and refresh the
 // accumulator tile by tile such that each tile fits in the CPU's
 // vector registers.

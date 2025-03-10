@@ -2,10 +2,10 @@
 
 namespace Stockfish::Eval::NNUE {
 
-void AccumulatorState::reset(const DirtyPiece& dirtyPiece) noexcept {
-    m_dirtyPiece = dirtyPiece;
-    m_accumulatorBig.computed.fill(false);
-    m_accumulatorSmall.computed.fill(false);
+void AccumulatorState::reset(const DirtyPiece& dp) noexcept {
+    dirtyPiece = dp;
+    accumulatorBig.computed.fill(false);
+    accumulatorSmall.computed.fill(false);
 }
 
 }
