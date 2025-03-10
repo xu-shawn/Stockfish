@@ -26,8 +26,6 @@
 #include <string>
 
 #include "bitboard.h"
-#include "nnue/nnue_accumulator.h"
-#include "nnue/nnue_architecture.h"
 #include "types.h"
 
 namespace Stockfish {
@@ -61,11 +59,6 @@ struct StateInfo {
     Bitboard   checkSquares[PIECE_TYPE_NB];
     Piece      capturedPiece;
     int        repetition;
-
-    // Used by NNUE
-    DirtyPiece                                                             dirtyPiece;
-    Eval::NNUE::Accumulator<Eval::NNUE::TransformedFeatureDimensionsBig>   accumulatorBig;
-    Eval::NNUE::Accumulator<Eval::NNUE::TransformedFeatureDimensionsSmall> accumulatorSmall;
 };
 
 
