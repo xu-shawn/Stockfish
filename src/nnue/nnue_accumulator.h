@@ -127,6 +127,16 @@ class AccumulatorStack {
     std::size_t                        m_current_idx;
 };
 
+    Note to future self:
+    Steps ahead
+    - update_accumualtor_incremental should take in feature transformer to be able to access weights
+    - write logic to chain accumulator updates (update all accumulators from A to B)
+    - fix whatever fails to build
+    - port over finny refresh logic
+    - figure out how to resolve circular dependency between nnue_accumulator_h and nnue_feature_transformer.h
+    - Only start removing stuff after this
+
+
 template<IndexType                                 TransformedFeatureDimensions,
          Color                                     Perspective,
          IncUpdateDirection                        Direction = FORWARD,
