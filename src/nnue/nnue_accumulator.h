@@ -36,9 +36,9 @@ using IndexType      = std::uint32_t;
 // Class that holds the result of affine transformation of input features
 template<IndexType Size>
 struct alignas(CacheLineSize) Accumulator {
-    std::int16_t accumulation[COLOR_NB][Size];
-    std::int32_t psqtAccumulation[COLOR_NB][PSQTBuckets];
-    bool         computed[COLOR_NB];
+    std::int16_t        accumulation[COLOR_NB][Size];
+    std::int32_t        psqtAccumulation[COLOR_NB][PSQTBuckets];
+    std::array<bool, 2> computed;
 };
 
 
@@ -102,7 +102,7 @@ struct AccumulatorState {
     Accumulator<TransformedFeatureDimensionsBig> m_accumulatorSmall;
     DirtyPiece                                   m_dirtyPiece;
 
-    void reset(const DirtyPiece& dirtyPiece);
+    void reset(const DirtyPiece& dirtyPiece) noexcept;
 };
 
 
