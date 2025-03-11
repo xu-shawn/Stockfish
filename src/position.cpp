@@ -24,7 +24,6 @@
 #include <cctype>
 #include <cstddef>
 #include <cstring>
-#include <initializer_list>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -1007,7 +1006,7 @@ void Position::do_null_move(StateInfo& newSt, const TranspositionTable& tt) {
     assert(!checkers());
     assert(&newSt != st);
 
-    std::memcpy(&newSt, st, offsetof(StateInfo, accumulatorBig));
+    std::memcpy(&newSt, st, sizeof(StateInfo));
 
     newSt.previous = st;
     st->next       = &newSt;
@@ -1021,11 +1020,6 @@ void Position::do_null_move(StateInfo& newSt, const TranspositionTable& tt) {
 
     st->key ^= Zobrist::side;
     prefetch(tt.first_entry(key()));
-
-    st->dirtyPiece.dirty_num               = 0;
-    st->dirtyPiece.piece[0]                = NO_PIECE;  // Avoid checks in UpdateAccumulator()
-    st->accumulatorBig.computed[WHITE]     = st->accumulatorBig.computed[BLACK] =
-      st->accumulatorSmall.computed[WHITE] = st->accumulatorSmall.computed[BLACK] = false;
 
     st->pliesFromNull = 0;
 
