@@ -110,6 +110,8 @@ class AccumulatorStack {
         m_accumulators(MAX_PLY + 1),
         m_current_idx{} {}
 
+    const AccumulatorState& latest() const noexcept;
+
     void push(const DirtyPiece& dirtyPiece) noexcept;
 
     void pop() noexcept;
@@ -119,6 +121,7 @@ class AccumulatorStack {
                   const FeatureTransformer<Dimensions>& featureTransformer,
                   AccumulatorCaches::Cache<Dimensions>& cache) noexcept;
 
+   private:
     template<Color                   Perspective,
              IndexType               Dimensions,
              Accumulator<Dimensions> AccumulatorState::*accPtr>
@@ -131,7 +134,13 @@ class AccumulatorStack {
              Accumulator<Dimensions> AccumulatorState::*accPtr>
     [[nodiscard]] std::size_t find_last_usable_accumulator() const noexcept;
 
-   private:
+    template<Color                   Perspective,
+             IndexType               Dimensions,
+             Accumulator<Dimensions> AccumulatorState::*accPtr>
+    void forward_update_incremental(const Position&                       pos,
+                                    const FeatureTransformer<Dimensions>& featureTransformer,
+                                    const std::size_t                     begin) noexcept;
+
     std::vector<AccumulatorState> m_accumulators;
     std::size_t                   m_current_idx;
 };

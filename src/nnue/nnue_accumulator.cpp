@@ -41,10 +41,14 @@ void AccumulatorState::reset(const DirtyPiece& dp) noexcept {
     accumulatorSmall.computed.fill(false);
 }
 
+const AccumulatorState& AccumulatorStack::latest() const noexcept {
+    return m_accumulators[m_current_idx - 1];
+}
+
 void AccumulatorStack::push(const DirtyPiece& dirtyPiece) noexcept {
     assert(m_current_idx + 1 < m_accumulators.size());
-    m_current_idx++;
     m_accumulators[m_current_idx].reset(dirtyPiece);
+    m_current_idx++;
 }
 
 void AccumulatorStack::pop() noexcept { m_current_idx--; }
@@ -65,16 +69,17 @@ void AccumulatorStack::evaluate_side(const Position&                       pos,
     const auto last_usable_accum = find_last_usable_accumulator<Perspective, Dimensions>();
 
     if ((m_accumulators[last_usable_accum]->*accPtr).computed[Perspective])
-        ;  // TODO: Update forward
+        forward_update_incremental<Perspective>(pos, featureTransformer, last_usable_accum);
 
     else
         ;  // TODO: Update backward
 }
 
+// Find the earliest usable accumulator, this can either be a computed accumulator or the accumulator
+// state just before a change that requires full refresh.
 template<Color Perspective, IndexType Dimensions, Accumulator<Dimensions> AccumulatorState::*accPtr>
 std::size_t AccumulatorStack::find_last_usable_accumulator() const noexcept {
-    // Find the earliest usable accumulator
-    for (std::size_t curr_idx = m_current_idx; curr_idx >= 0; curr_idx--)
+    for (std::size_t curr_idx = m_current_idx - 1; curr_idx >= 0; curr_idx--)
     {
         if ((m_accumulators[curr_idx]->*accPtr).computed[Perspective])
             return curr_idx;
@@ -86,6 +91,23 @@ std::size_t AccumulatorStack::find_last_usable_accumulator() const noexcept {
     return 0;
 }
 
+template<Color Perspective, IndexType Dimensions, Accumulator<Dimensions> AccumulatorState::*accPtr>
+void AccumulatorStack::forward_update_incremental(
+  const Position&                       pos,
+  const FeatureTransformer<Dimensions>& featureTransformer,
+  const std::size_t                     begin) noexcept {
+
+    assert(begin < m_accumulators.size());
+    assert((m_accumulators[begin]->*accPtr).computed[Perspective]);
+
+    const Square ksq = pos.square<KING>(Perspective);
+
+    for (std::size_t next = begin + 1; next < m_current_idx; next++)
+        update_accumulator_incremental(featureTransformer, ksq, m_accumulators[next],
+                                       m_accumulators[next - 1]);
+
+    assert((latest()->*accPtr).computed[Perspective]);
+}
 
 // Explicit template instantiations
 
