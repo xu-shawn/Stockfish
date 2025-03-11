@@ -24,7 +24,8 @@
 
 namespace Stockfish::Eval::NNUE {
 
-template<IndexType TransformedFeatureDimension>
+template<IndexType                                 TransformedFeatureDimensions,
+         Accumulator<TransformedFeatureDimensions> AccumulatorState::* accPtr>
 class FeatureTransformer;
 
 }

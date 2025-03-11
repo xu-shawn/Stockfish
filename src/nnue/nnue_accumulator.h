@@ -120,17 +120,19 @@ class AccumulatorStack {
     void pop() noexcept;
 
     template<IndexType Dimensions, Accumulator<Dimensions> AccumulatorState::* accPtr>
-    void evaluate(const Position&                       pos,
-                  const FeatureTransformer<Dimensions>& featureTransformer,
-                  AccumulatorCaches::Cache<Dimensions>& cache) noexcept;
+    void evaluate(const Position&                               pos,
+                  const FeatureTransformer<Dimensions, accPtr>& featureTransformer,
+                  AccumulatorCaches::Cache<Dimensions>&         cache) noexcept;
 
    private:
+    [[nodiscard]] AccumulatorState& latest() noexcept;
+
     template<Color                   Perspective,
              IndexType               Dimensions,
              Accumulator<Dimensions> AccumulatorState::* accPtr>
-    void evaluate_side(const Position&                       pos,
-                       const FeatureTransformer<Dimensions>& featureTransformer,
-                       AccumulatorCaches::Cache<Dimensions>& cache) noexcept;
+    void evaluate_side(const Position&                               pos,
+                       const FeatureTransformer<Dimensions, accPtr>& featureTransformer,
+                       AccumulatorCaches::Cache<Dimensions>&         cache) noexcept;
 
     template<Color                   Perspective,
              IndexType               Dimensions,
@@ -140,16 +142,18 @@ class AccumulatorStack {
     template<Color                   Perspective,
              IndexType               Dimensions,
              Accumulator<Dimensions> AccumulatorState::* accPtr>
-    void forward_update_incremental(const Position&                       pos,
-                                    const FeatureTransformer<Dimensions>& featureTransformer,
-                                    const std::size_t                     begin) noexcept;
+    void
+    forward_update_incremental(const Position&                               pos,
+                               const FeatureTransformer<Dimensions, accPtr>& featureTransformer,
+                               const std::size_t                             begin) noexcept;
 
     template<Color                   Perspective,
              IndexType               Dimensions,
              Accumulator<Dimensions> AccumulatorState::* accPtr>
-    void backward_update_incremental(const Position&                       pos,
-                                     const FeatureTransformer<Dimensions>& featureTransformer,
-                                     const std::size_t                     end) noexcept;
+    void
+    backward_update_incremental(const Position&                               pos,
+                                const FeatureTransformer<Dimensions, accPtr>& featureTransformer,
+                                const std::size_t                             end) noexcept;
 
     std::vector<AccumulatorState> m_accumulators;
     std::size_t                   m_current_idx;
