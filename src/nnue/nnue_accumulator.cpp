@@ -34,7 +34,9 @@ template<Color                                     Perspective,
          Accumulator<TransformedFeatureDimensions> AccumulatorState::* accPtr>
 void update_accumulator_incremental();
 
-template<Color Perspective, IndexType Dimensions>
+template<Color                   Perspective,
+         IndexType               Dimensions,
+         Accumulator<Dimensions> AccumulatorState::* accPtr>
 void update_accumulator_refresh_cache(const FeatureTransformer<Dimensions>& featureTransformer,
                                       const Position&                       pos,
                                       AccumulatorState&                     accumulatorState,
@@ -57,15 +59,19 @@ void AccumulatorStack::reset(const Position&    rootPos,
                              AccumulatorCaches& caches) noexcept {
     m_current_idx = 1;
 
-    update_accumulator_refresh_cache<WHITE>(*networks.big.featureTransformer, rootPos,
-                                            m_accumulators[0], caches.big);
-    update_accumulator_refresh_cache<BLACK>(*networks.big.featureTransformer, rootPos,
-                                            m_accumulators[0], caches.big);
+    update_accumulator_refresh_cache<WHITE, TransformedFeatureDimensionsBig,
+                                     &AccumulatorState::accumulatorBig>(
+      *networks.big.featureTransformer, rootPos, m_accumulators[0], caches.big);
+    update_accumulator_refresh_cache<BLACK, TransformedFeatureDimensionsBig,
+                                     &AccumulatorState::accumulatorBig>(
+      *networks.big.featureTransformer, rootPos, m_accumulators[0], caches.big);
 
-    update_accumulator_refresh_cache<WHITE>(*networks.small.featureTransformer, rootPos,
-                                            m_accumulators[0], caches.small);
-    update_accumulator_refresh_cache<BLACK>(*networks.small.featureTransformer, rootPos,
-                                            m_accumulators[0], caches.small);
+    update_accumulator_refresh_cache<WHITE, TransformedFeatureDimensionsSmall,
+                                     &AccumulatorState::accumulatorSmall>(
+      *networks.small.featureTransformer, rootPos, m_accumulators[0], caches.small);
+    update_accumulator_refresh_cache<BLACK, TransformedFeatureDimensionsSmall,
+                                     &AccumulatorState::accumulatorSmall>(
+      *networks.small.featureTransformer, rootPos, m_accumulators[0], caches.small);
 }
 
 void AccumulatorStack::push(const DirtyPiece& dirtyPiece) noexcept {
@@ -384,14 +390,14 @@ void update_accumulator_incremental(
     (target_state->*accPtr).computed[Perspective] = true;
 }
 
-template<Color Perspective, IndexType Dimensions>
+template<Color                   Perspective,
+         IndexType               Dimensions,
+         Accumulator<Dimensions> AccumulatorState::* accPtr>
 void update_accumulator_refresh_cache(const FeatureTransformer<Dimensions>& featureTransformer,
                                       const Position&                       pos,
                                       AccumulatorState&                     accumulatorState,
                                       AccumulatorCaches::Cache<Dimensions>& cache) {
-    assert(cache != nullptr);
     using Tiling = SIMDTiling<Dimensions, Dimensions>;
-    static constexpr Accumulator<Dimensions> AccumulatorState::* accPtr;
 
     const Square          ksq   = pos.square<KING>(Perspective);
     auto&                 entry = cache[ksq][Perspective];
@@ -420,7 +426,7 @@ void update_accumulator_refresh_cache(const FeatureTransformer<Dimensions>& feat
         }
     }
 
-    auto& accumulator                 = accumulatorState->*accPtr;
+    auto& accumulator                 = accumulatorState.*accPtr;
     accumulator.computed[Perspective] = true;
 
 #ifdef VECTOR
@@ -585,7 +591,6 @@ void update_accumulator_refresh_cache(const FeatureTransformer<Dimensions>& feat
     for (PieceType pt = PAWN; pt <= KING; ++pt)
         entry.byTypeBB[pt] = pos.pieces(pt);
 }
-
 }
 
 }

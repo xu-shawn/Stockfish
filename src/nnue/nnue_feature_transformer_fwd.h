@@ -24,7 +24,7 @@
 
 namespace Stockfish::Eval::NNUE {
 
-template<IndexType TransformedFeatureDimensions>
+template<IndexType TransformedFeatureDimension>
 class FeatureTransformer;
 
 }

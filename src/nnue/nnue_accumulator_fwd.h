@@ -34,6 +34,8 @@ struct alignas(CacheLineSize) Accumulator;
 
 struct AccumulatorCaches;
 
+struct AccumulatorState;
+
 class AccumulatorStack;
 
 }
