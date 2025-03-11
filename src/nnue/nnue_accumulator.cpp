@@ -20,6 +20,7 @@
 
 #include "../position.h"
 #include "nnue_architecture.h"
+#include "network.h"
 #include "nnue_common.h"
 #include "nnue_feature_transformer.h"
 
@@ -51,13 +52,32 @@ const AccumulatorState& AccumulatorStack::latest() const noexcept {
     return m_accumulators[m_current_idx - 1];
 }
 
+void AccumulatorStack::reset(const Position&    rootPos,
+                             const Networks&    networks,
+                             AccumulatorCaches& caches) noexcept {
+    m_current_idx = 1;
+
+    update_accumulator_refresh_cache<WHITE>(*networks.big.featureTransformer, rootPos,
+                                            m_accumulators[0], caches.big);
+    update_accumulator_refresh_cache<BLACK>(*networks.big.featureTransformer, rootPos,
+                                            m_accumulators[0], caches.big);
+
+    update_accumulator_refresh_cache<WHITE>(*networks.small.featureTransformer, rootPos,
+                                            m_accumulators[0], caches.small);
+    update_accumulator_refresh_cache<BLACK>(*networks.small.featureTransformer, rootPos,
+                                            m_accumulators[0], caches.small);
+}
+
 void AccumulatorStack::push(const DirtyPiece& dirtyPiece) noexcept {
     assert(m_current_idx + 1 < m_accumulators.size());
     m_accumulators[m_current_idx].reset(dirtyPiece);
     m_current_idx++;
 }
 
-void AccumulatorStack::pop() noexcept { m_current_idx--; }
+void AccumulatorStack::pop() noexcept {
+    assert(m_current_idx > 1);
+    m_current_idx--;
+}
 
 template<IndexType Dimensions, Accumulator<Dimensions> AccumulatorState::* accPtr>
 void AccumulatorStack::evaluate(const Position&                       pos,

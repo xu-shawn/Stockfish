@@ -31,6 +31,8 @@
 
 namespace Stockfish::Eval::NNUE {
 
+struct Networks;
+
 // Class that holds the result of affine transformation of input features
 template<IndexType Size>
 struct alignas(CacheLineSize) Accumulator {
@@ -110,10 +112,11 @@ class AccumulatorStack {
         m_accumulators(MAX_PLY + 1),
         m_current_idx{} {}
 
-    const AccumulatorState& latest() const noexcept;
+    [[nodiscard]] const AccumulatorState& latest() const noexcept;
 
+    void
+    reset(const Position& rootPos, const Networks& networks, AccumulatorCaches& caches) noexcept;
     void push(const DirtyPiece& dirtyPiece) noexcept;
-
     void pop() noexcept;
 
     template<IndexType Dimensions, Accumulator<Dimensions> AccumulatorState::* accPtr>
