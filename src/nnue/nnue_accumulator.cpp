@@ -30,7 +30,7 @@ namespace {
 template<IndexType                                 TransformedFeatureDimensions,
          Color                                     Perspective,
          IncUpdateDirection                        Direction = FORWARD,
-         Accumulator<TransformedFeatureDimensions> AccumulatorState::* accPtr>
+         Accumulator<TransformedFeatureDimensions> AccumulatorState::*accPtr>
 void update_accumulator_incremental();
 
 }
@@ -49,10 +49,42 @@ void AccumulatorStack::push(const DirtyPiece& dirtyPiece) noexcept {
 
 void AccumulatorStack::pop() noexcept { m_current_idx--; }
 
-template<IndexType Dimensions, Accumulator<Dimensions> AccumulatorState::* accPtr>
+template<IndexType Dimensions, Accumulator<Dimensions> AccumulatorState::*accPtr>
 void AccumulatorStack::evaluate(const Position&                       pos,
                                 const FeatureTransformer<Dimensions>& featureTransformer,
-                                AccumulatorCaches::Cache<Dimensions>& cache) {}
+                                AccumulatorCaches::Cache<Dimensions>& cache) noexcept {
+
+    evaluate_side<WHITE>(pos, featureTransformer, cache);
+    evaluate_side<BLACK>(pos, featureTransformer, cache);
+}
+
+template<Color Perspective, IndexType Dimensions, Accumulator<Dimensions> AccumulatorState::*accPtr>
+void AccumulatorStack::evaluate_side(const Position&                       pos,
+                                     const FeatureTransformer<Dimensions>& featureTransformer,
+                                     AccumulatorCaches::Cache<Dimensions>& cache) noexcept {
+    const auto last_usable_accum = find_last_usable_accumulator<Perspective, Dimensions>();
+
+    if ((m_accumulators[last_usable_accum]->*accPtr).computed[Perspective])
+        ;  // TODO: Update forward
+
+    else
+        ;  // TODO: Update backward
+}
+
+template<Color Perspective, IndexType Dimensions, Accumulator<Dimensions> AccumulatorState::*accPtr>
+std::size_t AccumulatorStack::find_last_usable_accumulator() const noexcept {
+    // Find the earliest usable accumulator
+    for (std::size_t curr_idx = m_current_idx; curr_idx >= 0; curr_idx--)
+    {
+        if ((m_accumulators[curr_idx]->*accPtr).computed[Perspective])
+            return curr_idx;
+
+        if (FeatureSet::requires_refresh(m_accumulators[curr_idx].dirtyPiece, Perspective))
+            return curr_idx;
+    }
+
+    return 0;
+}
 
 
 // Explicit template instantiations
@@ -61,14 +93,14 @@ template<>
 void AccumulatorStack::evaluate<TransformedFeatureDimensionsBig, &AccumulatorState::accumulatorBig>(
   const Position&                                            pos,
   const FeatureTransformer<TransformedFeatureDimensionsBig>& featureTransformer,
-  AccumulatorCaches::Cache<TransformedFeatureDimensionsBig>& cache);
+  AccumulatorCaches::Cache<TransformedFeatureDimensionsBig>& cache) noexcept;
 
 template<>
 void AccumulatorStack::evaluate<TransformedFeatureDimensionsSmall,
                                 &AccumulatorState::accumulatorSmall>(
   const Position&                                              pos,
   const FeatureTransformer<TransformedFeatureDimensionsSmall>& featureTransformer,
-  AccumulatorCaches::Cache<TransformedFeatureDimensionsSmall>& cache);
+  AccumulatorCaches::Cache<TransformedFeatureDimensionsSmall>& cache) noexcept;
 
 
 namespace {
@@ -76,7 +108,7 @@ namespace {
 template<IndexType                                 TransformedFeatureDimensions,
          Color                                     Perspective,
          IncUpdateDirection                        Direction = FORWARD,
-         Accumulator<TransformedFeatureDimensions> AccumulatorState::* accPtr>
+         Accumulator<TransformedFeatureDimensions> AccumulatorState::*accPtr>
 void update_accumulator_incremental(
   const FeatureTransformer<TransformedFeatureDimensions>& featureTransformer,
   const Square                                            ksq,
@@ -278,7 +310,7 @@ void update_accumulator_refresh_cache(const FeatureTransformer<Dimensions>& feat
                                       AccumulatorCaches::Cache<Dimensions>& cache) {
     assert(cache != nullptr);
     using Tiling = SIMDTiling<Dimensions, Dimensions>;
-    static constexpr Accumulator<Dimensions> AccumulatorState::* accPtr;
+    static constexpr Accumulator<Dimensions> AccumulatorState::*accPtr;
 
     const Square          ksq   = pos.square<KING>(Perspective);
     auto&                 entry = cache[ksq][Perspective];

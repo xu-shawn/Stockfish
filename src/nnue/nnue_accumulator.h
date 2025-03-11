@@ -114,10 +114,22 @@ class AccumulatorStack {
 
     void pop() noexcept;
 
-    template<IndexType Dimensions, Accumulator<Dimensions> AccumulatorState::* accPtr>
+    template<IndexType Dimensions, Accumulator<Dimensions> AccumulatorState::*accPtr>
     void evaluate(const Position&                       pos,
                   const FeatureTransformer<Dimensions>& featureTransformer,
-                  AccumulatorCaches::Cache<Dimensions>& cache);
+                  AccumulatorCaches::Cache<Dimensions>& cache) noexcept;
+
+    template<Color                   Perspective,
+             IndexType               Dimensions,
+             Accumulator<Dimensions> AccumulatorState::*accPtr>
+    void evaluate_side(const Position&                       pos,
+                       const FeatureTransformer<Dimensions>& featureTransformer,
+                       AccumulatorCaches::Cache<Dimensions>& cache) noexcept;
+
+    template<Color                   Perspective,
+             IndexType               Dimensions,
+             Accumulator<Dimensions> AccumulatorState::*accPtr>
+    [[nodiscard]] std::size_t find_last_usable_accumulator() const noexcept;
 
    private:
     std::vector<AccumulatorState> m_accumulators;
