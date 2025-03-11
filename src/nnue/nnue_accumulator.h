@@ -155,10 +155,10 @@ class AccumulatorStack {
     std::size_t                   m_current_idx;
 };
 
-Note to future self:
-Steps ahead
-- write makemove and related stuff
-- Cleanup and fix build
+// Note to future self:
+// Steps ahead
+// - write makemove and related stuff
+// - Cleanup and fix build
 
 }  // namespace Stockfish::Eval::NNUE
 

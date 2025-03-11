@@ -684,10 +684,10 @@ bool Position::gives_check(Move m) const {
 // moves should be filtered out before this function is called.
 // If a pointer to the TT table is passed, the entry for the new position
 // will be prefetched
-void Position::do_move(Move                      m,
-                       StateInfo&                newSt,
-                       bool                      givesCheck,
-                       const TranspositionTable* tt = nullptr) {
+DirtyPiece Position::do_move(Move                      m,
+                             StateInfo&                newSt,
+                             bool                      givesCheck,
+                             const TranspositionTable* tt = nullptr) {
 
     assert(m.is_ok());
     assert(&newSt != st);
@@ -901,6 +901,8 @@ void Position::do_move(Move                      m,
     }
 
     assert(pos_is_ok());
+
+    return dp;
 }
 
 

@@ -133,11 +133,11 @@ class Position {
     Piece captured_piece() const;
 
     // Doing and undoing moves
-    void do_move(Move m, StateInfo& newSt, const TranspositionTable* tt);
-    void do_move(Move m, StateInfo& newSt, bool givesCheck, const TranspositionTable* tt);
-    void undo_move(Move m);
-    void do_null_move(StateInfo& newSt, const TranspositionTable& tt);
-    void undo_null_move();
+    void       do_move(Move m, StateInfo& newSt, const TranspositionTable* tt);
+    DirtyPiece do_move(Move m, StateInfo& newSt, bool givesCheck, const TranspositionTable* tt);
+    void       undo_move(Move m);
+    void       do_null_move(StateInfo& newSt, const TranspositionTable& tt);
+    void       undo_null_move();
 
     // Static Exchange Evaluation
     bool see_ge(Move m, int threshold = 0) const;
