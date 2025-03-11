@@ -59,7 +59,9 @@ const AccumulatorState& AccumulatorStack::latest() const noexcept {
     return m_accumulators[m_current_idx - 1];
 }
 
-AccumulatorState& AccumulatorStack::latest() noexcept { return m_accumulators[m_current_idx - 1]; }
+AccumulatorState& AccumulatorStack::mut_latest() noexcept {
+    return m_accumulators[m_current_idx - 1];
+}
 
 void AccumulatorStack::reset(const Position&    rootPos,
                              const Networks&    networks,
@@ -116,7 +118,7 @@ void AccumulatorStack::evaluate_side(
 
     else
     {
-        update_accumulator_refresh_cache<Perspective>(featureTransformer, pos, latest(), cache);
+        update_accumulator_refresh_cache<Perspective>(featureTransformer, pos, mut_latest(), cache);
         backward_update_incremental<Perspective>(pos, featureTransformer, last_usable_accum);
     }
 }
