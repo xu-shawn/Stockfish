@@ -116,7 +116,7 @@ class AccumulatorStack {
 
     void pop() noexcept;
 
-    template<IndexType Dimensions, Accumulator<Dimensions> AccumulatorState::*accPtr>
+    template<IndexType Dimensions, Accumulator<Dimensions> AccumulatorState::* accPtr>
     void evaluate(const Position&                       pos,
                   const FeatureTransformer<Dimensions>& featureTransformer,
                   AccumulatorCaches::Cache<Dimensions>& cache) noexcept;
@@ -124,22 +124,29 @@ class AccumulatorStack {
    private:
     template<Color                   Perspective,
              IndexType               Dimensions,
-             Accumulator<Dimensions> AccumulatorState::*accPtr>
+             Accumulator<Dimensions> AccumulatorState::* accPtr>
     void evaluate_side(const Position&                       pos,
                        const FeatureTransformer<Dimensions>& featureTransformer,
                        AccumulatorCaches::Cache<Dimensions>& cache) noexcept;
 
     template<Color                   Perspective,
              IndexType               Dimensions,
-             Accumulator<Dimensions> AccumulatorState::*accPtr>
+             Accumulator<Dimensions> AccumulatorState::* accPtr>
     [[nodiscard]] std::size_t find_last_usable_accumulator() const noexcept;
 
     template<Color                   Perspective,
              IndexType               Dimensions,
-             Accumulator<Dimensions> AccumulatorState::*accPtr>
+             Accumulator<Dimensions> AccumulatorState::* accPtr>
     void forward_update_incremental(const Position&                       pos,
                                     const FeatureTransformer<Dimensions>& featureTransformer,
                                     const std::size_t                     begin) noexcept;
+
+    template<Color                   Perspective,
+             IndexType               Dimensions,
+             Accumulator<Dimensions> AccumulatorState::* accPtr>
+    void backward_update_incremental(const Position&                       pos,
+                                     const FeatureTransformer<Dimensions>& featureTransformer,
+                                     const std::size_t                     end) noexcept;
 
     std::vector<AccumulatorState> m_accumulators;
     std::size_t                   m_current_idx;
