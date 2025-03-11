@@ -180,7 +180,12 @@ class Position {
     // Other helpers
     void move_piece(Square from, Square to);
     template<bool Do>
-    void do_castling(Color us, Square from, Square& to, Square& rfrom, Square& rto);
+    void do_castling(Color             us,
+                     Square            from,
+                     Square&           to,
+                     Square&           rfrom,
+                     Square&           rto,
+                     DirtyPiece* const dp = nullptr);
     template<bool AfterMove>
     Key adjust_key50(Key k) const;
 

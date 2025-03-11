@@ -728,7 +728,7 @@ DirtyPiece Position::do_move(Move                      m,
         assert(captured == make_piece(us, ROOK));
 
         Square rfrom, rto;
-        do_castling<true>(us, from, to, rfrom, rto);
+        do_castling<true>(us, from, to, rfrom, rto, &dp);
 
         k ^= Zobrist::psq[captured][rfrom] ^ Zobrist::psq[captured][rto];
         st->nonPawnKey[us] ^= Zobrist::psq[captured][rfrom] ^ Zobrist::psq[captured][rto];
@@ -972,23 +972,25 @@ void Position::undo_move(Move m) {
 // Helper used to do/undo a castling move. This is a bit
 // tricky in Chess960 where from/to squares can overlap.
 template<bool Do>
-void Position::do_castling(Color us, Square from, Square& to, Square& rfrom, Square& rto) {
+void Position::do_castling(
+  Color us, Square from, Square& to, Square& rfrom, Square& rto, DirtyPiece* const dp) {
 
     bool kingSide = to > from;
     rfrom         = to;  // Castling is encoded as "king captures friendly rook"
     rto           = relative_square(us, kingSide ? SQ_F1 : SQ_D1);
     to            = relative_square(us, kingSide ? SQ_G1 : SQ_C1);
 
+    assert(!Do || dp);
+
     if (Do)
     {
-        DirtyPiece dp;
-        dp.piece[0]  = make_piece(us, KING);
-        dp.from[0]   = from;
-        dp.to[0]     = to;
-        dp.piece[1]  = make_piece(us, ROOK);
-        dp.from[1]   = rfrom;
-        dp.to[1]     = rto;
-        dp.dirty_num = 2;
+        dp->piece[0]  = make_piece(us, KING);
+        dp->from[0]   = from;
+        dp->to[0]     = to;
+        dp->piece[1]  = make_piece(us, ROOK);
+        dp->from[1]   = rfrom;
+        dp->to[1]     = rto;
+        dp->dirty_num = 2;
     }
 
     // Remove both pieces first since squares could overlap in Chess960
