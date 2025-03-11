@@ -64,11 +64,13 @@ class Network {
     bool save(const std::optional<std::string>& filename) const;
 
     NetworkOutput evaluate(const Position&                         pos,
+                           AccumulatorStack&                       accumulatorStack,
                            AccumulatorCaches::Cache<FTDimensions>* cache) const;
 
 
     void verify(std::string evalfilePath, const std::function<void(std::string_view)>&) const;
     NnueEvalTrace trace_evaluate(const Position&                         pos,
+                                 AccumulatorStack&                       accumulatorStack,
                                  AccumulatorCaches::Cache<FTDimensions>* cache) const;
 
    private:

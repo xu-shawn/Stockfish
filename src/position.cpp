@@ -709,11 +709,7 @@ void Position::do_move(Move                      m,
     ++st->rule50;
     ++st->pliesFromNull;
 
-    // Used by NNUE
-    st->accumulatorBig.computed[WHITE]     = st->accumulatorBig.computed[BLACK] =
-      st->accumulatorSmall.computed[WHITE] = st->accumulatorSmall.computed[BLACK] = false;
-
-    auto& dp     = st->dirtyPiece;
+    DirtyPiece dp;
     dp.dirty_num = 1;
 
     Color  us       = sideToMove;
@@ -984,7 +980,7 @@ void Position::do_castling(Color us, Square from, Square& to, Square& rfrom, Squ
 
     if (Do)
     {
-        auto& dp     = st->dirtyPiece;
+        DirtyPiece dp;
         dp.piece[0]  = make_piece(us, KING);
         dp.from[0]   = from;
         dp.to[0]     = to;
