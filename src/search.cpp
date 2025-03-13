@@ -1233,23 +1233,27 @@ moves_loop:  // When in check, search starts here
             // To prevent problems when the max value is less than the min value,
             // std::clamp has been replaced by a more robust implementation.
 
-
             Depth d = std::max(
               1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));
 
+            const std::uint64_t prevNodes = nodes.load(std::memory_order_relaxed);
+
             ss->reduction = newDepth - d;
 
-            value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+
             ss->reduction = 0;
 
+            const std::uint64_t nodesDiff = nodes.load(std::memory_order_relaxed) - prevNodes;
 
             // Do a full-depth search when reduced LMR search fails high
             if (value > alpha && d < newDepth)
             {
                 // Adjust full-depth search based on LMR results - if the result was
                 // good enough search deeper, if it was bad enough search shallower.
-                const bool doDeeperSearch    = value > (bestValue + 43 + 2 * newDepth);
-                const bool doShallowerSearch = value < bestValue + 9;
+                const bool doDeeperSearch = value > (bestValue + 43 + 2 * newDepth);
+                const bool doShallowerSearch =
+                  value < bestValue + 9 && nodesDiff >= static_cast<std::uint64_t>(depth) * depth;
 
                 newDepth += doDeeperSearch - doShallowerSearch;
 
