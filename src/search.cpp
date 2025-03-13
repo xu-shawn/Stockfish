@@ -1116,7 +1116,7 @@ moves_loop:  // When in check, search starts here
 
             if (!rootNode && move == ttData.move && !excludedMove
                 && depth >= 6 - (thisThread->completedDepth > 29)
-                              - (thisThread->branchingFactor < 1500) + ss->ttPv
+                              - (thisThread->branchingFactor < 2000) + ss->ttPv
                 && is_valid(ttData.value) && !is_decisive(ttData.value)
                 && (ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 3)
             {
