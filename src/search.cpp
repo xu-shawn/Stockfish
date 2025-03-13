@@ -372,6 +372,9 @@ void Search::Worker::iterative_deepening() {
             optimism[us]  = 138 * avg / (std::abs(avg) + 84);
             optimism[~us] = -optimism[us];
 
+            branchingFactor =
+              1000 * std::exp(std::log(nodes.load(std::memory_order_relaxed) + 1) / rootDepth);
+
             // Start with a small aspiration window and, in the case of a fail
             // high/low, re-search with a bigger window until we don't fail
             // high/low anymore.
@@ -1112,7 +1115,8 @@ moves_loop:  // When in check, search starts here
             // and lower extension margins scale well.
 
             if (!rootNode && move == ttData.move && !excludedMove
-                && depth >= 6 - (thisThread->completedDepth > 29) + ss->ttPv
+                && depth >= 6 - (thisThread->completedDepth > 29)
+                              - (thisThread->branchingFactor < 1500) + ss->ttPv
                 && is_valid(ttData.value) && !is_decisive(ttData.value)
                 && (ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 3)
             {
