@@ -935,10 +935,19 @@ Value Search::Worker::search(
               &this->continuationCorrectionHistory[movedPiece][move.to_sq()];
 
             // Perform a preliminary qsearch to verify that the move holds
-            value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
+            Value qsearchBeta = probCutBeta;
+
+            if (probCutDepth > 0)
+                qsearchBeta += std::clamp(
+                  captureHistory[movedPiece][move.to_sq()][type_of(pos.piece_on(move.to_sq()))]
+                      / 128
+                    - 20,
+                  -50, 50);
+
+            value = -qsearch<NonPV>(pos, ss + 1, -qsearchBeta, -qsearchBeta + 1);
 
             // If the qsearch held, perform the regular search
-            if (value >= probCutBeta && probCutDepth > 0)
+            if (value >= qsearchBeta && probCutDepth > 0)
                 value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, probCutDepth,
                                        !cutNode);
 
