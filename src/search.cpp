@@ -562,6 +562,8 @@ void Search::Worker::clear() {
     nonPawnCorrectionHistory[WHITE].fill(0);
     nonPawnCorrectionHistory[BLACK].fill(0);
 
+    ttMoveHistory.fill(0);
+
     for (auto& to : continuationCorrectionHistory)
         for (auto& h : to)
             h.fill(5);
@@ -1128,7 +1130,8 @@ moves_loop:  // When in check, search starts here
                 {
                     int corrValAdj1  = std::abs(correctionValue) / 248873;
                     int corrValAdj2  = std::abs(correctionValue) / 255331;
-                    int doubleMargin = 262 * PvNode - 188 * !ttCapture - corrValAdj1;
+                    int doubleMargin = 262 * PvNode - 188 * !ttCapture - corrValAdj1
+                                     - ttMoveHistory[pawn_structure_index(pos)][us] / 128;
                     int tripleMargin =
                       88 + 265 * PvNode - 256 * !ttCapture + 93 * ss->ttPv - corrValAdj2;
 
@@ -1418,8 +1421,19 @@ moves_loop:  // When in check, search starts here
     // If there is a move that produces search value greater than alpha,
     // we update the stats of searched moves.
     else if (bestMove)
+    {
         update_all_stats(pos, ss, *this, bestMove, prevSq, quietsSearched, capturesSearched, depth,
                          bestMove == ttData.move, moveCount);
+
+        if (!PvNode)
+        {
+            if (ttData.move == move)
+                ttMoveHistory[pawn_structure_index(pos)][us] << 800;
+
+            else
+                ttMoveHistory[pawn_structure_index(pos)][us] << -600 * moveCount;
+        }
+    }
 
     // Bonus for prior countermove that caused the fail low
     else if (!priorCapture && prevSq != SQ_NONE)
