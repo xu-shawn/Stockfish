@@ -111,6 +111,26 @@ void update_correction_history(const Position& pos,
           << bonus * 141 / 128;
 }
 
+void print_curr_variation(const Stack* begin, const Stack* end) {
+    sync_cout_start();
+
+    std::cout << "info moves " << UCIEngine::move(begin->currentMove, false);
+    for (const Stack* curr = begin + 1; curr < end; curr++)
+        std::cout << " " << UCIEngine::move(curr->currentMove, false);
+
+    std::cout << "\n";
+
+    std::cout << "info chain " << "{" << UCIEngine::move(begin->currentMove, false) << ", "
+              << begin->depth << "}";
+    for (const Stack* curr = begin + 1; curr < end; curr++)
+        std::cout << "->" << "{" << UCIEngine::move(curr->currentMove, false) << ", " << curr->depth
+                  << "}";
+
+    std::cout << std::endl;
+
+    sync_cout_end();
+}
+
 // Add a small random component to draw evaluations to avoid 3-fold blindness
 Value value_draw(size_t nodes) { return VALUE_DRAW - 1 + Value(nodes & 0x2); }
 Value value_to_tt(Value v, int ply);
@@ -264,6 +284,8 @@ void Search::Worker::iterative_deepening() {
     // (ss + 2) is needed for initialization of cutOffCnt.
     Stack  stack[MAX_PLY + 10] = {};
     Stack* ss                  = stack + 7;
+
+    rootSS = ss;
 
     for (int i = 7; i > 0; --i)
     {
@@ -601,6 +623,9 @@ Value Search::Worker::search(
         if (alpha >= beta)
             return alpha;
     }
+
+    if ((nodes & ((1 << 24) - 1)) == 0)
+        print_curr_variation(rootSS, ss);
 
     assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
@@ -1258,6 +1283,8 @@ moves_loop:  // When in check, search starts here
 
         // Decrease/increase reduction for moves with a good/bad history
         r -= ss->statScore * 826 / 8192;
+
+        ss->depth = depth;
 
         // Step 17. Late moves reduction / extension (LMR)
         if (depth >= 2 && moveCount > 1)
