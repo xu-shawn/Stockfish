@@ -77,6 +77,7 @@ struct Stack {
     int                         reduction;
     bool                        isPvNode;
     int                         quietMoveStreak;
+    int                         depth;
 };
 
 
@@ -338,6 +339,8 @@ class Worker {
     RootMoves rootMoves;
     Depth     rootDepth, completedDepth;
     Value     rootDelta;
+
+    Stack* rootSS;
 
     size_t                    threadIdx;
     NumaReplicatedAccessToken numaAccessToken;
