@@ -76,6 +76,8 @@ struct Stack {
     int                         cutoffCnt;
     int                         reduction;
     int                         quietMoveStreak;
+    bool                        isTTMove;
+    int                         depth;
 };
 
 
@@ -338,6 +340,8 @@ class Worker {
     RootMoves rootMoves;
     Depth     rootDepth, completedDepth;
     Value     rootDelta;
+
+    Stack* rootSS;
 
     size_t                    threadIdx;
     NumaReplicatedAccessToken numaAccessToken;
