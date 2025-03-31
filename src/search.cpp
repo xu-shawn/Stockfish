@@ -27,6 +27,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <initializer_list>
+#include <ios>
 #include <iostream>
 #include <list>
 #include <ratio>
@@ -121,6 +122,44 @@ void update_correction_history(const Position& pos,
     const int    bonus4 = (bonus * 63 / 128) * mask;
     (*(ss - 2)->continuationCorrectionHistory)[pc][to] << bonus2;
     (*(ss - 4)->continuationCorrectionHistory)[pc][to] << bonus4;
+}
+
+void print_curr_variation(const Stack* begin, const Stack* end, const size_t threadIdx) {
+    sync_cout_start();
+
+    auto bound_to_string = [](Bound b) {
+        switch (b)
+        {
+        case BOUND_LOWER :
+            return "LOWER";
+        case BOUND_UPPER :
+            return "UPPER";
+        case BOUND_EXACT :
+            return "EXACT";
+        case BOUND_NONE :
+            return "NONE";
+        default :
+            return "UNKNOWN";
+        };
+    };
+
+    std::cout << "Thread #" << threadIdx << std::endl;
+
+    std::cout << "info moves " << UCIEngine::move(begin->currentMove, false);
+    for (const Stack* curr = begin + 1; curr < end; curr++)
+        std::cout << " " << UCIEngine::move(curr->currentMove, false);
+
+    std::cout << "\n";
+
+    for (const Stack* curr = begin; curr < end; curr++)
+        std::cout << std::boolalpha << "{" << UCIEngine::move(curr->currentMove, false) << ", "
+                  << curr->depth << ", " << curr->extension << ", "
+                  << bound_to_string(curr->ttData.bound) << ", " << curr->ttData.depth << ", "
+                  << "(" << curr->alpha << ", " << curr->beta << ")"
+                  << ", " << curr->ttData.value << ", " << curr->staticEval << ", "
+                  << curr->moveCount << "}" << std::endl;
+
+    sync_cout_end();
 }
 
 // Add a small random component to draw evaluations to avoid 3-fold blindness
@@ -279,6 +318,8 @@ void Search::Worker::iterative_deepening() {
     // (ss + 2) is needed for initialization of cutOffCnt.
     Stack  stack[MAX_PLY + 10] = {};
     Stack* ss                  = stack + 7;
+
+    rootSS = ss;
 
     for (int i = 7; i > 0; --i)
     {
@@ -647,6 +688,9 @@ Value Search::Worker::search(
             return alpha;
     }
 
+    if ((nodes & ((1 << 23) - 1)) == 0)
+        print_curr_variation(rootSS, ss, threadIdx);
+
     assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
     assert(0 < depth && depth < MAX_PLY);
@@ -672,6 +716,10 @@ Value Search::Worker::search(
     priorCapture  = pos.captured_piece();
     Color us      = pos.side_to_move();
     ss->moveCount = 0;
+    ss->extension = 0;
+    ss->ttData    = {};
+    ss->alpha     = alpha;
+    ss->beta      = beta;
     bestValue     = -VALUE_INFINITE;
     maxValue      = VALUE_INFINITE;
 
@@ -716,15 +764,19 @@ Value Search::Worker::search(
     (ss + 2)->cutoffCnt = 0;
 
     // Step 4. Transposition table lookup
-    excludedMove                   = ss->excludedMove;
-    posKey                         = pos.key();
-    auto [ttHit, ttData, ttWriter] = tt.probe(posKey);
+    excludedMove = ss->excludedMove2 = ss->excludedMove;
+    posKey                           = pos.key();
+    auto [ttHit, ttData, ttWriter]   = tt.probe(posKey);
     // Need further processing of the saved data
     ss->ttHit    = ttHit;
     ttData.move  = rootNode ? rootMoves[pvIdx].pv[0] : ttHit ? ttData.move : Move::none();
     ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule50_count()) : VALUE_NONE;
     ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
     ttCapture    = ttData.move && pos.capture_stage(ttData.move);
+
+    ss->ttCutoffable = ttData.depth > depth - (ttData.value <= beta) && is_valid(ttData.value)
+                    && (ttData.bound & (ttData.value >= beta ? BOUND_LOWER : BOUND_UPPER))
+                    && (cutNode == (ttData.value >= beta) || depth > 5);
 
     // Step 6. Static evaluation of the position
     Value      unadjustedStaticEval = VALUE_NONE;
@@ -1046,10 +1098,10 @@ moves_loop:  // When in check, search starts here
         if (PvNode)
             (ss + 1)->pv = nullptr;
 
-        extension  = 0;
-        capture    = pos.capture_stage(move);
-        movedPiece = pos.moved_piece(move);
-        givesCheck = pos.gives_check(move);
+        ss->extension = extension = 0;
+        capture                   = pos.capture_stage(move);
+        movedPiece                = pos.moved_piece(move);
+        givesCheck                = pos.gives_check(move);
 
         // Calculate new depth for this move
         newDepth = depth - 1;
@@ -1202,6 +1254,20 @@ moves_loop:  // When in check, search starts here
 
         // Add extension to new depth
         newDepth += extension;
+        ss->extension = extension;
+        ss->ttData    = ttData;
+        ss->isPv      = PvNode;
+        ss->alpha     = alpha;
+        ss->beta      = beta;
+        ss->depth     = depth;
+
+        // Update the current move (this must be done after singular extension search)
+        ss->currentMove = move;
+        ss->continuationHistory =
+          &continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
+        ss->continuationCorrectionHistory =
+          &continuationCorrectionHistory[movedPiece][move.to_sq()];
+
         uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
 
         // Decrease reduction for PvNodes (*Scaler)
