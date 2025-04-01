@@ -1228,6 +1228,9 @@ moves_loop:  // When in check, search starts here
         if ((ss + 1)->cutoffCnt > 3)
             r += 1042 + allNode * 864;
 
+        if (ttData.move && move != ttData.move)
+            r += ttMoveHistory[pawn_structure_index(pos)][us] / 16;
+
         // For first picked move (ttMove) reduce reduction
         else if (move == ttData.move)
             r -= 1937;
