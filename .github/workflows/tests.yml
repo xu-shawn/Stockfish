@@ -11,6 +11,7 @@ jobs:
       CXXFLAGS: "-Werror -mmacosx-version-min=10.10"
       LDFLAGS: "-L/usr/local/opt/binutils/lib"
       CPPFLAGS: "-I/usr/local/opt/binutils/include"
+      MACOSX_DEPLOYMENT_TARGET: "13.0"
     strategy:
       fail-fast: false
       matrix:
