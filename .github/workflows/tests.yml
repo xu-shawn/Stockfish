@@ -8,7 +8,7 @@ jobs:
     env:
       COMPCXX: ${{ matrix.config.compiler }}
       COMP: ${{ matrix.config.comp }}
-      CXXFLAGS: "-Werror"
+      CXXFLAGS: "-Werror -mmacosx-version-min=10.10"
       LDFLAGS: "-L/usr/local/opt/binutils/lib"
       CPPFLAGS: "-I/usr/local/opt/binutils/include"
     strategy:
@@ -71,17 +71,7 @@ jobs:
 
       - name: Download required macOS packages
         if: runner.os == 'macOS'
-        run: |
-          brew install binutils coreutils gcc@14
-          echo "export PATH=/usr/local/opt/binutils/bin:$PATH" >> $GITHUB_ENV
-
-      - name: List available Xcode versions
-        if: runner.os == 'macOS'
-        run: |
-          export PATH="/usr/local/opt/binutils/bin:$PATH"
-          export LDFLAGS="-L/usr/local/opt/binutils/lib"
-          export CPPFLAGS="-I/usr/local/opt/binutils/include"
-          which ld
+        run: brew install coreutils gcc@14
 
       - name: Setup msys and install required packages
         if: runner.os == 'Windows'
