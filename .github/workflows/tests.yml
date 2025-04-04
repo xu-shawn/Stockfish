@@ -9,7 +9,6 @@ jobs:
       COMPCXX: ${{ matrix.config.compiler }}
       COMP: ${{ matrix.config.comp }}
       CXXFLAGS: "-Werror"
-      PATH: "/usr/local/opt/binutils/bin:$PATH"
       LDFLAGS: "-L/usr/local/opt/binutils/lib"
       CPPFLAGS: "-I/usr/local/opt/binutils/include"
     strategy:
@@ -74,6 +73,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install binutils coreutils gcc@14
+          echo "export PATH=/usr/local/opt/binutils/bin:\$PATH" >> $GITHUB_ENV
 
       - name: List available Xcode versions
         if: runner.os == 'macOS'
