@@ -1,6 +1,5 @@
 name: IWYU
 on:
-  workflow_call:
 jobs:
   Analyzers:
     name: Check includes
