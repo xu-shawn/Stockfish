@@ -9,6 +9,9 @@ jobs:
       COMPCXX: ${{ matrix.config.compiler }}
       COMP: ${{ matrix.config.comp }}
       CXXFLAGS: "-Werror"
+      PATH: "/usr/local/opt/binutils/bin:$PATH"
+      LDFLAGS: "-L/usr/local/opt/binutils/lib"
+      CPPFLAGS: "-I/usr/local/opt/binutils/include"
     strategy:
       fail-fast: false
       matrix:
@@ -71,13 +74,13 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install binutils coreutils gcc@14
-          export PATH="/usr/local/opt/binutils/bin:$PATH"
-          export LDFLAGS="-L/usr/local/opt/binutils/lib"
-          export CPPFLAGS="-I/usr/local/opt/binutils/include"
 
       - name: List available Xcode versions
         if: runner.os == 'macOS'
         run: |
+          export PATH="/usr/local/opt/binutils/bin:$PATH"
+          export LDFLAGS="-L/usr/local/opt/binutils/lib"
+          export CPPFLAGS="-I/usr/local/opt/binutils/include"
           which ld
 
       - name: Setup msys and install required packages
