@@ -69,7 +69,7 @@ jobs:
 
       - name: Download required macOS packages
         if: runner.os == 'macOS'
-        run: brew install coreutils gcc@14
+        run: brew install binutils coreutils gcc@14
 
       - name: List available Xcode versions
         if: runner.os == 'macOS'
