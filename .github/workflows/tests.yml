@@ -73,7 +73,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install binutils coreutils gcc@14
-          echo "export PATH=/usr/local/opt/binutils/bin:\$PATH" >> $GITHUB_ENV
+          echo "export PATH=/usr/local/opt/binutils/bin:$PATH" >> $GITHUB_ENV
 
       - name: List available Xcode versions
         if: runner.os == 'macOS'
