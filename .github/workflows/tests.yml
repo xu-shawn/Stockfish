@@ -67,6 +67,12 @@ jobs:
           CMD ["sh", "src/script.sh"]
           EOF
 
+      - name: List available Xcode versions
+        if: runner.os == 'macOS'
+        run: |
+          ls /Applications | grep Xcode
+          xcodebuild -version
+
       - name: Download required macOS packages
         if: runner.os == 'macOS'
         run: |
