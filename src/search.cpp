@@ -1793,7 +1793,10 @@ Value Search::Worker::evaluate(const Position& pos) {
 }
 
 int Search::Worker::pv_stability(int ply) {
-    return std::reduce(cbegin(pvChanges), cbegin(pvChanges) + ply + 1);
+    int sum = 0;
+    for (int i = 0; i <= ply; i++)
+        sum += pvChanges[i];
+    return sum;
 }
 
 namespace {
