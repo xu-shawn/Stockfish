@@ -324,6 +324,8 @@ class Worker {
 
     Value evaluate(const Position&);
 
+    int pv_stability(int ply);
+
     LimitsType limits;
 
     size_t                pvIdx, pvLast;
@@ -343,6 +345,9 @@ class Worker {
 
     // Reductions lookup table initialized at startup
     std::array<int, MAX_MOVES> reductions;  // [depth or moveNumber]
+
+    int                      totPvChanges;
+    std::array<int, MAX_PLY> pvChanges;
 
     // The main thread has a SearchManager, the others have a NullSearchManager
     std::unique_ptr<ISearchManager> manager;

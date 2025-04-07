@@ -595,6 +595,9 @@ void Search::Worker::clear() {
     for (size_t i = 1; i < reductions.size(); ++i)
         reductions[i] = int(2954 / 128.0 * std::log(i));
 
+    totPvChanges = 0;
+    pvChanges.fill(0);
+
     refreshTable.clear(networks[numaAccessToken]);
 }
 
@@ -989,7 +992,8 @@ moves_loop:  // When in check, search starts here
 
     value = bestValue;
 
-    int moveCount = 0;
+    int moveCount   = 0;
+    int pvStability = pv_stability(ss->ply);
 
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -1209,6 +1213,9 @@ moves_loop:  // When in check, search starts here
         if (PvNode && std::abs(bestValue) <= 2000)
             r -= risk_tolerance(pos, bestValue);
 
+        if (PvNode && pvStability * selDepth < totPvChanges * ss->ply)
+            r += 1024;
+
         // Increase reduction for cut nodes
         if (cutNode)
             r += 2784 + 1038 * !ttData.move;
@@ -1383,8 +1390,14 @@ moves_loop:  // When in check, search starts here
             {
                 bestMove = move;
 
-                if (PvNode && !rootNode)  // Update pv even in fail-high case
-                    update_pv(ss->pv, move, (ss + 1)->pv);
+                if (PvNode)  // Update pv even in fail-high case
+                {
+                    totPvChanges++;
+                    pvChanges[ss->ply]++;
+
+                    if (!rootNode)
+                        update_pv(ss->pv, move, (ss + 1)->pv);
+                }
 
                 if (value >= beta)
                 {
@@ -1777,6 +1790,10 @@ TimePoint Search::Worker::elapsed_time() const { return main_manager()->tm.elaps
 Value Search::Worker::evaluate(const Position& pos) {
     return Eval::evaluate(networks[numaAccessToken], pos, accumulatorStack, refreshTable,
                           optimism[pos.side_to_move()]);
+}
+
+int Search::Worker::pv_stability(int ply) {
+    return std::reduce(cbegin(pvChanges), cbegin(pvChanges) + ply + 1);
 }
 
 namespace {
