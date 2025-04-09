@@ -653,6 +653,7 @@ Value Search::Worker::search(
     priorCapture       = pos.captured_piece();
     Color us           = pos.side_to_move();
     ss->moveCount      = 0;
+    ss->extension      = 0;
     bestValue          = -VALUE_INFINITE;
     maxValue           = VALUE_INFINITE;
 
@@ -1142,7 +1143,8 @@ moves_loop:  // When in check, search starts here
                     int corrValAdj1  = std::abs(correctionValue) / 248873;
                     int corrValAdj2  = std::abs(correctionValue) / 255331;
                     int doubleMargin = 262 * PvNode - 188 * !ttCapture - corrValAdj1
-                                     - ttMoveHistory[pawn_structure_index(pos)][us] / 128;
+                                     - ttMoveHistory[pawn_structure_index(pos)][us] / 128
+                                     - ((ss - 2)->extension == 3) * 39;
                     int tripleMargin =
                       88 + 265 * PvNode - 256 * !ttCapture + 93 * ss->ttPv - corrValAdj2;
 
@@ -1184,6 +1186,7 @@ moves_loop:  // When in check, search starts here
         thisThread->nodes.fetch_add(1, std::memory_order_relaxed);
 
         // Add extension to new depth
+        ss->extension = extension;
         newDepth += extension;
 
         // Update the current move (this must be done after singular extension search)
