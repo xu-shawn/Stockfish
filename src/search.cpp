@@ -1228,13 +1228,6 @@ moves_loop:  // When in check, search starts here
         if (ttCapture && !capture)
             r += 1171 + (depth < 8) * 985;
 
-        const auto prediction =
-          lmrModel.predict({cutNode, capture, givesCheck, ss->cutoffCnt > 2, ss->inCheck, PvNode,
-                            move == ttData.move, depth < 8, ttCapture, ss->ttPv});
-
-        if (prediction.failureValue > prediction.successValue)
-            r += 512;
-
         // Increase reduction if next ply has a lot of fail high
         if ((ss + 1)->cutoffCnt > 2)
             r += 1042 + allNode * 864;
@@ -1268,6 +1261,12 @@ moves_loop:  // When in check, search starts here
             // To prevent problems when the max value is less than the min value,
             // std::clamp has been replaced by a more robust implementation.
 
+            const auto prediction =
+              lmrModel.predict({cutNode, capture, givesCheck, ss->cutoffCnt > 2, ss->inCheck,
+                                PvNode, move == ttData.move, depth < 8, ttCapture, ss->ttPv});
+
+            if (prediction.successValue < 0)
+                r += 1024;
 
             Depth d = std::max(
               1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));
