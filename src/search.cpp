@@ -1263,7 +1263,7 @@ moves_loop:  // When in check, search starts here
 
             const auto prediction =
               lmrModel.predict({cutNode, capture, givesCheck, ss->cutoffCnt > 2, ss->inCheck,
-                                PvNode, move == ttData.move, depth < 8, ttCapture, ss->ttPv});
+                                PvNode, depth < 8, ttCapture, ss->ttPv});
 
             if (prediction.successValue < 0)
                 r += 1024;
@@ -1297,7 +1297,7 @@ moves_loop:  // When in check, search starts here
                 newDepth--;
 
             lmrModel.learn({cutNode, capture, givesCheck, ss->cutoffCnt > 2, ss->inCheck, PvNode,
-                            move == ttData.move, depth < 8, ttCapture, ss->ttPv},
+                            depth < 8, ttCapture, ss->ttPv},
                            value > alpha);
         }
 
@@ -2272,10 +2272,9 @@ void NaiveBayes::learn(ModelInput data, bool target) {
     features[target][3].update(data.highCutoffCnt);
     features[target][4].update(data.inCheck);
     features[target][5].update(data.isPv);
-    features[target][6].update(data.isTTMove);
-    features[target][7].update(data.lowDepth);
-    features[target][8].update(data.ttCapture);
-    features[target][9].update(data.ttPv);
+    features[target][6].update(data.lowDepth);
+    features[target][7].update(data.ttCapture);
+    features[target][8].update(data.ttPv);
 
     classPrior[target]++;
     samplesCount++;
@@ -2293,10 +2292,9 @@ NaiveBayes::Result NaiveBayes::predict(ModelInput data) {
     result.failureValue *= features[0][3].prior(data.highCutoffCnt);
     result.failureValue *= features[0][4].prior(data.inCheck);
     result.failureValue *= features[0][5].prior(data.isPv);
-    result.failureValue *= features[0][6].prior(data.isTTMove);
-    result.failureValue *= features[0][7].prior(data.lowDepth);
-    result.failureValue *= features[0][8].prior(data.ttCapture);
-    result.failureValue *= features[0][9].prior(data.ttPv);
+    result.failureValue *= features[0][6].prior(data.lowDepth);
+    result.failureValue *= features[0][7].prior(data.ttCapture);
+    result.failureValue *= features[0][8].prior(data.ttPv);
 
     result.successValue *= features[1][0].prior(data.cutNode);
     result.successValue *= features[1][1].prior(data.capture);
@@ -2304,10 +2302,9 @@ NaiveBayes::Result NaiveBayes::predict(ModelInput data) {
     result.successValue *= features[1][3].prior(data.highCutoffCnt);
     result.successValue *= features[1][4].prior(data.inCheck);
     result.successValue *= features[1][5].prior(data.isPv);
-    result.successValue *= features[1][6].prior(data.isTTMove);
-    result.successValue *= features[1][7].prior(data.lowDepth);
-    result.successValue *= features[1][8].prior(data.ttCapture);
-    result.successValue *= features[1][9].prior(data.ttPv);
+    result.successValue *= features[1][6].prior(data.lowDepth);
+    result.successValue *= features[1][7].prior(data.ttCapture);
+    result.successValue *= features[1][8].prior(data.ttPv);
 
     return result;
 }
