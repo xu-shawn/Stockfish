@@ -1213,7 +1213,7 @@ moves_loop:  // When in check, search starts here
         if (PvNode && std::abs(bestValue) <= 2000)
             r -= risk_tolerance(pos, bestValue);
 
-        if (PvNode && ss->ply >= rootDepth && pvStability > totPvChanges * 800 / 1024)
+        if (PvNode && ss->ply >= rootDepth && pvStability > totPvChanges * 700 / 1024)
             r -= 1024;
 
         // Increase reduction for cut nodes
