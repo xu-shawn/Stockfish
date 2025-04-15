@@ -39,8 +39,8 @@ class TranspositionTable;
 class StateInfo {
    public:
     // FEN string input/output
-    StateInfo&  set(const std::string& fenStr, bool isChess960, StateInfo* si);
-    StateInfo&  set(const std::string& code, Color c, StateInfo* si);
+    StateInfo&  set(const std::string& fenStr, bool isChess960);
+    StateInfo&  set(const std::string& code, Color c);
     std::string fen() const;
 
     // Position representation
