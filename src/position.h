@@ -89,8 +89,8 @@ class StateInfo {
     Piece captured_piece() const;
 
     // Doing and undoing moves
-    void       do_move(Move m, StateInfo& newSt, const TranspositionTable* tt);
-    DirtyPiece do_move(Move m, StateInfo& newSt, bool givesCheck, const TranspositionTable* tt);
+    void       do_move(Move m, const TranspositionTable* tt);
+    DirtyPiece do_move(Move m, bool givesCheck, const TranspositionTable* tt);
     void       undo_move(Move m);
     void       do_null_move(StateInfo& newSt, const TranspositionTable& tt);
     void       undo_null_move();
@@ -152,6 +152,9 @@ class StateInfo {
     int      rule50;
     int      pliesFromNull;
     Square   epSquare;
+    int      gamePly;
+    Color    sideToMove;
+    bool     chess960;
 
     // Not copied when making a move (will be recomputed anyhow)
     Key        key;
@@ -166,6 +169,158 @@ class StateInfo {
 
     friend class Position;
 };
+
+std::ostream& operator<<(std::ostream& os, const StateInfo& pos);
+
+inline Color StateInfo::side_to_move() const { return sideToMove; }
+
+inline Piece StateInfo::piece_on(Square s) const {
+    assert(is_ok(s));
+    return board[s];
+}
+
+inline bool StateInfo::empty(Square s) const { return piece_on(s) == NO_PIECE; }
+
+inline Piece StateInfo::moved_piece(Move m) const { return piece_on(m.from_sq()); }
+
+inline Bitboard StateInfo::pieces(PieceType pt) const { return byTypeBB[pt]; }
+
+template<typename... PieceTypes>
+inline Bitboard StateInfo::pieces(PieceType pt, PieceTypes... pts) const {
+    return pieces(pt) | pieces(pts...);
+}
+
+inline Bitboard StateInfo::pieces(Color c) const { return byColorBB[c]; }
+
+template<typename... PieceTypes>
+inline Bitboard StateInfo::pieces(Color c, PieceTypes... pts) const {
+    return pieces(c) & pieces(pts...);
+}
+
+template<PieceType Pt>
+inline int StateInfo::count(Color c) const {
+    return pieceCount[make_piece(c, Pt)];
+}
+
+template<PieceType Pt>
+inline int StateInfo::count() const {
+    return count<Pt>(WHITE) + count<Pt>(BLACK);
+}
+
+template<PieceType Pt>
+inline Square StateInfo::square(Color c) const {
+    assert(count<Pt>(c) == 1);
+    return lsb(pieces(c, Pt));
+}
+
+inline Square StateInfo::ep_square() const { return epSquare; }
+
+inline bool StateInfo::can_castle(CastlingRights cr) const { return castlingRights & cr; }
+
+inline CastlingRights StateInfo::castling_rights(Color c) const {
+    return c & CastlingRights(castlingRights);
+}
+
+inline bool StateInfo::castling_impeded(CastlingRights cr) const {
+    assert(cr == WHITE_OO || cr == WHITE_OOO || cr == BLACK_OO || cr == BLACK_OOO);
+    return pieces() & castlingPath[cr];
+}
+
+inline Square StateInfo::castling_rook_square(CastlingRights cr) const {
+    assert(cr == WHITE_OO || cr == WHITE_OOO || cr == BLACK_OO || cr == BLACK_OOO);
+    return castlingRookSquare[cr];
+}
+
+inline Bitboard StateInfo::attackers_to(Square s) const { return attackers_to(s, pieces()); }
+
+template<PieceType Pt>
+inline Bitboard StateInfo::attacks_by(Color c) const {
+
+    if constexpr (Pt == PAWN)
+        return c == WHITE ? pawn_attacks_bb<WHITE>(pieces(WHITE, PAWN))
+                          : pawn_attacks_bb<BLACK>(pieces(BLACK, PAWN));
+    else
+    {
+        Bitboard threats   = 0;
+        Bitboard attackers = pieces(c, Pt);
+        while (attackers)
+            threats |= attacks_bb<Pt>(pop_lsb(attackers), pieces());
+        return threats;
+    }
+}
+
+inline Bitboard StateInfo::checkers() const { return checkersBB; }
+
+inline Bitboard StateInfo::blockers_for_king(Color c) const { return blockersForKing[c]; }
+
+inline Bitboard StateInfo::check_squares(PieceType pt) const { return checkSquares[pt]; }
+
+template<bool AfterMove>
+inline Key StateInfo::adjust_key50(Key k) const {
+    return rule50 < 14 - AfterMove ? k : k ^ make_key((rule50 - (14 - AfterMove)) / 8);
+}
+
+inline Value StateInfo::non_pawn_material(Color c) const { return nonPawnMaterial[c]; }
+
+inline Value StateInfo::non_pawn_material() const {
+    return non_pawn_material(WHITE) + non_pawn_material(BLACK);
+}
+
+inline int StateInfo::game_ply() const { return gamePly; }
+
+inline int StateInfo::rule50_count() const { return rule50; }
+
+inline bool StateInfo::is_chess960() const { return chess960; }
+
+inline bool StateInfo::capture(Move m) const {
+    assert(m.is_ok());
+    return (!empty(m.to_sq()) && m.type_of() != CASTLING) || m.type_of() == EN_PASSANT;
+}
+
+// Returns true if a move is generated from the capture stage, having also
+// queen promotions covered, i.e. consistency with the capture stage move
+// generation is needed to avoid the generation of duplicate moves.
+inline bool StateInfo::capture_stage(Move m) const {
+    assert(m.is_ok());
+    return capture(m) || m.promotion_type() == QUEEN;
+}
+
+inline Piece StateInfo::captured_piece() const { return capturedPiece; }
+
+inline void StateInfo::put_piece(Piece pc, Square s) {
+
+    board[s] = pc;
+    byTypeBB[ALL_PIECES] |= byTypeBB[type_of(pc)] |= s;
+    byColorBB[color_of(pc)] |= s;
+    pieceCount[pc]++;
+    pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
+}
+
+inline void StateInfo::remove_piece(Square s) {
+
+    Piece pc = board[s];
+    byTypeBB[ALL_PIECES] ^= s;
+    byTypeBB[type_of(pc)] ^= s;
+    byColorBB[color_of(pc)] ^= s;
+    board[s] = NO_PIECE;
+    pieceCount[pc]--;
+    pieceCount[make_piece(color_of(pc), ALL_PIECES)]--;
+}
+
+inline void StateInfo::move_piece(Square from, Square to) {
+
+    Piece    pc     = board[from];
+    Bitboard fromTo = from | to;
+    byTypeBB[ALL_PIECES] ^= fromTo;
+    byTypeBB[type_of(pc)] ^= fromTo;
+    byColorBB[color_of(pc)] ^= fromTo;
+    board[from] = NO_PIECE;
+    board[to]   = pc;
+}
+
+inline void StateInfo::do_move(Move m, const TranspositionTable* tt = nullptr) {
+    do_move(m, gives_check(m), tt);
+}
 
 
 // A list to keep track of the position states along the setup moves (from the
@@ -293,17 +448,18 @@ class Position {
     Key adjust_key50(Key k) const;
 
     // Data members
-    Piece      board[SQUARE_NB];
-    Bitboard   byTypeBB[PIECE_TYPE_NB];
-    Bitboard   byColorBB[COLOR_NB];
-    int        pieceCount[PIECE_NB];
-    int        castlingRightsMask[SQUARE_NB];
-    Square     castlingRookSquare[CASTLING_RIGHT_NB];
-    Bitboard   castlingPath[CASTLING_RIGHT_NB];
-    StateInfo* st;
-    int        gamePly;
-    Color      sideToMove;
-    bool       chess960;
+    Piece                  board[SQUARE_NB];
+    Bitboard               byTypeBB[PIECE_TYPE_NB];
+    Bitboard               byColorBB[COLOR_NB];
+    int                    pieceCount[PIECE_NB];
+    int                    castlingRightsMask[SQUARE_NB];
+    Square                 castlingRookSquare[CASTLING_RIGHT_NB];
+    Bitboard               castlingPath[CASTLING_RIGHT_NB];
+    std::vector<StateInfo> sts;
+    StateInfo*             st;
+    int                    gamePly;
+    Color                  sideToMove;
+    bool                   chess960;
 };
 
 std::ostream& operator<<(std::ostream& os, const Position& pos);
