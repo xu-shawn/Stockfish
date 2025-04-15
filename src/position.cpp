@@ -159,6 +159,212 @@ void Position::init() {
 // Initializes the position object with the given FEN string.
 // This function is not very robust - make sure that input FENs are correct,
 // this is assumed to be the responsibility of the GUI.
+StateInfo& StateInfo::set(const string& fenStr, bool isChess960) {
+    /*
+   A FEN string defines a particular position using only the ASCII character set.
+
+   A FEN string contains six fields separated by a space. The fields are:
+
+   1) Piece placement (from white's perspective). Each rank is described, starting
+      with rank 8 and ending with rank 1. Within each rank, the contents of each
+      square are described from file A through file H. Following the Standard
+      Algebraic Notation (SAN), each piece is identified by a single letter taken
+      from the standard English names. White pieces are designated using upper-case
+      letters ("PNBRQK") whilst Black uses lowercase ("pnbrqk"). Blank squares are
+      noted using digits 1 through 8 (the number of blank squares), and "/"
+      separates ranks.
+
+   2) Active color. "w" means white moves next, "b" means black.
+
+   3) Castling availability. If neither side can castle, this is "-". Otherwise,
+      this has one or more letters: "K" (White can castle kingside), "Q" (White
+      can castle queenside), "k" (Black can castle kingside), and/or "q" (Black
+      can castle queenside).
+
+   4) En passant target square (in algebraic notation). If there's no en passant
+      target square, this is "-". If a pawn has just made a 2-square move, this
+      is the position "behind" the pawn. Following X-FEN standard, this is recorded
+      only if there is a pawn in position to make an en passant capture, and if
+      there really is a pawn that might have advanced two squares.
+
+   5) Halfmove clock. This is the number of halfmoves since the last pawn advance
+      or capture. This is used to determine if a draw can be claimed under the
+      fifty-move rule.
+
+   6) Fullmove number. The number of the full move. It starts at 1, and is
+      incremented after Black's move.
+*/
+
+    unsigned char      col, row, token;
+    size_t             idx;
+    Square             sq = SQ_A8;
+    std::istringstream ss(fenStr);
+
+    std::memset(this, 0, sizeof(StateInfo));
+
+    ss >> std::noskipws;
+
+    // 1. Piece placement
+    while ((ss >> token) && !isspace(token))
+    {
+        if (isdigit(token))
+            sq += (token - '0') * EAST;  // Advance the given number of files
+
+        else if (token == '/')
+            sq += 2 * SOUTH;
+
+        else if ((idx = PieceToChar.find(token)) != string::npos)
+        {
+            put_piece(Piece(idx), sq);
+            ++sq;
+        }
+    }
+
+    // 2. Active color
+    ss >> token;
+    sideToMove = (token == 'w' ? WHITE : BLACK);
+    ss >> token;
+
+    // 3. Castling availability. Compatible with 3 standards: Normal FEN standard,
+    // Shredder-FEN that uses the letters of the columns on which the rooks began
+    // the game instead of KQkq and also X-FEN standard that, in case of Chess960,
+    // if an inner rook is associated with the castling right, the castling tag is
+    // replaced by the file letter of the involved rook, as for the Shredder-FEN.
+    while ((ss >> token) && !isspace(token))
+    {
+        Square rsq;
+        Color  c    = islower(token) ? BLACK : WHITE;
+        Piece  rook = make_piece(c, ROOK);
+
+        token = char(toupper(token));
+
+        if (token == 'K')
+            for (rsq = relative_square(c, SQ_H1); piece_on(rsq) != rook; --rsq)
+            {}
+
+        else if (token == 'Q')
+            for (rsq = relative_square(c, SQ_A1); piece_on(rsq) != rook; ++rsq)
+            {}
+
+        else if (token >= 'A' && token <= 'H')
+            rsq = make_square(File(token - 'A'), relative_rank(c, RANK_1));
+
+        else
+            continue;
+
+        set_castling_right(c, rsq);
+    }
+
+    // 4. En passant square.
+    // Ignore if square is invalid or not on side to move relative rank 6.
+    bool enpassant = false;
+
+    if (((ss >> col) && (col >= 'a' && col <= 'h'))
+        && ((ss >> row) && (row == (sideToMove == WHITE ? '6' : '3'))))
+    {
+        epSquare = make_square(File(col - 'a'), Rank(row - '1'));
+
+        // En passant square will be considered only if
+        // a) side to move have a pawn threatening epSquare
+        // b) there is an enemy pawn in front of epSquare
+        // c) there is no piece on epSquare or behind epSquare
+        enpassant = attacks_bb<PAWN>(epSquare, ~sideToMove) & pieces(sideToMove, PAWN)
+                 && (pieces(~sideToMove, PAWN) & (epSquare + pawn_push(~sideToMove)))
+                 && !(pieces() & (epSquare | (epSquare + pawn_push(sideToMove))));
+    }
+
+    if (!enpassant)
+        epSquare = SQ_NONE;
+
+    // 5-6. Halfmove clock and fullmove number
+    ss >> std::skipws >> rule50 >> gamePly;
+
+    // Convert from fullmove starting from 1 to gamePly starting from 0,
+    // handle also common incorrect FEN with fullmove = 0.
+    gamePly = std::max(2 * (gamePly - 1), 0) + (sideToMove == BLACK);
+
+    chess960 = isChess960;
+    set_state();
+
+    assert(pos_is_ok());
+
+    return *this;
+}
+
+
+// Overload to initialize the position object with the given endgame code string
+// like "KBPKN". It's mainly a helper to get the material key out of an endgame code.
+StateInfo& StateInfo::set(const string& code, Color c) {
+
+    assert(code[0] == 'K');
+
+    string sides[] = {code.substr(code.find('K', 1)),                                // Weak
+                      code.substr(0, std::min(code.find('v'), code.find('K', 1)))};  // Strong
+
+    assert(sides[0].length() > 0 && sides[0].length() < 8);
+    assert(sides[1].length() > 0 && sides[1].length() < 8);
+
+    std::transform(sides[c].begin(), sides[c].end(), sides[c].begin(), tolower);
+
+    string fenStr = "8/" + sides[0] + char(8 - sides[0].length() + '0') + "/8/8/8/8/" + sides[1]
+                  + char(8 - sides[1].length() + '0') + "/8 w - - 0 10";
+
+    return set(fenStr, false);
+}
+
+
+// Returns a FEN representation of the position. In case of
+// Chess960 the Shredder-FEN notation is used. This is mainly a debugging function.
+string StateInfo::fen() const {
+
+    int                emptyCnt;
+    std::ostringstream ss;
+
+    for (Rank r = RANK_8; r >= RANK_1; --r)
+    {
+        for (File f = FILE_A; f <= FILE_H; ++f)
+        {
+            for (emptyCnt = 0; f <= FILE_H && empty(make_square(f, r)); ++f)
+                ++emptyCnt;
+
+            if (emptyCnt)
+                ss << emptyCnt;
+
+            if (f <= FILE_H)
+                ss << PieceToChar[piece_on(make_square(f, r))];
+        }
+
+        if (r > RANK_1)
+            ss << '/';
+    }
+
+    ss << (sideToMove == WHITE ? " w " : " b ");
+
+    if (can_castle(WHITE_OO))
+        ss << (chess960 ? char('A' + file_of(castling_rook_square(WHITE_OO))) : 'K');
+
+    if (can_castle(WHITE_OOO))
+        ss << (chess960 ? char('A' + file_of(castling_rook_square(WHITE_OOO))) : 'Q');
+
+    if (can_castle(BLACK_OO))
+        ss << (chess960 ? char('a' + file_of(castling_rook_square(BLACK_OO))) : 'k');
+
+    if (can_castle(BLACK_OOO))
+        ss << (chess960 ? char('a' + file_of(castling_rook_square(BLACK_OOO))) : 'q');
+
+    if (!can_castle(ANY_CASTLING))
+        ss << '-';
+
+    ss << (ep_square() == SQ_NONE ? " - " : " " + UCIEngine::square(ep_square()) + " ") << rule50
+       << " " << 1 + (gamePly - (sideToMove == BLACK)) / 2;
+
+    return ss.str();
+}
+
+
+// Initializes the position object with the given FEN string.
+// This function is not very robust - make sure that input FENs are correct,
+// this is assumed to be the responsibility of the GUI.
 Position& Position::set(const string& fenStr, bool isChess960, StateInfo* si) {
     /*
    A FEN string defines a particular position using only the ASCII character set.
