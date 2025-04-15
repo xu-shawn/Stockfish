@@ -36,18 +36,122 @@ class TranspositionTable;
 // its previous state when we retract a move. Whenever a move is made on the
 // board (by calling Position::do_move), a StateInfo object must be passed.
 
-struct StateInfo {
+class StateInfo {
+   public:
+    // FEN string input/output
+    StateInfo&  set(const std::string& fenStr, bool isChess960, StateInfo* si);
+    StateInfo&  set(const std::string& code, Color c, StateInfo* si);
+    std::string fen() const;
+
+    // Position representation
+    Bitboard pieces(PieceType pt = ALL_PIECES) const;
+    template<typename... PieceTypes>
+    Bitboard pieces(PieceType pt, PieceTypes... pts) const;
+    Bitboard pieces(Color c) const;
+    template<typename... PieceTypes>
+    Bitboard pieces(Color c, PieceTypes... pts) const;
+    Piece    piece_on(Square s) const;
+    Square   ep_square() const;
+    bool     empty(Square s) const;
+    template<PieceType Pt>
+    int count(Color c) const;
+    template<PieceType Pt>
+    int count() const;
+    template<PieceType Pt>
+    Square square(Color c) const;
+
+    // Castling
+    CastlingRights castling_rights(Color c) const;
+    bool           can_castle(CastlingRights cr) const;
+    bool           castling_impeded(CastlingRights cr) const;
+    Square         castling_rook_square(CastlingRights cr) const;
+
+    // Checking
+    Bitboard checkers() const;
+    Bitboard blockers_for_king(Color c) const;
+    Bitboard check_squares(PieceType pt) const;
+
+    // Attacks to/from a given square
+    Bitboard attackers_to(Square s) const;
+    Bitboard attackers_to(Square s, Bitboard occupied) const;
+    bool     attackers_to_exist(Square s, Bitboard occupied, Color c) const;
+    void     update_slider_blockers(Color c) const;
+    template<PieceType Pt>
+    Bitboard attacks_by(Color c) const;
+
+    // Properties of moves
+    bool  legal(Move m) const;
+    bool  pseudo_legal(const Move m) const;
+    bool  capture(Move m) const;
+    bool  capture_stage(Move m) const;
+    bool  gives_check(Move m) const;
+    Piece moved_piece(Move m) const;
+    Piece captured_piece() const;
+
+    // Doing and undoing moves
+    void       do_move(Move m, StateInfo& newSt, const TranspositionTable* tt);
+    DirtyPiece do_move(Move m, StateInfo& newSt, bool givesCheck, const TranspositionTable* tt);
+    void       undo_move(Move m);
+    void       do_null_move(StateInfo& newSt, const TranspositionTable& tt);
+    void       undo_null_move();
+
+    // Static Exchange Evaluation
+    bool see_ge(Move m, int threshold = 0) const;
+
+    // Other properties of the position
+    Color side_to_move() const;
+    int   game_ply() const;
+    bool  is_chess960() const;
+    bool  is_draw(int ply) const;
+    bool  is_repetition(int ply) const;
+    bool  upcoming_repetition(int ply) const;
+    bool  has_repeated() const;
+    int   rule50_count() const;
+    Value non_pawn_material(Color c) const;
+    Value non_pawn_material() const;
+
+    // Position consistency check, for debugging
+    bool pos_is_ok() const;
+    void flip();
+
+    void put_piece(Piece pc, Square s);
+    void remove_piece(Square s);
+
+   private:
+    // Initialization helpers (used while setting up a position)
+    void set_castling_right(Color c, Square rfrom);
+    void set_state() const;
+    void set_check_info() const;
+
+    // Other helpers
+    void move_piece(Square from, Square to);
+    template<bool Do>
+    void do_castling(Color             us,
+                     Square            from,
+                     Square&           to,
+                     Square&           rfrom,
+                     Square&           rto,
+                     DirtyPiece* const dp = nullptr);
+    template<bool AfterMove>
+    Key adjust_key50(Key k) const;
 
     // Copied when making a move
-    Key    materialKey;
-    Key    pawnKey;
-    Key    minorPieceKey;
-    Key    nonPawnKey[COLOR_NB];
-    Value  nonPawnMaterial[COLOR_NB];
-    int    castlingRights;
-    int    rule50;
-    int    pliesFromNull;
-    Square epSquare;
+    Piece    board[SQUARE_NB];
+    Bitboard byTypeBB[PIECE_TYPE_NB];
+    Bitboard byColorBB[COLOR_NB];
+    int      pieceCount[PIECE_NB];
+    int      castlingRightsMask[SQUARE_NB];
+    Square   castlingRookSquare[CASTLING_RIGHT_NB];
+    Bitboard castlingPath[CASTLING_RIGHT_NB];
+    Key      materialKey;
+    Key      pawnKey;
+    Key      minorPieceKey;
+    Key      nonPawnKey[COLOR_NB];
+    Value    nonPawnMaterial[COLOR_NB];
+    int      castlingRights;
+    int      rule50;
+    int      pliesFromNull;
+    Square   epSquare;
 
     // Not copied when making a move (will be recomputed anyhow)
     Key        key;
@@ -59,6 +163,8 @@ struct StateInfo {
     Bitboard   checkSquares[PIECE_TYPE_NB];
     Piece      capturedPiece;
     int        repetition;
+
+    friend class Position;
 };
 
 
@@ -164,9 +270,6 @@ class Position {
     // Position consistency check, for debugging
     bool pos_is_ok() const;
     void flip();
-
-    // Used by NNUE
-    StateInfo* state() const;
 
     void put_piece(Piece pc, Square s);
     void remove_piece(Square s);
@@ -366,8 +469,6 @@ inline void Position::move_piece(Square from, Square to) {
 inline void Position::do_move(Move m, StateInfo& newSt, const TranspositionTable* tt = nullptr) {
     do_move(m, newSt, gives_check(m), tt);
 }
-
-inline StateInfo* Position::state() const { return st; }
 
 }  // namespace Stockfish
 
