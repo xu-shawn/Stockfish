@@ -27,6 +27,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <initializer_list>
+#include <ios>
 #include <iostream>
 #include <list>
 #include <ratio>
@@ -46,6 +47,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "types.h"
 #include "uci.h"
 #include "ucioption.h"
 
@@ -114,19 +116,33 @@ void update_correction_history(const Position& pos,
 void print_curr_variation(const Stack* begin, const Stack* end) {
     sync_cout_start();
 
+    auto bound_to_string = [](Bound b) {
+        switch (b)
+        {
+        case BOUND_LOWER :
+            return "LOWER";
+        case BOUND_UPPER :
+            return "UPPER";
+        case BOUND_EXACT :
+            return "EXACT";
+        case BOUND_NONE :
+            return "NONE";
+        };
+    };
+
     std::cout << "info moves " << UCIEngine::move(begin->currentMove, false);
     for (const Stack* curr = begin + 1; curr < end; curr++)
         std::cout << " " << UCIEngine::move(curr->currentMove, false);
 
     std::cout << "\n";
 
-    std::cout << "info chain " << "{" << UCIEngine::move(begin->currentMove, false) << ", "
-              << begin->depth << "}";
-    for (const Stack* curr = begin + 1; curr < end; curr++)
-        std::cout << "->" << "{" << UCIEngine::move(curr->currentMove, false) << ", " << curr->depth
-                  << "}";
-
-    std::cout << std::endl;
+    for (const Stack* curr = begin; curr < end; curr++)
+        std::cout << std::boolalpha << "{" << UCIEngine::move(curr->currentMove, false) << ", "
+                  << curr->depth << ", " << curr->extension << ", " << curr->ttHit << ", "
+                  << curr->rule50Cutoff << ", " << bound_to_string(curr->ttData.bound) << ", "
+                  << curr->ttData.depth << ", "
+                  << "(" << curr->alpha << ", " << curr->beta << ")" << ", " << curr->ttData.value
+                  << ", " << curr->staticEval << ", " << curr->moveCount << "}" << std::endl;
 
     sync_cout_end();
 }
@@ -653,6 +669,9 @@ Value Search::Worker::search(
     priorCapture       = pos.captured_piece();
     Color us           = pos.side_to_move();
     ss->moveCount      = 0;
+    ss->extension      = 0;
+    ss->alpha          = alpha;
+    ss->beta           = beta;
     bestValue          = -VALUE_INFINITE;
     maxValue           = VALUE_INFINITE;
 
@@ -700,12 +719,16 @@ Value Search::Worker::search(
     auto [ttHit, ttData, ttWriter] = tt.probe(posKey);
     // Need further processing of the saved data
     ss->ttHit    = ttHit;
+    ss->ttData   = ttData;
+    ss->isPv     = PvNode;
     ttData.move  = rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
                  : ttHit    ? ttData.move
                             : Move::none();
     ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule50_count()) : VALUE_NONE;
     ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
     ttCapture    = ttData.move && pos.capture_stage(ttData.move);
+
+    ss->rule50Cutoff = false;
 
     // At this point, if excluded, skip straight to step 6, static eval. However,
     // to save indentation, we list the condition in all code between here and there.
@@ -756,6 +779,8 @@ Value Search::Worker::search(
             else
                 return ttData.value;
         }
+        else
+            ss->rule50Cutoff = true;
     }
 
     // Step 5. Tablebases probe
@@ -1047,6 +1072,7 @@ moves_loop:  // When in check, search starts here
             continue;
 
         ss->moveCount = ++moveCount;
+        ss->alpha     = alpha;
 
         if (rootNode && is_mainthread() && nodes > 10000000)
         {
@@ -1056,10 +1082,10 @@ moves_loop:  // When in check, search starts here
         if (PvNode)
             (ss + 1)->pv = nullptr;
 
-        extension  = 0;
-        capture    = pos.capture_stage(move);
-        movedPiece = pos.moved_piece(move);
-        givesCheck = pos.gives_check(move);
+        ss->extension = extension = 0;
+        capture                   = pos.capture_stage(move);
+        movedPiece                = pos.moved_piece(move);
+        givesCheck                = pos.gives_check(move);
 
         (ss + 1)->quietMoveStreak = (!capture && !givesCheck) ? (ss->quietMoveStreak + 1) : 0;
 
@@ -1232,6 +1258,7 @@ moves_loop:  // When in check, search starts here
 
         // Add extension to new depth
         newDepth += extension;
+        ss->extension = extension;
 
         // Update the current move (this must be done after singular extension search)
         ss->currentMove = move;

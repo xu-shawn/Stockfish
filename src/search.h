@@ -41,6 +41,7 @@
 #include "syzygy/tbprobe.h"
 #include "timeman.h"
 #include "types.h"
+#include "tt.h"
 
 namespace Stockfish {
 
@@ -72,12 +73,18 @@ struct Stack {
     int                         moveCount;
     bool                        inCheck;
     bool                        ttPv;
+    bool                        isPv;
     bool                        ttHit;
     int                         cutoffCnt;
     int                         reduction;
     bool                        isPvNode;
     int                         quietMoveStreak;
+    int                         extension;
+    bool                        rule50Cutoff;
     int                         depth;
+    TTData                      ttData;
+    Value                       alpha;
+    Value                       beta;
 };
 
 
