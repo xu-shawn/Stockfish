@@ -313,6 +313,76 @@ StateInfo& StateInfo::set(const string& code, Color c) {
 }
 
 
+// Helper function used to set castling
+// rights given the corresponding color and the rook starting square.
+void StateInfo::set_castling_right(Color c, Square rfrom) {
+
+    Square         kfrom = square<KING>(c);
+    CastlingRights cr    = c & (kfrom < rfrom ? KING_SIDE : QUEEN_SIDE);
+
+    castlingRights |= cr;
+    castlingRightsMask[kfrom] |= cr;
+    castlingRightsMask[rfrom] |= cr;
+    castlingRookSquare[cr] = rfrom;
+
+    Square kto = relative_square(c, cr & KING_SIDE ? SQ_G1 : SQ_C1);
+    Square rto = relative_square(c, cr & KING_SIDE ? SQ_F1 : SQ_D1);
+
+    castlingPath[cr] = (between_bb(rfrom, rto) | between_bb(kfrom, kto)) & ~(kfrom | rfrom);
+}
+
+
+// Computes the hash keys of the position, and other
+// data that once computed is updated incrementally as moves are made.
+// The function is only used when a new position is set up
+void StateInfo::set_state() {
+
+    key = materialKey = 0;
+    minorPieceKey     = 0;
+    nonPawnKey[WHITE] = nonPawnKey[BLACK] = 0;
+    pawnKey                               = Zobrist::noPawns;
+    nonPawnMaterial[WHITE] = nonPawnMaterial[BLACK] = VALUE_ZERO;
+    checkersBB = attackers_to(square<KING>(sideToMove)) & pieces(~sideToMove);
+
+    set_check_info();
+
+    for (Bitboard b = pieces(); b;)
+    {
+        Square s  = pop_lsb(b);
+        Piece  pc = piece_on(s);
+        key ^= Zobrist::psq[pc][s];
+
+        if (type_of(pc) == PAWN)
+            pawnKey ^= Zobrist::psq[pc][s];
+
+        else
+        {
+            nonPawnKey[color_of(pc)] ^= Zobrist::psq[pc][s];
+
+            if (type_of(pc) != KING)
+            {
+                nonPawnMaterial[color_of(pc)] += PieceValue[pc];
+
+                if (type_of(pc) <= BISHOP)
+                    minorPieceKey ^= Zobrist::psq[pc][s];
+            }
+        }
+    }
+
+    if (epSquare != SQ_NONE)
+        key ^= Zobrist::enpassant[file_of(epSquare)];
+
+    if (sideToMove == BLACK)
+        key ^= Zobrist::side;
+
+    key ^= Zobrist::castling[castlingRights];
+
+    for (Piece pc : Pieces)
+        for (int cnt = 0; cnt < pieceCount[pc]; ++cnt)
+            materialKey ^= Zobrist::psq[pc][8 + cnt];
+}
+
+
 // Returns a FEN representation of the position. In case of
 // Chess960 the Shredder-FEN notation is used. This is mainly a debugging function.
 string StateInfo::fen() const {
