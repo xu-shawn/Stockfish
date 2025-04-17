@@ -68,6 +68,7 @@ struct Stack {
     int                         ply;
     Move                        currentMove;
     Move                        excludedMove;
+    Move                        excludedMove2;
     Value                       staticEval;
     int                         statScore;
     int                         moveCount;
@@ -85,6 +86,7 @@ struct Stack {
     TTData                      ttData;
     Value                       alpha;
     Value                       beta;
+    bool                        ttCutoffable;
 };
 
 

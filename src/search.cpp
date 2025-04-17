@@ -138,11 +138,11 @@ void print_curr_variation(const Stack* begin, const Stack* end) {
 
     for (const Stack* curr = begin; curr < end; curr++)
         std::cout << std::boolalpha << "{" << UCIEngine::move(curr->currentMove, false) << ", "
-                  << curr->depth << ", " << curr->extension << ", " << curr->ttHit << ", "
-                  << curr->rule50Cutoff << ", " << bound_to_string(curr->ttData.bound) << ", "
-                  << curr->ttData.depth << ", "
-                  << "(" << curr->alpha << ", " << curr->beta << ")" << ", " << curr->ttData.value
-                  << ", " << curr->staticEval << ", " << curr->moveCount << "}" << std::endl;
+                  << curr->depth << ", " << curr->extension << ", "
+                  << bound_to_string(curr->ttData.bound) << ", " << curr->ttData.depth << ", "
+                  << "(" << curr->alpha << ", " << curr->beta << ")"
+                  << ", " << curr->ttData.value << ", " << curr->staticEval << ", "
+                  << curr->moveCount << "}" << std::endl;
 
     sync_cout_end();
 }
@@ -670,6 +670,7 @@ Value Search::Worker::search(
     Color us           = pos.side_to_move();
     ss->moveCount      = 0;
     ss->extension      = 0;
+    ss->ttData         = {};
     ss->alpha          = alpha;
     ss->beta           = beta;
     bestValue          = -VALUE_INFINITE;
@@ -714,13 +715,11 @@ Value Search::Worker::search(
     (ss + 2)->cutoffCnt = 0;
 
     // Step 4. Transposition table lookup
-    excludedMove                   = ss->excludedMove;
-    posKey                         = pos.key();
-    auto [ttHit, ttData, ttWriter] = tt.probe(posKey);
+    excludedMove = ss->excludedMove2 = ss->excludedMove;
+    posKey                           = pos.key();
+    auto [ttHit, ttData, ttWriter]   = tt.probe(posKey);
     // Need further processing of the saved data
     ss->ttHit    = ttHit;
-    ss->ttData   = ttData;
-    ss->isPv     = PvNode;
     ttData.move  = rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
                  : ttHit    ? ttData.move
                             : Move::none();
@@ -728,7 +727,9 @@ Value Search::Worker::search(
     ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
     ttCapture    = ttData.move && pos.capture_stage(ttData.move);
 
-    ss->rule50Cutoff = false;
+    ss->ttCutoffable = ttData.depth > depth - (ttData.value <= beta) && is_valid(ttData.value)
+                    && (ttData.bound & (ttData.value >= beta ? BOUND_LOWER : BOUND_UPPER))
+                    && (cutNode == (ttData.value >= beta) || depth > 5);
 
     // At this point, if excluded, skip straight to step 6, static eval. However,
     // to save indentation, we list the condition in all code between here and there.
@@ -779,8 +780,6 @@ Value Search::Worker::search(
             else
                 return ttData.value;
         }
-        else
-            ss->rule50Cutoff = true;
     }
 
     // Step 5. Tablebases probe
@@ -1072,7 +1071,6 @@ moves_loop:  // When in check, search starts here
             continue;
 
         ss->moveCount = ++moveCount;
-        ss->alpha     = alpha;
 
         if (rootNode && is_mainthread() && nodes > 10000000)
         {
@@ -1259,6 +1257,11 @@ moves_loop:  // When in check, search starts here
         // Add extension to new depth
         newDepth += extension;
         ss->extension = extension;
+        ss->ttData    = ttData;
+        ss->isPv      = PvNode;
+        ss->alpha     = alpha;
+        ss->beta      = beta;
+        ss->depth     = depth;
 
         // Update the current move (this must be done after singular extension search)
         ss->currentMove = move;
@@ -1310,8 +1313,6 @@ moves_loop:  // When in check, search starts here
 
         // Decrease/increase reduction for moves with a good/bad history
         r -= ss->statScore * 826 / 8192;
-
-        ss->depth = depth;
 
         // Step 17. Late moves reduction / extension (LMR)
         if (depth >= 2 && moveCount > 1)
