@@ -370,6 +370,8 @@ void Search::Worker::iterative_deepening() {
             optimism[us]  = 138 * avg / (std::abs(avg) + 84);
             optimism[~us] = -optimism[us];
 
+            ss->ttHitCnt = (ss + 1)->ttHitCnt = 0;
+
             // Start with a small aspiration window and, in the case of a fail
             // high/low, re-search with a bigger window until we don't fail
             // high/low anymore.
@@ -688,6 +690,7 @@ Value Search::Worker::search(
 
     bestMove            = Move::none();
     (ss + 2)->cutoffCnt = 0;
+    (ss + 2)->ttHitCnt  = 0;
     Square prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
     ss->statScore = 0;
 
@@ -696,7 +699,8 @@ Value Search::Worker::search(
     posKey                         = pos.key();
     auto [ttHit, ttData, ttWriter] = tt.probe(posKey);
     // Need further processing of the saved data
-    ss->ttHit    = ttHit;
+    ss->ttHit = ttHit;
+    ss->ttHitCnt += ttHit;
     ttData.move  = rootNode ? thisThread->rootMoves[thisThread->pvIdx].pv[0]
                  : ttHit    ? ttData.move
                             : Move::none();
@@ -1177,6 +1181,9 @@ moves_loop:  // When in check, search starts here
                 else if (cutNode)
                     extension = -2;
             }
+
+            if (move != ttData.move && moveCount <= 3 && (ss + 1)->ttHitCnt > 16)
+                extension = 1;
         }
 
         // Step 16. Make the move
