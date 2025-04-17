@@ -120,8 +120,8 @@ class StateInfo {
    private:
     // Initialization helpers (used while setting up a position)
     void set_castling_right(Color c, Square rfrom);
-    void set_state() const;
-    void set_check_info() const;
+    void set_state();
+    void set_check_info();
 
     // Other helpers
     void move_piece(Square from, Square to);
