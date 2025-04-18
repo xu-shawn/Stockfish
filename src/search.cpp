@@ -1266,8 +1266,8 @@ moves_loop:  // When in check, search starts here
               lmrModel.predict({cutNode, capture, givesCheck, ss->cutoffCnt > 2, ss->inCheck,
                                 PvNode, depth < 8, ttCapture, ss->ttPv});
 
-            if (prediction.successValue > prediction.failureValue)
-                r -= 1024;
+            if (prediction.successValue < prediction.failureValue)
+                r += 512;
 
             Depth d = std::max(
               1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));
@@ -2319,8 +2319,8 @@ constexpr void NaiveBayes::clear() {
     for (auto& row : features)
         for (auto& feature : row)
             feature.clear();
-    classPrior.fill(0);
-    samplesCount = 0;
+    classPrior[0] = classPrior[1] = 0;
+    samplesCount                  = 0;
 }
 
 
