@@ -196,6 +196,7 @@ void Search::Worker::ensure_network_replicated() {
 void Search::Worker::start_searching() {
 
     accumulatorStack.reset(rootPos, networks[numaAccessToken], refreshTable);
+    lmrModel.clear();
 
     // Non-main threads go directly to iterative_deepening()
     if (!is_mainthread())
@@ -1266,7 +1267,7 @@ moves_loop:  // When in check, search starts here
                                 PvNode, depth < 8, ttCapture, ss->ttPv});
 
             if (prediction.successValue < 0)
-                r += 1024;
+                r -= 1024;
 
             Depth d = std::max(
               1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));
@@ -2256,16 +2257,21 @@ bool RootMove::extract_ponder_from_tt(const TranspositionTable& tt, Position& po
     return pv.size() > 1;
 }
 
-void NaiveBayes::BinaryFeature::update(bool input) {
+constexpr void NaiveBayes::BinaryFeature::update(bool input) {
     count += input;
     total++;
 }
 
-float NaiveBayes::BinaryFeature::prior(bool input) {
+constexpr float NaiveBayes::BinaryFeature::prior(bool input) const {
     return input ? float(count) / total : float(total - count) / total;
 }
 
-void NaiveBayes::learn(ModelInput data, bool target) {
+constexpr void NaiveBayes::BinaryFeature::clear() {
+    count = 0;
+    total = 0;
+}
+
+constexpr void NaiveBayes::learn(ModelInput data, bool target) {
     features[target][0].update(data.cutNode);
     features[target][1].update(data.capture);
     features[target][2].update(data.givesCheck);
@@ -2280,7 +2286,7 @@ void NaiveBayes::learn(ModelInput data, bool target) {
     samplesCount++;
 }
 
-NaiveBayes::Result NaiveBayes::predict(ModelInput data) {
+constexpr NaiveBayes::Result NaiveBayes::predict(ModelInput data) const {
     if (samplesCount == 0)
         return {0, 0};
 
@@ -2307,6 +2313,14 @@ NaiveBayes::Result NaiveBayes::predict(ModelInput data) {
     result.successValue *= features[1][8].prior(data.ttPv);
 
     return result;
+}
+
+constexpr void NaiveBayes::clear() {
+    for (auto& row : features)
+        for (auto& feature : row)
+            feature.clear();
+    classPrior.fill(0);
+    samplesCount = 0;
 }
 
 

@@ -264,8 +264,9 @@ struct NaiveBayes {
         std::uint64_t count;
         std::uint64_t total;
 
-        void  update(bool input);
-        float prior(bool input);
+        constexpr void  update(bool input);
+        constexpr float prior(bool input) const;
+        constexpr void  clear();
     };
 
     struct ModelInput {
@@ -285,8 +286,9 @@ struct NaiveBayes {
         float failureValue;
     };
 
-    void   learn(ModelInput data, bool target);
-    Result predict(ModelInput data);
+    constexpr void   learn(ModelInput data, bool target);
+    constexpr Result predict(ModelInput data) const;
+    constexpr void   clear();
 
     std::array<std::array<BinaryFeature, 9>, 2> features;
     std::array<std::uint64_t, 2>                classPrior;
