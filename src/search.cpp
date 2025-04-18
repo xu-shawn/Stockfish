@@ -2319,8 +2319,8 @@ constexpr void NaiveBayes::clear() {
     for (auto& row : features)
         for (auto& feature : row)
             feature.clear();
-    classPrior.fill(0);
-    samplesCount = 0;
+    classPrior[0] = classPrior[1] = 0;
+    samplesCount                  = 0;
 }
 
 
