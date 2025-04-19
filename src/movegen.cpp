@@ -48,7 +48,7 @@ ExtMove* make_promotions(ExtMove* moveList, [[maybe_unused]] Square to) {
 
 
 template<Color Us, GenType Type>
-ExtMove* generate_pawn_moves(const Position& pos, ExtMove* moveList, Bitboard target) {
+ExtMove* generate_pawn_moves(const StateInfo& pos, ExtMove* moveList, Bitboard target) {
 
     constexpr Color     Them     = ~Us;
     constexpr Bitboard  TRank7BB = (Us == WHITE ? Rank7BB : Rank2BB);
@@ -148,7 +148,7 @@ ExtMove* generate_pawn_moves(const Position& pos, ExtMove* moveList, Bitboard ta
 
 
 template<Color Us, PieceType Pt>
-ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target) {
+ExtMove* generate_moves(const StateInfo& pos, ExtMove* moveList, Bitboard target) {
 
     static_assert(Pt != KING && Pt != PAWN, "Unsupported piece type in generate_moves()");
 
@@ -168,7 +168,7 @@ ExtMove* generate_moves(const Position& pos, ExtMove* moveList, Bitboard target)
 
 
 template<Color Us, GenType Type>
-ExtMove* generate_all(const Position& pos, ExtMove* moveList) {
+ExtMove* generate_all(const StateInfo& pos, ExtMove* moveList) {
 
     static_assert(Type != LEGAL, "Unsupported type in generate_all()");
 
@@ -213,7 +213,7 @@ ExtMove* generate_all(const Position& pos, ExtMove* moveList) {
 //
 // Returns a pointer to the end of the move list.
 template<GenType Type>
-ExtMove* generate(const Position& pos, ExtMove* moveList) {
+ExtMove* generate(const StateInfo& pos, ExtMove* moveList) {
 
     static_assert(Type != LEGAL, "Unsupported type in generate()");
     assert((Type == EVASIONS) == bool(pos.checkers()));
@@ -225,10 +225,10 @@ ExtMove* generate(const Position& pos, ExtMove* moveList) {
 }
 
 // Explicit template instantiations
-template ExtMove* generate<CAPTURES>(const Position&, ExtMove*);
-template ExtMove* generate<QUIETS>(const Position&, ExtMove*);
-template ExtMove* generate<EVASIONS>(const Position&, ExtMove*);
-template ExtMove* generate<NON_EVASIONS>(const Position&, ExtMove*);
+template ExtMove* generate<CAPTURES>(const StateInfo&, ExtMove*);
+template ExtMove* generate<QUIETS>(const StateInfo&, ExtMove*);
+template ExtMove* generate<EVASIONS>(const StateInfo&, ExtMove*);
+template ExtMove* generate<NON_EVASIONS>(const StateInfo&, ExtMove*);
 
 
 // generate<LEGAL> generates all the legal moves in the given position

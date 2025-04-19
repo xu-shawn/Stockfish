@@ -23,10 +23,9 @@
 #include <cstddef>
 
 #include "types.h"
+#include "position.h"
 
 namespace Stockfish {
-
-class Position;
 
 enum GenType {
     CAPTURES,
@@ -58,7 +57,9 @@ template<GenType T>
 struct MoveList {
 
     explicit MoveList(const Position& pos) :
-        last(generate<T>(pos, moveList)) {}
+        last(generate<T>(pos.state(), moveList)) {}
+    explicit MoveList(const StateInfo& st) :
+        last(generate<T>(st, moveList)) {}
     const ExtMove* begin() const { return moveList; }
     const ExtMove* end() const { return last; }
     size_t         size() const { return last - moveList; }

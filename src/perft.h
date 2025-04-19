@@ -33,8 +33,6 @@ namespace Stockfish::Benchmark {
 template<bool Root>
 uint64_t perft(Position& pos, Depth depth) {
 
-    StateInfo st;
-
     uint64_t   cnt, nodes = 0;
     const bool leaf = (depth == 2);
 
@@ -44,10 +42,10 @@ uint64_t perft(Position& pos, Depth depth) {
             cnt = 1, nodes++;
         else
         {
-            pos.do_move(m, st);
+            pos.do_move(m);
             cnt = leaf ? MoveList<LEGAL>(pos).size() : perft<false>(pos, depth - 1);
             nodes += cnt;
-            pos.undo_move(m);
+            pos.undo_move();
         }
         if (Root)
             sync_cout << UCIEngine::move(m, pos.is_chess960()) << ": " << cnt << sync_endl;
@@ -56,12 +54,12 @@ uint64_t perft(Position& pos, Depth depth) {
 }
 
 inline uint64_t perft(const std::string& fen, Depth depth, bool isChess960) {
-    StateListPtr states(new std::deque<StateInfo>(1));
-    Position     p;
-    p.set(fen, isChess960, &states->back());
+    Position p;
+    p.set(fen, isChess960);
 
     return perft<true>(p, depth);
 }
+
 }
 
 #endif  // PERFT_H_INCLUDED
