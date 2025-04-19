@@ -234,7 +234,7 @@ template ExtMove* generate<NON_EVASIONS>(const StateInfo&, ExtMove*);
 // generate<LEGAL> generates all the legal moves in the given position
 
 template<>
-ExtMove* generate<LEGAL>(const Position& pos, ExtMove* moveList) {
+ExtMove* generate<LEGAL>(const StateInfo& pos, ExtMove* moveList) {
 
     Color    us     = pos.side_to_move();
     Bitboard pinned = pos.blockers_for_king(us) & pos.pieces(us);

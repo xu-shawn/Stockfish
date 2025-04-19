@@ -339,13 +339,6 @@ inline void StateInfo::do_move(Move m, const TranspositionTable* tt = nullptr) {
 }
 
 
-// A list to keep track of the position states along the setup moves (from the
-// start position to the position just before the search starts). Needed by
-// 'draw by repetition' detection. Use a std::deque because pointers to
-// elements are not invalidated upon list resizing.
-using StateListPtr = std::unique_ptr<std::deque<StateInfo>>;
-
-
 // Position class stores information regarding the board representation as
 // pieces, side to move, hash keys, castling info, etc. Important methods are
 // do_move() and undo_move(), used by the search to update node info when
@@ -450,6 +443,7 @@ class Position {
     int        repetition() const;
 
     struct StateWithRepetition {
+        StateWithRepetition() = default;
         StateWithRepetition(StateInfo& st) :
             state(st),
             repetition(0) {}
@@ -466,12 +460,12 @@ std::ostream& operator<<(std::ostream& os, const Position& pos);
 
 inline StateInfo& Position::state() {
 
-    assert(sts.size() > 1);
+    assert(sts.size() > 0);
     return sts.back().state;
 }
 inline const StateInfo& Position::state() const {
 
-    assert(sts.size() > 1);
+    assert(sts.size() > 0);
     return sts.back().state;
 }
 

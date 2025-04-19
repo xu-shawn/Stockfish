@@ -239,7 +239,6 @@ size_t ThreadPool::num_threads() const { return threads.size(); }
 // Main thread will wake up other threads and start the search.
 void ThreadPool::start_thinking(const OptionsMap&  options,
                                 Position&          pos,
-                                StateListPtr&      states,
                                 Search::LimitsType limits) {
 
     main_thread()->wait_for_search_finished();
@@ -266,18 +265,6 @@ void ThreadPool::start_thinking(const OptionsMap&  options,
 
     Tablebases::Config tbConfig = Tablebases::rank_root_moves(options, pos, rootMoves);
 
-    // After ownership transfer 'states' becomes empty, so if we stop the search
-    // and call 'go' again without setting a new position states.get() == nullptr.
-    assert(states.get() || setupStates.get());
-
-    if (states.get())
-        setupStates = std::move(states);  // Ownership transfer, states is now empty
-
-    // We use Position::set() to set root position across threads. But there are
-    // some StateInfo fields (previous, pliesFromNull, capturedPiece) that cannot
-    // be deduced from a fen string, so set() clears them and they are set from
-    // setupStates->back() later. The rootState is per thread, earlier states are
-    // shared since they are read-only.
     for (auto&& th : threads)
     {
         th->run_custom_job([&]() {
@@ -286,9 +273,8 @@ void ThreadPool::start_thinking(const OptionsMap&  options,
               th->worker->bestMoveChanges          = 0;
             th->worker->rootDepth = th->worker->completedDepth = 0;
             th->worker->rootMoves                              = rootMoves;
-            th->worker->rootPos.set(pos.fen(), pos.is_chess960(), &th->worker->rootState);
-            th->worker->rootState = setupStates->back();
-            th->worker->tbConfig  = tbConfig;
+            th->worker->rootPos                                = pos;
+            th->worker->tbConfig                               = tbConfig;
         });
     }
 

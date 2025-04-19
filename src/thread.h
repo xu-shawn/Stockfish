@@ -129,7 +129,7 @@ class ThreadPool {
     ThreadPool& operator=(const ThreadPool&) = delete;
     ThreadPool& operator=(ThreadPool&&)      = delete;
 
-    void   start_thinking(const OptionsMap&, Position&, StateListPtr&, Search::LimitsType);
+    void   start_thinking(const OptionsMap&, Position&, Search::LimitsType);
     void   run_on_thread(size_t threadId, std::function<void()> f);
     void   wait_on_thread(size_t threadId);
     size_t num_threads() const;
@@ -160,7 +160,6 @@ class ThreadPool {
     auto empty() const noexcept { return threads.empty(); }
 
    private:
-    StateListPtr                         setupStates;
     std::vector<std::unique_ptr<Thread>> threads;
     std::vector<NumaIndex>               boundThreadToNumaNode;
 

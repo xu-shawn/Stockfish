@@ -333,7 +333,6 @@ class Worker {
     Value optimism[COLOR_NB];
 
     Position  rootPos;
-    StateInfo rootState;
     RootMoves rootMoves;
     Depth     rootDepth, completedDepth;
     Value     rootDelta;
