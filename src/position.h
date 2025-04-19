@@ -32,6 +32,9 @@ namespace Stockfish {
 
 class TranspositionTable;
 
+// TODO fix key function name collision
+// TODO fix pinner function
+
 // StateInfo struct stores information needed to restore a Position object to
 // its previous state when we retract a move. Whenever a move is made on the
 // board (by calling Position::do_move), a StateInfo object must be passed.
@@ -75,7 +78,7 @@ class StateInfo {
     Bitboard attackers_to(Square s) const;
     Bitboard attackers_to(Square s, Bitboard occupied) const;
     bool     attackers_to_exist(Square s, Bitboard occupied, Color c) const;
-    void     update_slider_blockers(Color c) const;
+    void     update_slider_blockers(Color c);
     template<PieceType Pt>
     Bitboard attacks_by(Color c) const;
 
@@ -92,7 +95,7 @@ class StateInfo {
     void       do_move(Move m, const TranspositionTable* tt);
     DirtyPiece do_move(Move m, bool givesCheck, const TranspositionTable* tt);
     void       undo_move(Move m);
-    void       do_null_move(StateInfo& newSt, const TranspositionTable& tt);
+    void       do_null_move(const TranspositionTable& tt);
     void       undo_null_move();
 
     // Static Exchange Evaluation
