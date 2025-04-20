@@ -1144,6 +1144,8 @@ moves_loop:  // When in check, search starts here
                 Value singularBeta  = ttData.value - (59 + 77 * (ss->ttPv && !PvNode)) * depth / 54;
                 Depth singularDepth = newDepth / 2;
 
+                bool pvInexact = PvNode && ttData.bound != BOUND_EXACT;
+
                 ss->excludedMove = move;
                 value =
                   search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
@@ -1154,9 +1156,9 @@ moves_loop:  // When in check, search starts here
                     int corrValAdj1 = std::abs(correctionValue) / 248873;
                     int corrValAdj2 = std::abs(correctionValue) / 255331;
                     int doubleMargin =
-                      262 * PvNode - 188 * !ttCapture - corrValAdj1 - ttMoveHistory / 128;
+                      262 * pvInexact - 188 * !ttCapture - corrValAdj1 - ttMoveHistory / 128;
                     int tripleMargin =
-                      88 + 265 * PvNode - 256 * !ttCapture + 93 * ss->ttPv - corrValAdj2;
+                      88 + 265 * pvInexact - 256 * !ttCapture + 93 * ss->ttPv - corrValAdj2;
 
                     extension = 1 + (value < singularBeta - doubleMargin)
                               + (value < singularBeta - tripleMargin);
