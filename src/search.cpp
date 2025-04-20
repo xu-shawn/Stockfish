@@ -1504,7 +1504,7 @@ moves_loop:  // When in check, search starts here
                 return bestMove;
 
             auto [newTTHit, newTTData, newTTWriter] = tt.probe(posKey);
-            if (newTTHit && newTTData.move != ttData.move)
+            if (newTTHit && newTTData.move && newTTData.move != ttData.move)
             {
                 if (pos.capture_stage(newTTData.move)
                       ? std::find(capturesSearched.begin(), capturesSearched.end(), newTTData.move)
