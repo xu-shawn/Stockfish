@@ -1189,6 +1189,9 @@ moves_loop:  // When in check, search starts here
                 else if (cutNode)
                     extension = -2;
             }
+
+            else if (PvNode && move == ttData.move && depth <= 8 && ttData.depth > depth)
+                extension = ttData.depth - depth;
         }
 
         // Step 16. Make the move
