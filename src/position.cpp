@@ -1188,7 +1188,7 @@ bool Position::gives_check(Move m) const { return state().gives_check(m); }
 // If a pointer to the TT table is passed, the entry for the new position
 // will be prefetched
 DirtyPiece Position::do_move(Move m, bool givesCheck, const TranspositionTable* tt = nullptr) {
-    sts.push_back(state());
+    sts.emplace_back(state());
     DirtyPiece dp = state().do_move(m, givesCheck, tt);
 
     // Calculate the repetition info. It is the ply distance from the previous
@@ -1226,7 +1226,7 @@ void Position::undo_move() {
 // Used to do a "null move": it flips
 // the side to move without executing any move on the board.
 void Position::do_null_move(const TranspositionTable& tt) {
-    sts.push_back(state());
+    sts.emplace_back(state());
     return state().do_null_move(tt);
 }
 

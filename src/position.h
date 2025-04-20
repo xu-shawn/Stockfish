@@ -570,7 +570,7 @@ inline void Position::put_piece(Piece pc, Square s) { state().put_piece(pc, s); 
 inline void Position::remove_piece(Square s) { state().remove_piece(s); }
 
 inline void Position::do_move(Move m, const TranspositionTable* tt = nullptr) {
-    state().do_move(m, tt);
+    do_move(m, gives_check(m), tt);
 }
 
 }  // namespace Stockfish
