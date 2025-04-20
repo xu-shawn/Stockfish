@@ -775,10 +775,10 @@ DirtyPiece StateInfo::do_move(Move m, bool givesCheck, const TranspositionTable*
     }
 
     // Update castling rights if needed
-    if (castlingRights && (castlingRightsMask[from] | castlingRightsMask[to]))
+    if (castlingRights && (castling_rights_mask(from) | castling_rights_mask(to)))
     {
         zobristKey ^= Zobrist::castling[castlingRights];
-        castlingRights &= ~(castlingRightsMask[from] | castlingRightsMask[to]);
+        castlingRights &= ~(castling_rights_mask(from) | castling_rights_mask(to));
         zobristKey ^= Zobrist::castling[castlingRights];
     }
 
@@ -1118,9 +1118,9 @@ bool StateInfo::pos_is_ok() const {
             if (!can_castle(cr))
                 continue;
 
-            if (piece_on(castlingRookSquare[cr]) != make_piece(c, ROOK)
-                || castlingRightsMask[castlingRookSquare[cr]] != cr
-                || (castlingRightsMask[square<KING>(c)] & cr) != cr)
+            if (piece_on(castling_rook_square(cr)) != make_piece(c, ROOK)
+                || castling_rights_mask(castling_rook_square(cr)) != cr
+                || (castling_rights_mask(square<KING>(c)) & cr) != cr)
                 assert(0 && "pos_is_ok: Castling");
         }
 

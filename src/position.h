@@ -129,6 +129,9 @@ class StateInfo {
     void set_state();
     void set_check_info();
 
+    inline int      castling_rights_mask(Square s) const;
+    inline Bitboard castling_path(CastlingRights cr) const;
+
     // Other helpers
     void move_piece(Square from, Square to);
     template<bool Do>
@@ -224,13 +227,17 @@ inline CastlingRights StateInfo::castling_rights(Color c) const {
 
 inline bool StateInfo::castling_impeded(CastlingRights cr) const {
     assert(cr == WHITE_OO || cr == WHITE_OOO || cr == BLACK_OO || cr == BLACK_OOO);
-    return pieces() & castlingPath[cr];
+    return pieces() & castling_path(cr);
 }
 
 inline Square StateInfo::castling_rook_square(CastlingRights cr) const {
     assert(cr == WHITE_OO || cr == WHITE_OOO || cr == BLACK_OO || cr == BLACK_OOO);
     return castlingRookSquare[cr];
 }
+
+inline int StateInfo::castling_rights_mask(Square s) const { return castlingRightsMask[s]; }
+
+inline Bitboard StateInfo::castling_path(CastlingRights cr) const { return castlingPath[cr]; }
 
 inline Bitboard StateInfo::attackers_to(Square s) const { return attackers_to(s, pieces()); }
 
