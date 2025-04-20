@@ -1236,7 +1236,6 @@ void Position::do_null_move(const TranspositionTable& tt) {
 // algorithm similar to alpha-beta pruning with a null window.
 bool Position::see_ge(Move m, int threshold) const { return state().see_ge(m, threshold); }
 
-// TODO repetition stuff
 // Tests whether the position is drawn by 50-move rule
 // or by repetition. It does not detect stalemates.
 bool Position::is_draw(int ply) const {
@@ -1263,7 +1262,7 @@ bool Position::has_repeated() const {
         if (stc->repetition)
             return true;
 
-        stc--;
+        stc++;
     }
 
     return false;
@@ -1274,16 +1273,14 @@ bool Position::has_repeated() const {
 // This function accurately matches the outcome of is_draw() over all legal moves.
 bool Position::upcoming_repetition(int ply) const {
 
-    int j;
-
     int end = std::min(state().rule50_count(), state().plies_from_null());
 
     if (end < 3)
         return false;
 
     Key  originalKey = state().zobrist_key();
-    auto stp         = sts.rbegin() + 1;
-    Key  other       = originalKey ^ state().zobrist_key() ^ Zobrist::side;
+    auto stp         = sts.crbegin() + 1;
+    Key  other       = originalKey ^ stp->state.zobrist_key() ^ Zobrist::side;
 
     for (int i = 3; i <= end; i += 2)
     {
@@ -1296,6 +1293,9 @@ bool Position::upcoming_repetition(int ply) const {
             continue;
 
         Key moveKey = originalKey ^ stp->state.zobrist_key();
+
+        int j;
+
         if ((j = H1(moveKey), cuckoo[j] == moveKey) || (j = H2(moveKey), cuckoo[j] == moveKey))
         {
             Move   move = cuckooMove[j];
