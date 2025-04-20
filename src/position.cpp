@@ -455,7 +455,7 @@ void StateInfo::update_slider_blockers(Color c) {
     Square ksq = square<KING>(c);
 
     blockersForKing[c] = 0;
-    pinnersByColor[~c] = 0;
+    pinnersBB[~c]      = 0;
 
     // Snipers are sliders that attack 's' when a piece and other snipers are removed
     Bitboard snipers = ((attacks_bb<ROOK>(ksq) & pieces(QUEEN, ROOK))
@@ -472,7 +472,7 @@ void StateInfo::update_slider_blockers(Color c) {
         {
             blockersForKing[c] |= b;
             if (b & pieces(c))
-                pinnersByColor[~c] |= sniperSq;
+                pinnersBB[~c] |= sniperSq;
         }
     }
 }
@@ -684,7 +684,7 @@ DirtyPiece StateInfo::do_move(Move m, bool givesCheck, const TranspositionTable*
 
     assert(m.is_ok());
 
-    Key k = zobristKey ^ Zobrist::side;
+    zobristKey ^= Zobrist::side;
 
     // Increment ply counters. In particular, rule50 will be reset to zero later on
     // in case of a capture or a pawn move.
@@ -714,7 +714,7 @@ DirtyPiece StateInfo::do_move(Move m, bool givesCheck, const TranspositionTable*
         Square rfrom, rto;
         do_castling<true>(us, from, to, rfrom, rto, &dp);
 
-        k ^= Zobrist::psq[captured][rfrom] ^ Zobrist::psq[captured][rto];
+        zobristKey ^= Zobrist::psq[captured][rfrom] ^ Zobrist::psq[captured][rto];
         nonPawnKey[us] ^= Zobrist::psq[captured][rfrom] ^ Zobrist::psq[captured][rto];
         captured = NO_PIECE;
     }
@@ -756,7 +756,7 @@ DirtyPiece StateInfo::do_move(Move m, bool givesCheck, const TranspositionTable*
         // Update board and piece lists
         remove_piece(capsq);
 
-        k ^= Zobrist::psq[captured][capsq];
+        zobristKey ^= Zobrist::psq[captured][capsq];
         materialKey ^= Zobrist::psq[captured][8 + pieceCount[captured]];
 
         // Reset rule 50 counter
@@ -764,21 +764,21 @@ DirtyPiece StateInfo::do_move(Move m, bool givesCheck, const TranspositionTable*
     }
 
     // Update hash key
-    k ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
+    zobristKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
 
     // Reset en passant square
     if (epSquare != SQ_NONE)
     {
-        k ^= Zobrist::enpassant[file_of(epSquare)];
+        zobristKey ^= Zobrist::enpassant[file_of(epSquare)];
         epSquare = SQ_NONE;
     }
 
     // Update castling rights if needed
     if (castlingRights && (castlingRightsMask[from] | castlingRightsMask[to]))
     {
-        k ^= Zobrist::castling[castlingRights];
+        zobristKey ^= Zobrist::castling[castlingRights];
         castlingRights &= ~(castlingRightsMask[from] | castlingRightsMask[to]);
-        k ^= Zobrist::castling[castlingRights];
+        zobristKey ^= Zobrist::castling[castlingRights];
     }
 
     // Move the piece. The tricky Chess960 castling is handled earlier
@@ -799,7 +799,7 @@ DirtyPiece StateInfo::do_move(Move m, bool givesCheck, const TranspositionTable*
             && (attacks_bb<PAWN>(to - pawn_push(us), us) & pieces(them, PAWN)))
         {
             epSquare = to - pawn_push(us);
-            k ^= Zobrist::enpassant[file_of(epSquare)];
+            zobristKey ^= Zobrist::enpassant[file_of(epSquare)];
         }
 
         else if (m.type_of() == PROMOTION)
@@ -822,7 +822,7 @@ DirtyPiece StateInfo::do_move(Move m, bool givesCheck, const TranspositionTable*
 
             // Update hash keys
             // Zobrist::psq[pc][to] is zero, so we don't need to clear it
-            k ^= Zobrist::psq[promotion][to];
+            zobristKey ^= Zobrist::psq[promotion][to];
             materialKey ^= Zobrist::psq[promotion][8 + pieceCount[promotion] - 1]
                          ^ Zobrist::psq[pc][8 + pieceCount[pc]];
 
@@ -848,10 +848,9 @@ DirtyPiece StateInfo::do_move(Move m, bool givesCheck, const TranspositionTable*
             minorPieceKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
     }
 
-    // Update the key with the final value
-    zobristKey = k;
+    // Prefetch key in TT
     if (tt)
-        prefetch(tt->first_entry(zobristKey));
+        prefetch(tt->first_entry(key()));
 
     // Set capture piece
     capturedPiece = captured;
@@ -883,7 +882,7 @@ void StateInfo::do_castling(
 
     assert(!Do || dp);
 
-    if (Do)
+    if constexpr (Do)
     {
         dp->piece[0]  = make_piece(us, KING);
         dp->from[0]   = from;
@@ -917,7 +916,7 @@ void StateInfo::do_null_move(const TranspositionTable& tt) {
     }
 
     zobristKey ^= Zobrist::side;
-    prefetch(tt.first_entry(zobristKey));
+    prefetch(tt.first_entry(key()));
 
     pliesFromNull = 0;
 
@@ -974,7 +973,7 @@ bool StateInfo::see_ge(Move m, int threshold) const {
 
         // Don't allow pinned pieces to attack as long as there are
         // pinners on their original square.
-        if (pinnersByColor[~stm] & occupied)
+        if (pinners(~stm) & occupied)
         {
             stmAttackers &= ~blockers_for_king(stm);
 
@@ -1230,12 +1229,6 @@ void Position::do_null_move(const TranspositionTable& tt) {
     return state().do_null_move(tt);
 }
 
-
-// Tests if the SEE (Static Exchange Evaluation)
-// value of move is greater or equal to the given threshold. We'll use an
-// algorithm similar to alpha-beta pruning with a null window.
-bool Position::see_ge(Move m, int threshold) const { return state().see_ge(m, threshold); }
-
 // Tests whether the position is drawn by 50-move rule
 // or by repetition. It does not detect stalemates.
 bool Position::is_draw(int ply) const {
@@ -1326,10 +1319,8 @@ void Position::flip() {
     state().flip();
 }
 
-
 // Performs some consistency checks for the position object
 // and raise an assert if something wrong is detected.
 // This is meant to be helpful when debugging.
-bool Position::pos_is_ok() const { return state().pos_is_ok(); }
 
 }  // namespace Stockfish

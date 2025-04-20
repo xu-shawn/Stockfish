@@ -166,7 +166,7 @@ class StateInfo {
     Key      zobristKey;
     Bitboard checkersBB;
     Bitboard blockersForKing[COLOR_NB];
-    Bitboard pinnersByColor[COLOR_NB];
+    Bitboard pinnersBB[COLOR_NB];
     Bitboard checkSquares[PIECE_TYPE_NB];
     Piece    capturedPiece;
 };
@@ -256,7 +256,7 @@ inline void StateInfo::set_checkers(Bitboard checkers) { checkersBB = checkers; 
 
 inline Bitboard StateInfo::blockers_for_king(Color c) const { return blockersForKing[c]; }
 
-inline Bitboard StateInfo::pinners(Color c) const { return pinnersByColor[c]; }
+inline Bitboard StateInfo::pinners(Color c) const { return pinnersBB[c]; }
 
 inline Bitboard StateInfo::check_squares(PieceType pt) const { return checkSquares[pt]; }
 
@@ -542,6 +542,8 @@ inline Bitboard Position::pinners(Color c) const { return state().pinners(c); }
 
 inline Bitboard Position::check_squares(PieceType pt) const { return state().check_squares(pt); }
 
+inline bool Position::see_ge(Move m, int threshold) const { return state().see_ge(m, threshold); }
+
 inline Key Position::key() const { return state().key(); }
 
 inline Key Position::pawn_key() const { return state().pawn_key(); }
@@ -567,6 +569,8 @@ inline bool Position::capture(Move m) const { return state().capture(m); }
 inline bool Position::capture_stage(Move m) const { return state().capture_stage(m); }
 
 inline Piece Position::captured_piece() const { return state().captured_piece(); }
+
+inline bool Position::pos_is_ok() const { return state().pos_is_ok(); }
 
 inline void Position::put_piece(Piece pc, Square s) { state().put_piece(pc, s); }
 
