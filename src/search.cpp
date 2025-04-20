@@ -1162,7 +1162,7 @@ moves_loop:  // When in check, search starts here
                               + (value < singularBeta - tripleMargin);
 
                     if (value < singularBeta && !ss->ttPv)
-                        extension = std::max(extension, ttData.depth + extension + 1 - depth);
+                        extension = std::max(extension, ttData.depth + extension - depth);
 
                     depth++;
                 }
