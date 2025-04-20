@@ -197,7 +197,7 @@ ExtMove* generate_all(const StateInfo& pos, ExtMove* moveList) {
 
     if ((Type == QUIETS || Type == NON_EVASIONS) && pos.can_castle(Us & ANY_CASTLING))
         for (CastlingRights cr : {Us & KING_SIDE, Us & QUEEN_SIDE})
-            if (!pos.castling_impeded(cr) && pos.can_castle(cr))
+            if (pos.can_castle(cr) && !pos.castling_impeded(cr))
                 *moveList++ = Move::make<CASTLING>(ksq, pos.castling_rook_square(cr));
 
     return moveList;

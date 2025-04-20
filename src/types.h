@@ -36,6 +36,7 @@
 // -DUSE_PEXT    | Add runtime support for use of pext asm-instruction. Works
 //               | only in 64-bit mode and requires hardware with pext support.
 
+    #include <array>
     #include <cassert>
     #include <cstddef>
     #include <cstdint>
@@ -131,6 +132,8 @@ enum CastlingRights : int8_t {
 
     CASTLING_RIGHT_NB = 16
 };
+
+constexpr std::array<CastlingRights, 2> sideToCastling = {WHITE_CASTLING, BLACK_CASTLING};
 
 enum Bound {
     BOUND_NONE,

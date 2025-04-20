@@ -36,6 +36,28 @@ class TranspositionTable;
 // its previous state when we retract a move. Whenever a move is made on the
 // board (by calling Position::do_move), a StateInfo object must be passed.
 
+struct CastlingInfo {
+    Square kingSide;
+    Square queenSide;
+
+    Square& operator[](CastlingRights cr) {
+        if (cr & KING_SIDE)
+            return kingSide;
+
+        return queenSide;
+    }
+
+    CastlingRights castling_rights_mask(Square rookSq) {
+        if (rookSq == kingSide)
+            return KING_SIDE;
+
+        if (rookSq == queenSide)
+            return QUEEN_SIDE;
+
+        return NO_CASTLING;
+    }
+};
+
 class StateInfo {
    public:
     // FEN string input/output
@@ -129,8 +151,7 @@ class StateInfo {
     void set_state();
     void set_check_info();
 
-    inline int      castling_rights_mask(Square s) const;
-    inline Bitboard castling_path(CastlingRights cr) const;
+    Bitboard castling_path(CastlingRights cr) const;
 
     // Other helpers
     void move_piece(Square from, Square to);
@@ -145,25 +166,23 @@ class StateInfo {
     Key adjust_key50(Key k) const;
 
     // Copied when making a move
-    Piece    board[SQUARE_NB];
-    Bitboard byTypeBB[PIECE_TYPE_NB];
-    Bitboard byColorBB[COLOR_NB];
-    int      pieceCount[PIECE_NB];
-    int8_t   castlingRightsMask[SQUARE_NB];
-    Square   castlingRookSquare[CASTLING_RIGHT_NB];
-    Bitboard castlingPath[CASTLING_RIGHT_NB];
-    Key      materialKey;
-    Key      pawnKey;
-    Key      minorPieceKey;
-    Key      nonPawnKey[COLOR_NB];
-    Value    nonPawnMaterial[COLOR_NB];
-    int      rule50;
-    int      pliesFromNull;
-    Square   epSquare;
-    int      gamePly;
-    int8_t   castlingRights;
-    Color    sideToMove;
-    bool     chess960;
+    Piece        board[SQUARE_NB];
+    Bitboard     byTypeBB[PIECE_TYPE_NB];
+    Bitboard     byColorBB[COLOR_NB];
+    int          pieceCount[PIECE_NB];
+    Key          materialKey;
+    Key          pawnKey;
+    Key          minorPieceKey;
+    Key          nonPawnKey[COLOR_NB];
+    Value        nonPawnMaterial[COLOR_NB];
+    CastlingInfo castlingRookSquare[COLOR_NB];
+    int          rule50;
+    int          pliesFromNull;
+    Square       epSquare;
+    int          gamePly;
+    int8_t       castlingRights;
+    Color        sideToMove;
+    bool         chess960;
 
     // Not copied when making a move (will be recomputed anyhow)
     Key      zobristKey;
@@ -227,17 +246,74 @@ inline CastlingRights StateInfo::castling_rights(Color c) const {
 
 inline bool StateInfo::castling_impeded(CastlingRights cr) const {
     assert(cr == WHITE_OO || cr == WHITE_OOO || cr == BLACK_OO || cr == BLACK_OOO);
+    assert(cr & castlingRights);
+
     return pieces() & castling_path(cr);
 }
 
 inline Square StateInfo::castling_rook_square(CastlingRights cr) const {
     assert(cr == WHITE_OO || cr == WHITE_OOO || cr == BLACK_OO || cr == BLACK_OOO);
-    return castlingRookSquare[cr];
+    assert(cr & castlingRights);
+
+    switch (cr)
+    {
+    case WHITE_OO :
+        return castlingRookSquare[WHITE].kingSide;
+    case WHITE_OOO :
+        return castlingRookSquare[WHITE].queenSide;
+    case BLACK_OO :
+        return castlingRookSquare[BLACK].kingSide;
+    case BLACK_OOO :
+        return castlingRookSquare[BLACK].queenSide;
+    default :
+        assert(false);
+        return SQUARE_ZERO;
+    }
 }
 
-inline int StateInfo::castling_rights_mask(Square s) const { return castlingRightsMask[s]; }
+inline Bitboard StateInfo::castling_path(CastlingRights cr) const {
 
-inline Bitboard StateInfo::castling_path(CastlingRights cr) const { return castlingPath[cr]; }
+    assert(cr == WHITE_OO || cr == WHITE_OOO || cr == BLACK_OO || cr == BLACK_OOO);
+    assert(cr & castlingRights);
+
+    Square kfrom;
+    Square kto;
+    Square rfrom;
+    Square rto;
+
+    switch (cr)
+    {
+    case WHITE_OO :
+        kfrom = square<KING>(WHITE);
+        kto   = relative_square(WHITE, SQ_G1);
+        rfrom = castlingRookSquare[WHITE].kingSide;
+        rto   = relative_square(WHITE, SQ_F1);
+        break;
+    case WHITE_OOO :
+        kfrom = square<KING>(WHITE);
+        kto   = relative_square(WHITE, SQ_C1);
+        rfrom = castlingRookSquare[WHITE].queenSide;
+        rto   = relative_square(WHITE, SQ_D1);
+        break;
+    case BLACK_OO :
+        kfrom = square<KING>(BLACK);
+        kto   = relative_square(BLACK, SQ_G1);
+        rfrom = castlingRookSquare[BLACK].kingSide;
+        rto   = relative_square(BLACK, SQ_F1);
+        break;
+    case BLACK_OOO :
+        kfrom = square<KING>(BLACK);
+        kto   = relative_square(BLACK, SQ_C1);
+        rfrom = castlingRookSquare[BLACK].queenSide;
+        rto   = relative_square(BLACK, SQ_D1);
+        break;
+    default :
+        assert(false);
+        return 0;
+    }
+
+    return (between_bb(rfrom, rto) | between_bb(kfrom, kto)) & ~(kfrom | rfrom);
+}
 
 inline Bitboard StateInfo::attackers_to(Square s) const { return attackers_to(s, pieces()); }
 
