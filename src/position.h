@@ -149,7 +149,7 @@ class StateInfo {
     Bitboard byTypeBB[PIECE_TYPE_NB];
     Bitboard byColorBB[COLOR_NB];
     int      pieceCount[PIECE_NB];
-    int      castlingRightsMask[SQUARE_NB];
+    int8_t   castlingRightsMask[SQUARE_NB];
     Square   castlingRookSquare[CASTLING_RIGHT_NB];
     Bitboard castlingPath[CASTLING_RIGHT_NB];
     Key      materialKey;
@@ -157,11 +157,11 @@ class StateInfo {
     Key      minorPieceKey;
     Key      nonPawnKey[COLOR_NB];
     Value    nonPawnMaterial[COLOR_NB];
-    int      castlingRights;
     int      rule50;
     int      pliesFromNull;
     Square   epSquare;
     int      gamePly;
+    int8_t   castlingRights;
     Color    sideToMove;
     bool     chess960;
 

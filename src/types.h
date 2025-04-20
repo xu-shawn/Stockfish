@@ -116,7 +116,7 @@ enum Color : int8_t {
     COLOR_NB = 2
 };
 
-enum CastlingRights {
+enum CastlingRights : int8_t {
     NO_CASTLING,
     WHITE_OO,
     WHITE_OOO = WHITE_OO << 1,
