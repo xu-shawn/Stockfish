@@ -1499,7 +1499,7 @@ moves_loop:  // When in check, search starts here
     // static evaluation is saved as it was before correction history.
     if (!excludedMove && !(rootNode && thisThread->pvIdx))
     {
-        const Move ttMoveToWrite = [&, ttData = ttData]() {
+        const Move ttMoveToWrite = [&, this]() {
             if (!bestMove)
                 return bestMove;
 
@@ -1508,9 +1508,9 @@ moves_loop:  // When in check, search starts here
             {
                 if (pos.capture_stage(newTTData.move)
                       ? std::find(capturesSearched.begin(), capturesSearched.end(), newTTData.move)
-                          != quietsSearched.end()
+                          == capturesSearched.end()
                       : std::find(quietsSearched.begin(), quietsSearched.end(), newTTData.move)
-                          != quietsSearched.end())
+                          == quietsSearched.end())
                     return newTTData.move;
             }
 
