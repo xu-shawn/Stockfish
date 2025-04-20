@@ -1190,7 +1190,7 @@ moves_loop:  // When in check, search starts here
                     extension = -2;
             }
 
-            else if (PvNode && move == ttData.move && depth <= 8 && ttData.depth > depth)
+            else if (!PvNode && move == ttData.move && depth <= 8 && ttData.depth > depth)
                 extension = ttData.depth - depth;
         }
 
