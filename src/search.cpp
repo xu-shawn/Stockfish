@@ -1762,10 +1762,10 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
                            : shift<SOUTH>(pos.pieces(us, PAWN)))
               & ~pos.pieces()))  // no pawn pushes available
         {
-            pos.state()->checkersBB = Rank1BB;  // search for legal king-moves only
+            pos.state().set_checkers(Rank1BB);  // search for legal king-moves only
             if (!MoveList<LEGAL>(pos).size())   // stalemate
                 bestValue = VALUE_DRAW;
-            pos.state()->checkersBB = 0;
+            pos.state().set_checkers(0);
         }
     }
 

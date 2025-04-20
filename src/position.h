@@ -68,6 +68,7 @@ class StateInfo {
 
     // Checking
     Bitboard checkers() const;
+    void     set_checkers(Bitboard checkers);
     Bitboard blockers_for_king(Color c) const;
     Bitboard check_squares(PieceType pt) const;
     Bitboard pinners(Color c) const;
@@ -250,6 +251,8 @@ inline Bitboard StateInfo::attacks_by(Color c) const {
 }
 
 inline Bitboard StateInfo::checkers() const { return checkersBB; }
+
+inline void StateInfo::set_checkers(Bitboard checkers) { checkersBB = checkers; }
 
 inline Bitboard StateInfo::blockers_for_king(Color c) const { return blockersForKing[c]; }
 
@@ -436,11 +439,11 @@ class Position {
     void put_piece(Piece pc, Square s);
     void remove_piece(Square s);
 
+    StateInfo&       state();
     const StateInfo& state() const;
 
    private:
-    StateInfo& state();
-    int        repetition() const;
+    int repetition() const;
 
     struct StateWithRepetition {
         StateWithRepetition() = default;
