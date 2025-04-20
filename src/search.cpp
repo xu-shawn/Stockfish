@@ -1498,12 +1498,32 @@ moves_loop:  // When in check, search starts here
     // Write gathered information in transposition table. Note that the
     // static evaluation is saved as it was before correction history.
     if (!excludedMove && !(rootNode && thisThread->pvIdx))
+    {
+        const Move ttMoveToWrite = [&, ttData = ttData]() {
+            if (!bestMove)
+                return bestMove;
+
+            auto [newTTHit, newTTData, newTTWriter] = tt.probe(posKey);
+            if (newTTHit && newTTData.move != ttData.move)
+            {
+                if (pos.capture_stage(newTTData.move)
+                      ? std::find(capturesSearched.begin(), capturesSearched.end(), newTTData.move)
+                          != quietsSearched.end()
+                      : std::find(quietsSearched.begin(), quietsSearched.end(), newTTData.move)
+                          != quietsSearched.end())
+                    return newTTData.move;
+            }
+
+            return bestMove;
+        }();
+
         ttWriter.write(posKey, value_to_tt(bestValue, ss->ply), ss->ttPv,
                        bestValue >= beta    ? BOUND_LOWER
                        : PvNode && bestMove ? BOUND_EXACT
                                             : BOUND_UPPER,
-                       moveCount != 0 ? depth : std::min(MAX_PLY - 1, depth + 6), bestMove,
+                       moveCount != 0 ? depth : std::min(MAX_PLY - 1, depth + 6), ttMoveToWrite,
                        unadjustedStaticEval, tt.generation());
+    }
 
     // Adjust correction history
     if (!ss->inCheck && !(bestMove && pos.capture(bestMove))
