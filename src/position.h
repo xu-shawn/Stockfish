@@ -20,6 +20,7 @@
 #define POSITION_H_INCLUDED
 
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <iosfwd>
@@ -66,6 +67,7 @@ inline constexpr CastlingRights CastlingInfo::castling_rights_mask(Square rookSq
 class StateInfo {
    public:
     // FEN string input/output
+    void        partial_copy_from(const StateInfo& other);
     StateInfo&  set(const std::string& fenStr, bool isChess960);
     StateInfo&  set(const std::string& code, Color c);
     std::string fen() const;
@@ -199,6 +201,10 @@ class StateInfo {
 };
 
 std::ostream& operator<<(std::ostream& os, const StateInfo& pos);
+
+inline void StateInfo::partial_copy_from(const StateInfo& other) {
+    std::memcpy(this, &other, offsetof(StateInfo, checkersBB));
+}
 
 inline Color StateInfo::side_to_move() const { return sideToMove; }
 
@@ -536,6 +542,10 @@ class Position {
     struct StateWithRepetition {
         StateWithRepetition() = default;
         StateWithRepetition(StateInfo& st) :
+            repetition(0) {
+            state.partial_copy_from(st);
+        }
+        StateWithRepetition(StateInfo& st, char) :
             state(st),
             repetition(0) {}
 

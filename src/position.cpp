@@ -1245,7 +1245,7 @@ void Position::undo_move() {
 // Used to do a "null move": it flips
 // the side to move without executing any move on the board.
 void Position::do_null_move(const TranspositionTable& tt) {
-    sts.emplace_back(state());
+    sts.emplace_back(state(), '\0');
     return state().do_null_move(tt);
 }
 
