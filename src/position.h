@@ -20,6 +20,7 @@
 #define POSITION_H_INCLUDED
 
 #include <cassert>
+#include <cstdint>
 #include <deque>
 #include <iosfwd>
 #include <memory>
@@ -40,23 +41,27 @@ struct CastlingInfo {
     Square kingSide;
     Square queenSide;
 
-    Square& operator[](CastlingRights cr) {
-        if (cr & KING_SIDE)
-            return kingSide;
-
-        return queenSide;
-    }
-
-    CastlingRights castling_rights_mask(Square rookSq) {
-        if (rookSq == kingSide)
-            return KING_SIDE;
-
-        if (rookSq == queenSide)
-            return QUEEN_SIDE;
-
-        return NO_CASTLING;
-    }
+    constexpr Square&        operator[](CastlingRights cr);
+    constexpr CastlingRights castling_rights_mask(Square rookSq) const;
 };
+
+inline constexpr Square& CastlingInfo::operator[](CastlingRights cr) {
+    if (cr & KING_SIDE)
+        return kingSide;
+
+    return queenSide;
+}
+
+inline constexpr CastlingRights CastlingInfo::castling_rights_mask(Square rookSq) const {
+    if (rookSq == kingSide)
+        return KING_SIDE;
+
+    if (rookSq == queenSide)
+        return QUEEN_SIDE;
+
+    return NO_CASTLING;
+}
+
 
 class StateInfo {
    public:
@@ -169,23 +174,23 @@ class StateInfo {
     Piece        board[SQUARE_NB];
     Bitboard     byTypeBB[PIECE_TYPE_NB];
     Bitboard     byColorBB[COLOR_NB];
-    int          pieceCount[PIECE_NB];
+    int8_t       pieceCount[PIECE_NB];
+    Key          zobristKey;
     Key          materialKey;
     Key          pawnKey;
     Key          minorPieceKey;
     Key          nonPawnKey[COLOR_NB];
-    Value        nonPawnMaterial[COLOR_NB];
     CastlingInfo castlingRookSquare[COLOR_NB];
-    int          rule50;
-    int          pliesFromNull;
+    Value        nonPawnMaterial[COLOR_NB];
+    int16_t      gamePly;
+    int16_t      pliesFromNull;
+    int8_t       rule50;
     Square       epSquare;
-    int          gamePly;
     int8_t       castlingRights;
     Color        sideToMove;
     bool         chess960;
 
     // Not copied when making a move (will be recomputed anyhow)
-    Key      zobristKey;
     Bitboard checkersBB;
     Bitboard blockersForKing[COLOR_NB];
     Bitboard pinnersBB[COLOR_NB];
