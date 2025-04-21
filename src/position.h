@@ -88,6 +88,7 @@ class StateInfo {
     int count(Color c) const;
     template<PieceType Pt>
     int count() const;
+    int count(Piece pc) const;
     template<PieceType Pt>
     Square square(Color c) const;
 
@@ -178,7 +179,6 @@ class StateInfo {
     Piece        board[SQUARE_NB];
     Bitboard     byTypeBB[PIECE_TYPE_NB];
     Bitboard     byColorBB[COLOR_NB];
-    int8_t       pieceCount[PIECE_NB];
     Key          zobristKey;
     Key          materialKey;
     Key          pawnKey;
@@ -235,13 +235,20 @@ inline Bitboard StateInfo::pieces(Color c, PieceTypes... pts) const {
 
 template<PieceType Pt>
 inline int StateInfo::count(Color c) const {
-    return pieceCount[make_piece(c, Pt)];
+    return popcount(pieces(c, Pt));
+}
+
+template<>
+inline int StateInfo::count<ALL_PIECES>(Color c) const {
+    return popcount(pieces(c));
 }
 
 template<PieceType Pt>
 inline int StateInfo::count() const {
     return count<Pt>(WHITE) + count<Pt>(BLACK);
 }
+
+inline int StateInfo::count(Piece pc) const { return popcount(pieces(color_of(pc), type_of(pc))); }
 
 template<PieceType Pt>
 inline Square StateInfo::square(Color c) const {
@@ -408,8 +415,6 @@ inline void StateInfo::put_piece(Piece pc, Square s) {
     board[s] = pc;
     byTypeBB[ALL_PIECES] |= byTypeBB[type_of(pc)] |= s;
     byColorBB[color_of(pc)] |= s;
-    pieceCount[pc]++;
-    pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
 }
 
 inline void StateInfo::remove_piece(Square s) {
@@ -419,8 +424,6 @@ inline void StateInfo::remove_piece(Square s) {
     byTypeBB[type_of(pc)] ^= s;
     byColorBB[color_of(pc)] ^= s;
     board[s] = NO_PIECE;
-    pieceCount[pc]--;
-    pieceCount[make_piece(color_of(pc), ALL_PIECES)]--;
 }
 
 inline void StateInfo::move_piece(Square from, Square to) {

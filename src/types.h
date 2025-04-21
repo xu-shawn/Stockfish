@@ -189,20 +189,20 @@ constexpr Value QueenValue  = 2538;
 enum PieceType : std::int8_t {
     NO_PIECE_TYPE, PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING,
     ALL_PIECES = 0,
-    PIECE_TYPE_NB = 8
+    PIECE_TYPE_NB = 7
 };
 
 enum Piece : std::int8_t {
     NO_PIECE,
-    W_PAWN = PAWN,     W_KNIGHT, W_BISHOP, W_ROOK, W_QUEEN, W_KING,
-    B_PAWN = PAWN + 8, B_KNIGHT, B_BISHOP, B_ROOK, B_QUEEN, B_KING,
-    PIECE_NB = 16
+    W_PAWN = PAWN, W_KNIGHT, W_BISHOP, W_ROOK, W_QUEEN, W_KING,
+    B_PAWN,        B_KNIGHT, B_BISHOP, B_ROOK, B_QUEEN, B_KING,
+    PIECE_NB = 13
 };
 // clang-format on
 
 constexpr Value PieceValue[PIECE_NB] = {
-  VALUE_ZERO, PawnValue, KnightValue, BishopValue, RookValue, QueenValue, VALUE_ZERO, VALUE_ZERO,
-  VALUE_ZERO, PawnValue, KnightValue, BishopValue, RookValue, QueenValue, VALUE_ZERO, VALUE_ZERO};
+  VALUE_ZERO, PawnValue,   KnightValue, BishopValue, RookValue,  QueenValue, VALUE_ZERO,
+  PawnValue,  KnightValue, BishopValue, RookValue,   QueenValue, VALUE_ZERO};
 
 using Depth = int;
 
@@ -323,7 +323,7 @@ constexpr Square flip_rank(Square s) { return Square(s ^ SQ_A8); }
 constexpr Square flip_file(Square s) { return Square(s ^ SQ_H1); }
 
 // Swap color of piece B_KNIGHT <-> W_KNIGHT
-constexpr Piece operator~(Piece pc) { return Piece(pc ^ 8); }
+constexpr Piece operator~(Piece pc) { return Piece(pc >= 7 ? pc - 6 : pc + 6); }
 
 constexpr CastlingRights operator&(Color c, CastlingRights cr) {
     return CastlingRights((c == WHITE ? WHITE_CASTLING : BLACK_CASTLING) & cr);
@@ -335,13 +335,13 @@ constexpr Value mated_in(int ply) { return -VALUE_MATE + ply; }
 
 constexpr Square make_square(File f, Rank r) { return Square((r << 3) + f); }
 
-constexpr Piece make_piece(Color c, PieceType pt) { return Piece((c << 3) + pt); }
+constexpr Piece make_piece(Color c, PieceType pt) { return Piece(c * 6 + pt); }
 
-constexpr PieceType type_of(Piece pc) { return PieceType(pc & 7); }
+constexpr PieceType type_of(Piece pc) { return PieceType(pc >= 7 ? pc - 6 : pc); }
 
 constexpr Color color_of(Piece pc) {
     assert(pc != NO_PIECE);
-    return Color(pc >> 3);
+    return Color(pc >= 7);
 }
 
 constexpr bool is_ok(Square s) { return s >= SQ_A1 && s <= SQ_H8; }
