@@ -204,6 +204,9 @@ StateInfo& StateInfo::set(const string& fenStr, bool isChess960) {
 
     std::memset(this, 0, sizeof(StateInfo));
 
+    castlingRookSquare[WHITE].kingSide   = castlingRookSquare[WHITE].queenSide =
+      castlingRookSquare[BLACK].kingSide = castlingRookSquare[BLACK].queenSide = SQ_NONE;
+
     ss >> std::noskipws;
 
     // 1. Piece placement
@@ -744,7 +747,7 @@ DirtyPiece StateInfo::do_move(Move m, bool givesCheck, const TranspositionTable*
                 minorPieceKey ^= Zobrist::psq[captured][capsq];
 
             // Update castling rights if needed
-            else if (type_of(captured) == ROOK)
+            else if (castlingRights && type_of(captured) == ROOK)
             {
                 int8_t removedRight =
                   sideToCastling[them] & castlingRookSquare[them].castling_rights_mask(capsq);

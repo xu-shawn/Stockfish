@@ -28,15 +28,12 @@
 #include <string>
 
 #include "bitboard.h"
+#include "misc.h"
 #include "types.h"
 
 namespace Stockfish {
 
 class TranspositionTable;
-
-// StateInfo struct stores information needed to restore a Position object to
-// its previous state when we retract a move. Whenever a move is made on the
-// board (by calling Position::do_move), a StateInfo object must be passed.
 
 struct CastlingInfo {
     Square kingSide;
@@ -47,6 +44,7 @@ struct CastlingInfo {
 };
 
 inline constexpr Square& CastlingInfo::operator[](CastlingRights cr) {
+
     if (cr & KING_SIDE)
         return kingSide;
 
@@ -54,6 +52,7 @@ inline constexpr Square& CastlingInfo::operator[](CastlingRights cr) {
 }
 
 inline constexpr CastlingRights CastlingInfo::castling_rights_mask(Square rookSq) const {
+
     if (rookSq == kingSide)
         return KING_SIDE;
 
@@ -63,6 +62,9 @@ inline constexpr CastlingRights CastlingInfo::castling_rights_mask(Square rookSq
     return NO_CASTLING;
 }
 
+// StateInfo struct stores information needed to restore a Position object to
+// its previous state when we retract a move. Whenever a move is made on the
+// board (by calling Position::do_move), a StateInfo object must be passed.
 
 class StateInfo {
    public:
@@ -263,6 +265,7 @@ inline bool StateInfo::castling_impeded(CastlingRights cr) const {
 }
 
 inline Square StateInfo::castling_rook_square(CastlingRights cr) const {
+
     assert(cr == WHITE_OO || cr == WHITE_OOO || cr == BLACK_OO || cr == BLACK_OOO);
     assert(cr & castlingRights);
 
