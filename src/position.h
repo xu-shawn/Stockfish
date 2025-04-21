@@ -184,7 +184,7 @@ class StateInfo {
     Value        nonPawnMaterial[COLOR_NB];
     int16_t      gamePly;
     int16_t      pliesFromNull;
-    int8_t       rule50;
+    int16_t      rule50;
     Square       epSquare;
     int8_t       castlingRights;
     Color        sideToMove;
