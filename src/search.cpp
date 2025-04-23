@@ -653,13 +653,16 @@ Value Search::Worker::search(
     ValueList<Move, 32> quietsSearched;
 
     // Step 1. Initialize node
-    Worker* thisThread = this;
-    ss->inCheck        = pos.checkers();
-    priorCapture       = pos.captured_piece();
-    Color us           = pos.side_to_move();
-    ss->moveCount      = 0;
-    bestValue          = -VALUE_INFINITE;
-    maxValue           = VALUE_INFINITE;
+    Worker* thisThread  = this;
+    priorReduction      = (ss - 1)->reduction;
+    priorCapture        = pos.captured_piece();
+    Color us            = pos.side_to_move();
+    ss->inCheck         = pos.checkers();
+    ss->moveCount       = 0;
+    ss->effectiveDepth  = depth;
+    (ss - 1)->reduction = 0;
+    bestValue           = -VALUE_INFINITE;
+    maxValue            = VALUE_INFINITE;
 
     // Check for the available remaining time
     if (is_mainthread())
@@ -737,7 +740,10 @@ Value Search::Worker::search(
         // Partial workaround for the graph history interaction problem
         // For high rule50 counts don't produce transposition table cutoffs.
         if (pos.rule50_count() < 90)
+        {
+            ss->effectiveDepth = ttData.depth;
             return ttData.value;
+        }
     }
 
     // Step 5. Tablebases probe
@@ -1288,6 +1294,9 @@ moves_loop:  // When in check, search starts here
 
                 if (newDepth > d)
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+
+                if (value > alpha && (ss + 1)->effectiveDepth > newDepth)
+                    newDepth++;
 
                 // Post LMR continuation history updates
                 update_continuation_histories(ss, movedPiece, move.to_sq(), 1508);
