@@ -958,13 +958,14 @@ Value Search::Worker::search(
             assert(pos.capture_stage(move));
 
             movedPiece = pos.moved_piece(move);
+            givesCheck = pos.gives_check(move);
 
-            do_move(pos, move, st);
+            do_move(pos, move, st, givesCheck);
 
             ss->currentMove = move;
             ss->isTTMove    = (move == ttData.move);
             ss->continuationHistory =
-              &this->continuationHistory[ss->inCheck][true][movedPiece][move.to_sq()];
+              &this->continuationHistory[givesCheck][true][movedPiece][move.to_sq()];
             ss->continuationCorrectionHistory =
               &this->continuationCorrectionHistory[movedPiece][move.to_sq()];
 
@@ -1221,7 +1222,7 @@ moves_loop:  // When in check, search starts here
         ss->currentMove = move;
         ss->isTTMove    = (move == ttData.move);
         ss->continuationHistory =
-          &thisThread->continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
+          &thisThread->continuationHistory[givesCheck][capture][movedPiece][move.to_sq()];
         ss->continuationCorrectionHistory =
           &thisThread->continuationCorrectionHistory[movedPiece][move.to_sq()];
         uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
@@ -1744,7 +1745,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         // Update the current move
         ss->currentMove = move;
         ss->continuationHistory =
-          &thisThread->continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
+          &thisThread->continuationHistory[givesCheck][capture][movedPiece][move.to_sq()];
         ss->continuationCorrectionHistory =
           &thisThread->continuationCorrectionHistory[movedPiece][move.to_sq()];
 
