@@ -1282,13 +1282,13 @@ moves_loop:  // When in check, search starts here
                 const bool doDeeperSearch    = value > (bestValue + 43 + 2 * newDepth);
                 const bool doShallowerSearch = value < bestValue + 9;
 
+                if ((ss + 1)->effectiveDepth > newDepth)
+                    newDepth++;
+
                 newDepth += doDeeperSearch - doShallowerSearch;
 
                 if (newDepth > d)
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
-
-                if (value > alpha && (ss + 1)->effectiveDepth > newDepth)
-                    newDepth++;
 
                 // Post LMR continuation history updates
                 update_continuation_histories(ss, movedPiece, move.to_sq(), 1600);
