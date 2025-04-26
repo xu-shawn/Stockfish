@@ -1261,15 +1261,24 @@ moves_loop:  // When in check, search starts here
             // To prevent problems when the max value is less than the min value,
             // std::clamp has been replaced by a more robust implementation.
 
+            if (cutNode && depth <= 5 && newDepth - r / 1024 < 1 && moveCount >= 6
+                && bestValue < alpha)
+            {
+                value = -qsearch<NonPV>(pos, ss + 1, -(bestValue + 1), -bestValue);
+
+                if (value <= bestValue)
+                {
+                    undo_move(pos, move);
+                    continue;
+                }
+            }
 
             Depth d = std::max(
               1, std::min(newDepth - r / 1024, newDepth + !allNode + (PvNode && !bestMove)));
 
             ss->reduction = newDepth - d;
-
             value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
             ss->reduction = 0;
-
 
             // Do a full-depth search when reduced LMR search fails high
             if (value > alpha && d < newDepth)
