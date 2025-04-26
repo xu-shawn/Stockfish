@@ -1495,6 +1495,9 @@ moves_loop:  // When in check, search starts here
     if (bestValue <= alpha)
         ss->ttPv = ss->ttPv || (ss - 1)->ttPv;
 
+    if (pos.upcoming_repetition(ss->ply))
+        bestValue = std::max(bestValue, value_draw(this->nodes));
+
     // Write gathered information in transposition table. Note that the
     // static evaluation is saved as it was before correction history.
     if (!excludedMove && !(rootNode && thisThread->pvIdx))
