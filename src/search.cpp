@@ -1131,8 +1131,7 @@ moves_loop:  // When in check, search starts here
         }
 
         // Step 15. Extensions
-        // We take care to not overdo to avoid search getting stuck.
-        if (ss->ply < thisThread->rootDepth * 2)
+        // We take care to overdo so search gets stuck.
         {
             // Singular extension search. If all moves but one
             // fail low on a search of (alpha-s, beta-s), and just one fails high on
@@ -1162,9 +1161,10 @@ moves_loop:  // When in check, search starts here
                     int corrValAdj1  = std::abs(correctionValue) / 248400;
                     int corrValAdj2  = std::abs(correctionValue) / 249757;
                     int doubleMargin = -4 + 244 * PvNode - 206 * !ttCapture - corrValAdj1
-                                     - 997 * ttMoveHistory / 131072;
-                    int tripleMargin =
-                      84 + 269 * PvNode - 253 * !ttCapture + 91 * ss->ttPv - corrValAdj2;
+                                     - 997 * ttMoveHistory / 131072
+                                     - (ss->ply * 2 > thisThread->rootDepth * 3) * 47;
+                    int tripleMargin = 84 + 269 * PvNode - 253 * !ttCapture + 91 * ss->ttPv
+                                     - corrValAdj2 - (ss->ply * 2 > thisThread->rootDepth * 3) * 54;
 
                     extension = 1 + (value < singularBeta - doubleMargin)
                               + (value < singularBeta - tripleMargin);
