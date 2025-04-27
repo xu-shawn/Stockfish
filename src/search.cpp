@@ -953,6 +953,7 @@ Value Search::Worker::search(
 
             ss->currentMove = move;
             ss->isTTMove    = (move == ttData.move);
+            ss->ttMove      = ttData.move;
             ss->continuationHistory =
               &this->continuationHistory[ss->inCheck][true][movedPiece][move.to_sq()];
             ss->continuationCorrectionHistory =
@@ -1208,6 +1209,7 @@ moves_loop:  // When in check, search starts here
         // Update the current move (this must be done after singular extension search)
         ss->currentMove = move;
         ss->isTTMove    = (move == ttData.move);
+        ss->ttMove      = ttData.move;
         ss->continuationHistory =
           &thisThread->continuationHistory[ss->inCheck][capture][movedPiece][move.to_sq()];
         ss->continuationCorrectionHistory =
@@ -1493,6 +1495,9 @@ moves_loop:  // When in check, search starts here
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
               << scaledBonus * 1040 / 32768;
+
+        if (!(ss - 1)->isTTMove)
+            thisThread->mainHistory[~us][(ss - 1)->ttMove.from_to()] << -500;
     }
 
     // Bonus for prior capture countermove that caused the fail low
