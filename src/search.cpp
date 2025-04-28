@@ -654,10 +654,11 @@ Value Search::Worker::search(
 
     // Step 1. Initialize node
     Worker* thisThread = this;
-    ss->inCheck        = pos.checkers();
     priorCapture       = pos.captured_piece();
     Color us           = pos.side_to_move();
+    ss->inCheck        = pos.checkers();
     ss->moveCount      = 0;
+    ss->effectiveDepth = depth;
     bestValue          = -VALUE_INFINITE;
     maxValue           = VALUE_INFINITE;
 
@@ -737,7 +738,10 @@ Value Search::Worker::search(
         // Partial workaround for the graph history interaction problem
         // For high rule50 counts don't produce transposition table cutoffs.
         if (pos.rule50_count() < 90)
+        {
+            ss->effectiveDepth = ttData.depth;
             return ttData.value;
+        }
     }
 
     // Step 5. Tablebases probe
@@ -853,8 +857,11 @@ Value Search::Worker::search(
 
     if (priorReduction >= 3 && !opponentWorsening)
         depth++;
+
     if (priorReduction >= 1 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 175)
         depth--;
+
+    ss->effectiveDepth = depth;
 
     // Step 7. Razoring
     // If eval is really low, skip search entirely and return the qsearch value.
@@ -921,6 +928,8 @@ Value Search::Worker::search(
     if ((!allNode && depth >= (PvNode ? 5 : 7)) && !ttData.move)
         depth--;
 
+    ss->effectiveDepth = depth;
+
     // Step 11. ProbCut
     // If we have a good enough capture (or queen promotion) and a reduced search
     // returns a value much above beta, we can (almost) safely prune the previous move.
@@ -975,7 +984,10 @@ Value Search::Worker::search(
                                probCutDepth + 1, move, unadjustedStaticEval, tt.generation());
 
                 if (!is_decisive(value))
+                {
+                    ss->effectiveDepth = probCutDepth;
                     return value - (probCutBeta - beta);
+                }
             }
         }
     }
@@ -1276,6 +1288,8 @@ moves_loop:  // When in check, search starts here
             value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
             ss->reduction = 0;
 
+            d = ss->effectiveDepth;
+
             // Do a full-depth search when reduced LMR search fails high
             if (value > alpha && d < newDepth)
             {
@@ -1415,6 +1429,7 @@ moves_loop:  // When in check, search starts here
                 {
                     // (* Scaler) Especially if they make cutoffCnt increment more often.
                     ss->cutoffCnt += (extension < 2) || PvNode;
+                    ss->effectiveDepth = depth;
                     assert(value >= beta);  // Fail high
                     break;
                 }
