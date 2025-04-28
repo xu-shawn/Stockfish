@@ -1293,10 +1293,10 @@ moves_loop:  // When in check, search starts here
                 newDepth += doDeeperSearch - doShallowerSearch;
 
                 if (newDepth > d)
+                {
+                    newDepth = std::max((ss + 1)->effectiveDepth + 1, newDepth);
                     value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
-
-                if (value > alpha && (ss + 1)->effectiveDepth > newDepth)
-                    newDepth++;
+                }
 
                 // Post LMR continuation history updates
                 update_continuation_histories(ss, movedPiece, move.to_sq(), 1508);
