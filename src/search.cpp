@@ -88,7 +88,7 @@ Value futility_margin(Depth d,
 }
 
 constexpr int futility_move_count(bool improving, Depth depth) {
-    return (3 + depth * depth) / (2 - improving);
+    return (3 + depth * depth) / (2 - (improving || depth <= 4));
 }
 
 int correction_value(const Worker& w, const Position& pos, const Stack* const ss) {
