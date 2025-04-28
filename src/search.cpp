@@ -982,6 +982,36 @@ Value Search::Worker::search(
 
 moves_loop:  // When in check, search starts here
 
+    probCutBeta = beta + 100;
+    if (!PvNode && !excludedMove && depth >= 5 && !is_decisive(beta) && (ttData.bound & BOUND_UPPER)
+        && ttData.value >= probCutBeta && ttData.depth >= depth - 2 && ttData.move
+        && pos.pseudo_legal(ttData.move) && pos.legal(ttData.move))
+    {
+        movedPiece = pos.moved_piece(ttData.move);
+
+        do_move(pos, ttData.move, st);
+
+        ss->currentMove = move;
+        ss->isTTMove    = true;
+        ss->continuationHistory =
+          &this->continuationHistory[ss->inCheck][true][movedPiece][ttData.move.to_sq()];
+        ss->continuationCorrectionHistory =
+          &this->continuationCorrectionHistory[movedPiece][ttData.move.to_sq()];
+
+        // Perform a preliminary qsearch to verify that the move holds
+        value = -qsearch<NonPV>(pos, ss + 1, -beta + 100, -probCutBeta + 1);
+
+        // If the qsearch held, perform the regular search
+        if (value >= probCutBeta)
+            value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1,
+                                   std::min(ttData.depth, depth - 1), !cutNode);
+
+        undo_move(pos, move);
+
+        if (value >= probCutBeta)
+            return value;
+    }
+
     // Step 12. A small Probcut idea
     probCutBeta = beta + 180 + depth * 20;
     if ((ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 4 && ttData.value >= probCutBeta
