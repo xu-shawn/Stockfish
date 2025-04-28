@@ -991,7 +991,7 @@ moves_loop:  // When in check, search starts here
 
         do_move(pos, ttData.move, st);
 
-        ss->currentMove = move;
+        ss->currentMove = ttData.move;
         ss->isTTMove    = true;
         ss->continuationHistory =
           &this->continuationHistory[ss->inCheck][true][movedPiece][ttData.move.to_sq()];
@@ -999,14 +999,14 @@ moves_loop:  // When in check, search starts here
           &this->continuationCorrectionHistory[movedPiece][ttData.move.to_sq()];
 
         // Perform a preliminary qsearch to verify that the move holds
-        value = -qsearch<NonPV>(pos, ss + 1, -beta + 100, -probCutBeta + 1);
+        value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
 
         // If the qsearch held, perform the regular search
         if (value >= probCutBeta)
             value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1,
                                    std::min(ttData.depth, depth - 1), !cutNode);
 
-        undo_move(pos, move);
+        undo_move(pos, ttData.move);
 
         if (value >= probCutBeta)
             return value;
