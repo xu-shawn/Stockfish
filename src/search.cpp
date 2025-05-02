@@ -691,16 +691,15 @@ Value Search::Worker::search(
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
-    Square prevSq  = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
-    bestMove       = Move::none();
-    priorReduction = (ss - 1)->reduction;
-    (ss - 1)->reduction = 0;
-    ss->statScore       = 0;
-    ss->isPvNode        = PvNode;
+    Square prevSq = ((ss - 1)->currentMove).is_ok() ? ((ss - 1)->currentMove).to_sq() : SQ_NONE;
+    bestMove      = Move::none();
+    ss->statScore = 0;
+    ss->isPvNode  = PvNode;
     (ss + 2)->cutoffCnt = 0;
+    excludedMove        = ss->excludedMove;
+    priorReduction      = excludedMove ? 0 : (ss - 1)->reduction;
 
     // Step 4. Transposition table lookup
-    excludedMove                   = ss->excludedMove;
     posKey                         = pos.key();
     auto [ttHit, ttData, ttWriter] = tt.probe(posKey);
     // Need further processing of the saved data
@@ -1429,6 +1428,10 @@ moves_loop:  // When in check, search starts here
                 }
             }
         }
+
+        if (move == ttData.move && value <= alpha && priorReduction >= 3
+            && (ss - 1)->moveCount >= 8)
+            depth++;
 
         // If the move is worse than some previously searched move,
         // remember it, to update its stats later.
