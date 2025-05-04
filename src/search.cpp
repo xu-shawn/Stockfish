@@ -1431,7 +1431,7 @@ moves_loop:  // When in check, search starts here
 
         if (move == ttData.move && value <= alpha && priorReduction >= 3
             && (ss - 1)->moveCount >= 8)
-            depth++;
+            depth--;
 
         // If the move is worse than some previously searched move,
         // remember it, to update its stats later.
