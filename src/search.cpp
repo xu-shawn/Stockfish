@@ -977,6 +977,8 @@ Value Search::Worker::search(
                 if (!is_decisive(value))
                     return value - (probCutBeta - beta);
             }
+            else if (ss->isTTMove)
+                break;
         }
     }
 
