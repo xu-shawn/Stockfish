@@ -102,12 +102,35 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
       m.is_ok() ? (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
                  : 0;
 
+    dbg_correl_of(pcv, micv);
+    dbg_correl_of(pcv, wnpcv, 1);
+    dbg_correl_of(pcv, bnpcv, 2);
+    dbg_correl_of(pcv, cntcv, 3);
+
+    dbg_stdev_of(pcv, 0);
+    dbg_stdev_of(micv, 1);
+    dbg_stdev_of(wnpcv, 2);
+    dbg_stdev_of(bnpcv, 3);
+    dbg_stdev_of(cntcv, 4);
+
+    dbg_mean_of(pcv.hits, 0);
+    dbg_mean_of(micv.hits, 1);
+    dbg_mean_of(wnpcv.hits, 2);
+    dbg_mean_of(bnpcv.hits, 3);
+    dbg_mean_of(
+      m.is_ok()
+        ? (*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()].hits
+        : 0,
+      4);
+
     return 7696 * pcv + 7689 * micv + 9708 * (wnpcv + bnpcv) + 6978 * cntcv;
 }
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation
 // does not hit the tablebase range.
 Value to_corrected_static_eval(const Value v, const int cv) {
+    dbg_stdev_of(cv / 131072, 10);
+    dbg_hit_on(std::abs(cv / 131072) > 70);
     return std::clamp(v + cv / 131072, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
 

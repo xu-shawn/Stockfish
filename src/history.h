@@ -77,14 +77,18 @@ class StatsEntry {
     T entry;
 
    public:
+    std::size_t hits;
+
     StatsEntry& operator=(const T& v) {
         entry = v;
+        hits  = 0;
         return *this;
     }
     operator const T&() const { return entry; }
 
     void operator<<(int bonus) {
         // Make sure that bonus is in range [-D, D]
+        hits++;
         int clampedBonus = std::clamp(bonus, -D, D);
         entry += clampedBonus - entry * std::abs(clampedBonus) / D;
 
