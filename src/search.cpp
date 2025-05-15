@@ -1288,7 +1288,7 @@ moves_loop:  // When in check, search starts here
         // otherwise let the parent node fail low with value <= alpha and try another move.
         if (PvNode && (moveCount == 1 || value > alpha))
         {
-            if (is_mainthread())
+            if (is_mainthread() && rootNode)
             {
                 sync_cout_start();
                 std::cout << " lmr fail high " << value;
