@@ -1385,7 +1385,9 @@ moves_loop:  // When in check, search starts here
                         depth -= 2;
 
                     assert(depth > 0);
-                    alpha = value;  // Update alpha! Always alpha < beta
+
+                    if (!rootNode)
+                        alpha = value;  // Update alpha! Always alpha < beta
                 }
             }
         }
