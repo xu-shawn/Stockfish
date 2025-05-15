@@ -1243,7 +1243,7 @@ moves_loop:  // When in check, search starts here
             // doesn't scale well to longer TCs
             if (value > alpha && d < newDepth)
             {
-                if (is_mainthread())
+                if (is_mainthread() && rootNode)
                 {
                     sync_cout_start();
                     std::cout << " lmr fail high " << value;
@@ -1291,7 +1291,7 @@ moves_loop:  // When in check, search starts here
             if (is_mainthread() && rootNode)
             {
                 sync_cout_start();
-                std::cout << " lmr fail high " << value;
+                std::cout << " pvs fail high " << value;
                 sync_cout_end();
             }
 
