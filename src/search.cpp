@@ -1313,8 +1313,9 @@ moves_loop:  // When in check, search starts here
 
             rm.effort += nodes - nodeCount;
 
-            sync_cout << " alpha " << alpha << " value " << value << " effort " << rm.effort
-                      << sync_endl;
+            if (is_mainthread())
+                sync_cout << " alpha " << alpha << " value " << value << " effort " << rm.effort
+                          << sync_endl;
 
             rm.averageScore =
               rm.averageScore != -VALUE_INFINITE ? (value + rm.averageScore) / 2 : value;
