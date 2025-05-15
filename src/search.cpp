@@ -1243,6 +1243,13 @@ moves_loop:  // When in check, search starts here
             // doesn't scale well to longer TCs
             if (value > alpha && d < newDepth)
             {
+                if (is_mainthread())
+                {
+                    sync_cout_start();
+                    std::cout << " lmr fail high " << value;
+                    sync_cout_end();
+                }
+
                 // Adjust full-depth search based on LMR results - if the result was
                 // good enough search deeper, if it was bad enough search shallower.
                 const bool doDeeperSearch    = value > (bestValue + 42 + 2 * newDepth);
@@ -1281,6 +1288,13 @@ moves_loop:  // When in check, search starts here
         // otherwise let the parent node fail low with value <= alpha and try another move.
         if (PvNode && (moveCount == 1 || value > alpha))
         {
+            if (is_mainthread())
+            {
+                sync_cout_start();
+                std::cout << " lmr fail high " << value;
+                sync_cout_end();
+            }
+
             (ss + 1)->pv    = pv;
             (ss + 1)->pv[0] = Move::none();
 
