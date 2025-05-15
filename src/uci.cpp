@@ -32,6 +32,7 @@
 #include "benchmark.h"
 #include "engine.h"
 #include "memory.h"
+#include "misc.h"
 #include "movegen.h"
 #include "position.h"
 #include "score.h"
@@ -654,7 +655,9 @@ void UCIEngine::on_iter(const Engine::InfoIter& info) {
        << " currmove " << info.currmove               //
        << " currmovenumber " << info.currmovenumber;  //
 
-    sync_cout << ss.str() << sync_endl;
+    sync_cout_start();
+    std::cout << ss.str();
+    sync_cout_end();
 }
 
 void UCIEngine::on_bestmove(std::string_view bestmove, std::string_view ponder) {
