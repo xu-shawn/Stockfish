@@ -160,8 +160,6 @@ void Search::Worker::ensure_network_replicated() {
 
 void Search::Worker::start_searching() {
 
-    accumulatorStack.reset();
-
     // Non-main threads go directly to iterative_deepening()
     if (!is_mainthread())
     {
@@ -235,6 +233,9 @@ void Search::Worker::start_searching() {
 // repeatedly with increasing depth until the allocated thinking time has been
 // consumed, the user stops the search, or the maximum search depth is reached.
 void Search::Worker::iterative_deepening() {
+
+    accumulatorStack.reset();
+    rootNPM = rootPos.non_pawn_material();
 
     SearchManager* mainThread = (is_mainthread() ? main_manager() : nullptr);
 
@@ -1128,9 +1129,11 @@ moves_loop:  // When in check, search starts here
                 int corrValAdj2  = std::abs(correctionValue) / 249757;
                 int doubleMargin = -4 + 244 * PvNode - 206 * !ttCapture - corrValAdj1
                                  - 997 * ttMoveHistory / 131072
-                                 - (ss->ply * 2 > thisThread->rootDepth * 3) * 47;
+                                 - 47 * (ss->ply * 2 > thisThread->rootDepth * 3)
+                                 - 60 * (pos.non_pawn_material() >= rootNPM);
                 int tripleMargin = 84 + 269 * PvNode - 253 * !ttCapture + 91 * ss->ttPv
-                                 - corrValAdj2 - (ss->ply * 2 > thisThread->rootDepth * 3) * 54;
+                                 - corrValAdj2 - 54 * (ss->ply * 2 > thisThread->rootDepth * 3)
+                                 - 60 * (pos.non_pawn_material() >= rootNPM);
 
                 extension =
                   1 + (value < singularBeta - doubleMargin) + (value < singularBeta - tripleMargin);
