@@ -1122,6 +1122,9 @@ moves_loop:  // When in check, search starts here
             value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
             ss->excludedMove = Move::none();
 
+            const int singularMoveCount = ss->moveCount;
+            ss->moveCount               = moveCount;
+
             if (value < singularBeta)
             {
                 int corrValAdj1  = std::abs(correctionValue) / 248400;
@@ -1135,7 +1138,7 @@ moves_loop:  // When in check, search starts here
                 extension =
                   1 + (value < singularBeta - doubleMargin) + (value < singularBeta - tripleMargin);
 
-                depth++;
+                depth += 1 + (singularMoveCount > 40);
             }
 
             // Multi-cut pruning
