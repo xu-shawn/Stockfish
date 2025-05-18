@@ -262,7 +262,11 @@ top:
     case GOOD_QUIET :
         if (!skipQuiets && select([]() { return true; }))
         {
-            if ((cur - 1)->value > -7998 || (cur - 1)->value <= quiet_threshold(depth))
+            const bool trivialCheck =
+              (cur - 1)->to_sq() & pos.check_squares(type_of(pos.moved_piece(*(cur - 1))));
+
+            if (trivialCheck
+                || ((cur - 1)->value > -7998 || (cur - 1)->value <= quiet_threshold(depth)))
                 return *(cur - 1);
 
             // Remaining quiets are bad
