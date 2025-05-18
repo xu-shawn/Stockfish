@@ -263,8 +263,8 @@ top:
                 const bool trivialCheck =
                   pos.check_squares(type_of(pos.moved_piece(*cur))) & cur->to_sq();
 
-                return (!trivialCheck && cur->value > -14000) ? true
-                                                              : (*endBadQuiets++ = *cur, false);
+                return (trivialCheck || cur->value > -14000) ? true
+                                                             : (*endBadQuiets++ = *cur, false);
             }))
             return *(cur - 1);
 
