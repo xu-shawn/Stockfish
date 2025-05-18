@@ -1122,15 +1122,19 @@ moves_loop:  // When in check, search starts here
             value = search<NonPV>(pos, ss, singularBeta - 1, singularBeta, singularDepth, cutNode);
             ss->excludedMove = Move::none();
 
+            int singularMoveCount = ss->moveCount;
+            ss->moveCount         = moveCount;
+
             if (value < singularBeta)
             {
-                int corrValAdj1  = std::abs(correctionValue) / 248400;
-                int corrValAdj2  = std::abs(correctionValue) / 249757;
-                int doubleMargin = -4 + 244 * PvNode - 206 * !ttCapture - corrValAdj1
-                                 - 997 * ttMoveHistory / 131072
-                                 - (ss->ply * 2 > thisThread->rootDepth * 3) * 47;
+                int corrValAdj1 = std::abs(correctionValue) / 248400;
+                int corrValAdj2 = std::abs(correctionValue) / 249757;
+                int doubleMargin =
+                  -4 + 244 * PvNode - 206 * !ttCapture - corrValAdj1 - 997 * ttMoveHistory / 131072
+                  - (ss->ply * 2 > thisThread->rootDepth * 3) * 47 - 50 * (singularMoveCount >= 25);
                 int tripleMargin = 84 + 269 * PvNode - 253 * !ttCapture + 91 * ss->ttPv
-                                 - corrValAdj2 - (ss->ply * 2 > thisThread->rootDepth * 3) * 54;
+                                 - corrValAdj2 - (ss->ply * 2 > thisThread->rootDepth * 3) * 54
+                                 - 50 * (singularMoveCount >= 25);
 
                 extension =
                   1 + (value < singularBeta - doubleMargin) + (value < singularBeta - tripleMargin);
