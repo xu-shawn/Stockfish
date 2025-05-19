@@ -48,6 +48,7 @@ Key psq[PIECE_NB][SQUARE_NB];
 Key enpassant[FILE_NB];
 Key castling[CASTLING_RIGHT_NB];
 Key side, noPawns;
+
 }
 
 namespace {
@@ -804,10 +805,7 @@ DirtyPiece Position::do_move(Move                      m,
 
     // Move the piece. The tricky Chess960 castling is handled earlier
     if (m.type_of() != CASTLING)
-    {
-
         move_piece(from, to);
-    }
 
     // If the moving piece is a pawn do some special extra work
     if (type_of(pc) == PAWN)
@@ -904,6 +902,7 @@ DirtyPiece Position::do_move(Move                      m,
     assert(!(bool(captured) || m.type_of() == CASTLING) ^ (dp.remove_sq != SQ_NONE));
     assert(dp.from != SQ_NONE);
     assert(!(dp.add_sq != SQ_NONE) ^ (m.type_of() == PROMOTION || m.type_of() == CASTLING));
+
     return dp;
 }
 
@@ -1042,6 +1041,67 @@ void Position::undo_null_move() {
 
     st         = st->previous;
     sideToMove = ~sideToMove;
+}
+
+
+// Computes the new hash key after the given move. Needed
+// for speculative prefetch. It doesn't recognize special moves like castling,
+// en passant and promotions.
+Key Position::key_after(Move m) const {
+
+    Color  us       = side_to_move();
+    Square from     = m.from_sq();
+    Square to       = m.to_sq();
+    Square capsq    = to;
+    Piece  pc       = piece_on(from);
+    Piece  captured = piece_on(to);
+    Key    k        = st->key ^ Zobrist::side;
+
+    // Remove en passant square
+    if (st->epSquare != SQ_NONE)
+        k ^= Zobrist::enpassant[file_of(st->epSquare)];
+
+    if (m.type_of() == EN_PASSANT)
+    {
+        captured = make_piece(~us, PAWN);
+        capsq    = make_square(file_of(to), rank_of(from));
+    }
+    else if (m.type_of() == CASTLING)
+    {
+        const bool   kingSide = to > from;
+        const Square rfrom    = to;
+        const Square rto      = relative_square(us, kingSide ? SQ_F1 : SQ_D1);
+        to                    = relative_square(us, kingSide ? SQ_G1 : SQ_C1);
+
+        k ^= Zobrist::psq[captured][rfrom] ^ Zobrist::psq[captured][rto];
+        captured = NO_PIECE;
+    }
+    else if (m.type_of() == PROMOTION)
+        k ^= Zobrist::psq[make_piece(us, m.promotion_type())][to];
+
+    if (st->castlingRights && (castlingRightsMask[from] | castlingRightsMask[to]))
+    {
+        k ^= Zobrist::castling[st->castlingRights];
+        k ^= Zobrist::castling[st->castlingRights
+                               & ~(castlingRightsMask[from] | castlingRightsMask[to])];
+    }
+
+    if (type_of(pc) == PAWN)
+    {
+        if ((int(to) ^ int(from)) == 16
+            && (attacks_bb<PAWN>(to - pawn_push(us), us) & pieces(~us, PAWN)))
+        {
+            const Square epSquare = to - pawn_push(us);
+            k ^= Zobrist::enpassant[file_of(epSquare)];
+        }
+    }
+
+    if (captured)
+        k ^= Zobrist::psq[captured][capsq];
+
+    k ^= Zobrist::psq[pc][to] ^ Zobrist::psq[pc][from];
+
+    return captured || type_of(pc) == PAWN ? k : adjust_key50<true>(k);
 }
 
 
