@@ -143,6 +143,7 @@ class Position {
 
     // Accessing hash keys
     Key key() const;
+    Key key_after(Move m) const;
     Key material_key() const;
     Key pawn_key() const;
     Key minor_piece_key() const;
@@ -157,6 +158,7 @@ class Position {
     bool  upcoming_repetition(int ply) const;
     bool  has_repeated() const;
     int   rule50_count() const;
+    int   rule50_count_after(Move m) const;
     Value non_pawn_material(Color c) const;
     Value non_pawn_material() const;
 
@@ -312,6 +314,22 @@ inline Value Position::non_pawn_material() const {
 inline int Position::game_ply() const { return gamePly; }
 
 inline int Position::rule50_count() const { return st->rule50; }
+
+inline int Position::rule50_count_after(Move m) const {
+    if (m.type_of() == CASTLING)
+        return st->rule50 + 1;
+
+    if (type_of(piece_on(m.from_sq())) == PAWN)
+        return 0;
+
+    if (piece_on(m.to_sq()) != NO_PIECE)
+        return 0;
+
+    if (m.type_of() == EN_PASSANT)
+        return 0;
+
+    return st->rule50 + 1;
+}
 
 inline bool Position::is_chess960() const { return chess960; }
 
