@@ -19,7 +19,7 @@
 #ifndef NNUE_SIMD_SSE2_H_INCLUDED
 #define NNUE_SIMD_SSE2_H_INCLUDED
 
-#include "simd.h"
+#include "simd_common.h"
 
 #include <cstdint>
 #include <immintrin.h>

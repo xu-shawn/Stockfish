@@ -16,8 +16,8 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef NNUE_SIMD_AVX2_H_INCLUDED
-#define NNUE_SIMD_AVX2_H_INCLUDED
+#ifndef NNUE_SIMD_NEON_H_INCLUDED
+#define NNUE_SIMD_NEON_H_INCLUDED
 
 #include "simd_common.h"
 
