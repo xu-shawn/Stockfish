@@ -1208,14 +1208,6 @@ moves_loop:  // When in check, search starts here
         r -= moveCount * 66;
         r -= std::abs(correctionValue) / 28047;
 
-        // Increase reduction for cut nodes
-        if (cutNode)
-            r += 2864 + 966 * !ttData.move;
-
-        // Increase reduction if ttMove is a capture
-        if (ttCapture)
-            r += 1210 + (depth < 8) * 963;
-
         // Increase reduction if next ply has a lot of fail high
         if ((ss + 1)->cutoffCnt > 2)
             r += 1036 + allNode * 848;
@@ -1243,6 +1235,14 @@ moves_loop:  // When in check, search starts here
         // Step 17. Late moves reduction / extension (LMR)
         if (depth >= 2 && moveCount > 1)
         {
+            // Increase reduction for cut nodes
+            if (cutNode)
+                r += 2864 + 966 * !ttData.move;
+
+            // Increase reduction if ttMove is a capture
+            if (ttCapture)
+                r += 1210 + (depth < 8) * 963;
+
             // In general we want to cap the LMR depth search at newDepth, but when
             // reduction is negative, we allow this move a limited search extension
             // beyond the first move depth.
