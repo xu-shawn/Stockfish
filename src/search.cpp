@@ -996,7 +996,7 @@ moves_loop:  // When in check, search starts here
         if (move == excludedMove)
             continue;
 
-        if (excludedMove && moveCount >= 1)
+        if (excludedMove && moveCount >= 3)
             break;
 
         // Check for legality
