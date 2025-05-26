@@ -1403,7 +1403,7 @@ moves_loop:  // When in check, search starts here
                     alpha = value;  // Update alpha! Always alpha < beta
                 }
             }
-            else
+            else if (!excludedMove)
                 bestValue = (bestValue * 3 + alpha) / 4;
         }
 
