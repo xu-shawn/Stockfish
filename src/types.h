@@ -433,6 +433,12 @@ struct is_all_same {
 template<typename... Ts>
 constexpr auto is_all_same_v = is_all_same<Ts...>::value;
 
+template<typename T>
+struct always_false: std::false_type {};
+
+template<typename T>
+constexpr auto always_false_v = always_false<T>::value;
+
 }  // namespace Stockfish
 
 #endif  // #ifndef TYPES_H_INCLUDED

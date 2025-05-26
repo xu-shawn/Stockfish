@@ -19,6 +19,8 @@
 #ifndef NNUE_SIMD_H_INCLUDED
 #define NNUE_SIMD_H_INCLUDED
 
+#include <cstring>
+
 #if defined(USE_AVX2)
     #include <immintrin.h>
 
@@ -39,6 +41,50 @@
 #include "nnue_common.h"
 
 namespace Stockfish::Eval::NNUE::SIMD {
+
+template<typename T, int Width>
+struct VectorizedStorage;
+
+template<typename T, int Width>
+using VectorizedStorageType = typename VectorizedStorage<T, Width>::type;
+
+template<typename T, int Width>
+struct Vectorized {
+    using storage_type        = VectorizedStorageType<T, Width>;
+    using element_type        = T;
+    static constexpr int size = Width;
+
+    Vectorized() = default;
+    Vectorized(storage_type v) :
+        data{v} {};
+    Vectorized(const T scalar);
+    void store(T* dest) const;
+    void storeu(T* dest) const;
+
+    operator storage_type() { return data; };
+
+    static Vectorized zero();
+    static Vectorized load(const T* data);
+    static Vectorized loadu(const T* data);
+
+    storage_type data;
+};
+
+template<typename T, int Width>
+Vectorized<T, Width> add(const Vectorized<T, Width> lhs, const Vectorized<T, Width> rhs);
+
+template<typename T, int Width>
+Vectorized<T, Width> sub(const Vectorized<T, Width> lhs, const Vectorized<T, Width> rhs);
+
+template<typename T, int Width>
+Vectorized<T, Width> max(const Vectorized<T, Width> lhs, const Vectorized<T, Width> rhs);
+
+template<typename T, int Width>
+Vectorized<T, Width> min(const Vectorized<T, Width> lhs, const Vectorized<T, Width> rhs);
+
+template<typename T, int Width, typename U>
+Vectorized<T, Width> packus(const Vectorized<U, Width / 2> a, const Vectorized<U, Width / 2> b);
+
 
 // If vector instructions are enabled, we update and refresh the
 // accumulator tile by tile such that each tile fits in the CPU's
@@ -205,6 +251,35 @@ static constexpr std::uint32_t Mask[4] = {1, 2, 4, 8};
 
 #else
     #undef VECTOR
+
+#endif
+
+#ifdef VECTOR
+
+template<typename T, int Width>
+Vectorized<T, Width> add(const Vectorized<T, Width>, const Vectorized<T, Width>) {
+    static_assert(always_false_v<T>, "Unimplemented operation");
+}
+
+template<typename T, int Width>
+Vectorized<T, Width> sub(const Vectorized<T, Width>, const Vectorized<T, Width>) {
+    static_assert(always_false_v<T>, "Unimplemented operation");
+}
+
+template<typename T, int Width>
+Vectorized<T, Width> max(const Vectorized<T, Width>, const Vectorized<T, Width>) {
+    static_assert(always_false_v<T>, "Unimplemented operation");
+}
+
+template<typename T, int Width>
+Vectorized<T, Width> min(const Vectorized<T, Width>, const Vectorized<T, Width>) {
+    static_assert(always_false_v<T>, "Unimplemented operation");
+}
+
+template<typename T, int Width, typename U>
+Vectorized<T, Width> packus(const Vectorized<U, Width / 2>, const Vectorized<U, Width / 2>) {
+    static_assert(always_false_v<T>, "Unimplemented operation");
+}
 
 #endif
 
