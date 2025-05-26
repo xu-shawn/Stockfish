@@ -1403,6 +1403,8 @@ moves_loop:  // When in check, search starts here
                     alpha = value;  // Update alpha! Always alpha < beta
                 }
             }
+            else
+                bestValue = (bestValue * 3 + alpha) / 4;
         }
 
         // If the move is worse than some previously searched move,
