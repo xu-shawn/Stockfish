@@ -403,4 +403,8 @@ class SIMDTiling {
 };
 }
 
+#if !defined(USE_SSE41)
+    #error Intentionally break non SSE41 compilation just for fishtest testing
+#endif
+
 #endif
