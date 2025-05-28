@@ -167,15 +167,15 @@ void update_all_stats(const Position&      pos,
                       int                  moveCount);
 
 bool isReverseOrTriangulaton(Move move, Stack* const ss) {
-    if (!(ss-2)->currentMove.is_ok())
+    if (!(ss - 2)->currentMove.is_ok())
         return false;
-    if (move == (ss-2)->currentMove.reverse())
+    if (move == (ss - 2)->currentMove.reverse())
         return true;
-    if (!(ss-4)->currentMove.is_ok())
+    if (!(ss - 4)->currentMove.is_ok())
         return false;
-    return move.to_sq() == (ss-4)->currentMove.from_sq()
-        && move.from_sq() == (ss-2)->currentMove.to_sq()
-        && (ss-4)->currentMove.to_sq() == (ss-2)->currentMove.from_sq();
+    return move.to_sq() == (ss - 4)->currentMove.from_sq()
+        && move.from_sq() == (ss - 2)->currentMove.to_sq()
+        && (ss - 4)->currentMove.to_sq() == (ss - 2)->currentMove.from_sq();
 }
 
 
@@ -1196,6 +1196,7 @@ moves_loop:  // When in check, search starts here
             && !is_decisive(ttData.value) && (ttData.bound & BOUND_LOWER)
             && ttData.depth >= depth - 3)
         {
+            dbg_hit_on(depth >= ttData.depth + 2, 1);
             Value singularBeta  = ttData.value - (58 + 76 * (ss->ttPv && !PvNode)) * depth / 57;
             Depth singularDepth = newDepth / 2;
 
@@ -1205,8 +1206,10 @@ moves_loop:  // When in check, search starts here
 
             if (value < singularBeta)
             {
+                const bool noMultiExt = ss->ply > 6 && isReverseOrTriangulaton(move, ss);
+                dbg_hit_on(noMultiExt);
                 // measure against search explosions: don't double/triple extend bouncing & triangulation moves
-                if (ss->ply > 6 && isReverseOrTriangulaton(move, ss))
+                if (noMultiExt)
                     extension = 1;
                 else
                 {
@@ -1218,8 +1221,8 @@ moves_loop:  // When in check, search starts here
                     int tripleMargin = 84 + 269 * PvNode - 253 * !ttCapture + 91 * ss->ttPv
                                      - corrValAdj2 - (ss->ply * 2 > thisThread->rootDepth * 3) * 54;
 
-                    extension =
-                      1 + (value < singularBeta - doubleMargin) + (value < singularBeta - tripleMargin);
+                    extension = 1 + (value < singularBeta - doubleMargin)
+                              + (value < singularBeta - tripleMargin);
                 }
 
                 depth++;
