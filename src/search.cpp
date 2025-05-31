@@ -468,9 +468,10 @@ void Search::Worker::iterative_deepening() {
             double reduction =
               (1.4540 + mainThread->previousTimeReduction) / (2.1593 * timeReduction);
             double bestMoveInstability = 0.9929 + 1.8519 * totBestMoveChanges / threads.size();
+            double nodesSplit = 1 + 0.3 * (nodesEffort <= 60000);
 
             double totalTime =
-              mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability;
+              mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability * nodesSplit;
 
             // Cap used time in case of a single legal move for a better viewer experience
             if (rootMoves.size() == 1)
