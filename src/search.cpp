@@ -1055,7 +1055,7 @@ moves_loop:  // When in check, search starts here
                 int   captHist =
                   thisThread->captureHistory[movedPiece][move.to_sq()][type_of(capturedPiece)];
 
-                lmrDepth += captHist / 10000;
+                lmrDepth -= (captHist + 1300) / 2000;
 
                 // Futility pruning for captures
                 if (!givesCheck && lmrDepth < 7 && !ss->inCheck)
