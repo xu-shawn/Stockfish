@@ -469,8 +469,12 @@ void Search::Worker::iterative_deepening() {
               (1.4540 + mainThread->previousTimeReduction) / (2.1593 * timeReduction);
             double bestMoveInstability = 0.9929 + 1.8519 * totBestMoveChanges / threads.size();
 
+            const double correctionValue = correction_value(*this, rootPos, ss);
+            const double correctionFactor = std::abs(correctionValue) / 10000000;
+            const double complexity = 0.95 + std::min(correctionFactor, 0.4);
+
             double totalTime =
-              mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability;
+              mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability * complexity;
 
             // Cap used time in case of a single legal move for a better viewer experience
             if (rootMoves.size() == 1)
@@ -776,6 +780,7 @@ Value Search::Worker::search(
     // Step 6. Static evaluation of the position
     Value      unadjustedStaticEval = VALUE_NONE;
     const auto correctionValue      = correction_value(*thisThread, pos, ss);
+    dbg_extremes_of(correctionValue);
     if (ss->inCheck)
     {
         // Skip early pruning when in check
