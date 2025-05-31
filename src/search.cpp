@@ -469,8 +469,10 @@ void Search::Worker::iterative_deepening() {
               (1.4540 + mainThread->previousTimeReduction) / (2.1593 * timeReduction);
             double bestMoveInstability = 0.9929 + 1.8519 * totBestMoveChanges / threads.size();
 
+            double hashsaturation = 1 - std::max(tt.hashfull() - 950.0, -50.0) / 300;
+
             double totalTime =
-              mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability;
+              mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability * hashsaturation;
 
             // Cap used time in case of a single legal move for a better viewer experience
             if (rootMoves.size() == 1)
