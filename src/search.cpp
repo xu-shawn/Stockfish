@@ -1010,22 +1010,21 @@ moves_loop:  // When in check, search starts here
 
         ss->moveCount = ++moveCount;
 
-        if (rootNode && is_mainthread() && nodes > 10000000) {
+        if (rootNode && is_mainthread() && nodes > 10000000)
+        {
             main_manager()->updates.onIter(
-                {depth, UCIEngine::move(move, pos.is_chess960()),
-                 moveCount + thisThread->pvIdx});
+              {depth, UCIEngine::move(move, pos.is_chess960()), moveCount + thisThread->pvIdx});
         }
         if (PvNode)
             (ss + 1)->pv = nullptr;
 
-        extension = 0;
-        capture = pos.capture_stage(move);
+        extension  = 0;
+        capture    = pos.capture_stage(move);
         movedPiece = pos.moved_piece(move);
         givesCheck = pos.gives_check(move);
 
-        auto &lmrHist =
-            lmrHistory[depth][PvNode][capture][givesCheck][cutNode][move == ttData.move][moveCount];
-        dbg_mean_of(lmrHist);
+        auto& lmrHist =
+          lmrHistory[depth][PvNode][capture][givesCheck][cutNode][move == ttData.move][moveCount];
 
         (ss + 1)->quietMoveStreak = (!capture && !givesCheck) ? (ss->quietMoveStreak + 1) : 0;
 
@@ -1243,7 +1242,7 @@ moves_loop:  // When in check, search starts here
 
         // Decrease/increase reduction for moves with a good/bad history
         r -= ss->statScore * 826 / 8192;
-        // r -= lmrHist / 32;
+        r -= lmrHist / 32;
 
         // Step 17. Late moves reduction / extension (LMR)
         if (depth >= 2 && moveCount > 1)
@@ -1411,7 +1410,7 @@ moves_loop:  // When in check, search starts here
             }
         }
         else
-            lmrHist << -400;
+            lmrHist << -200;
 
         // If the move is worse than some previously searched move,
         // remember it, to update its stats later.
