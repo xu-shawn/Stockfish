@@ -36,7 +36,7 @@ ExtMove* make_promotions(ExtMove* moveList, [[maybe_unused]] Square to) {
     if constexpr (Type == CAPTURES || all)
         *moveList++ = Move::make<PROMOTION>(to - D, to, QUEEN);
 
-    if constexpr ((Type == CAPTURES && Enemy) || (Type == QUIETS && !Enemy) || all)
+    if constexpr ((Type == CAPTURES && Enemy) || ((Type == QUIETS || Type == CHECKING) && !Enemy) || all)
     {
         *moveList++ = Move::make<PROMOTION>(to - D, to, ROOK);
         *moveList++ = Move::make<PROMOTION>(to - D, to, BISHOP);
@@ -69,7 +69,7 @@ ExtMove* generate_pawn_moves(const Position& pos, ExtMove* moveList, Bitboard ta
         Bitboard b1 = shift<Up>(pawnsNotOn7) & emptySquares;
         Bitboard b2 = shift<Up>(b1 & TRank3BB) & emptySquares;
 
-        if constexpr (Type == EVASIONS)  // Consider only blocking squares
+        if constexpr (Type == EVASIONS || Type == CHECKING)  // Consider only blocking/checking squares
         {
             b1 &= target;
             b2 &= target;
@@ -95,7 +95,7 @@ ExtMove* generate_pawn_moves(const Position& pos, ExtMove* moveList, Bitboard ta
         Bitboard b2 = shift<UpLeft>(pawnsOn7) & enemies;
         Bitboard b3 = shift<Up>(pawnsOn7) & emptySquares;
 
-        if constexpr (Type == EVASIONS)
+        if constexpr (Type == EVASIONS || Type == CHECKING)
             b3 &= target;
 
         while (b1)
@@ -176,11 +176,12 @@ ExtMove* generate_all(const Position& pos, ExtMove* moveList) {
     Bitboard     target;
 
     // Skip generating non-king moves when in double check
-    if (Type != EVASIONS || !more_than_one(pos.checkers()))
+    if ((Type != EVASIONS && Type != CHECKING) || !more_than_one(pos.checkers()))
     {
         target = Type == EVASIONS     ? between_bb(ksq, lsb(pos.checkers()))
                : Type == NON_EVASIONS ? ~pos.pieces(Us)
                : Type == CAPTURES     ? pos.pieces(~Us)
+               : Type == CHECKING     ? pos.check_squares(ALL_PIECES) & ~pos.pieces(Us)
                                       : ~pos.pieces();  // QUIETS
 
         moveList = generate_pawn_moves<Us, Type>(pos, moveList, target);
@@ -205,15 +206,15 @@ ExtMove* generate_all(const Position& pos, ExtMove* moveList) {
 
 }  // namespace
 
-
 // <CAPTURES>     Generates all pseudo-legal captures plus queen promotions
 // <QUIETS>       Generates all pseudo-legal non-captures and underpromotions
 // <EVASIONS>     Generates all pseudo-legal check evasions
 // <NON_EVASIONS> Generates all pseudo-legal captures and non-captures
+// <CHECKING>     Generates all pseudo-legal moves that give direct checks
 //
 // Returns a pointer to the end of the move list.
-template<GenType Type>
-ExtMove* generate(const Position& pos, ExtMove* moveList) {
+template <GenType Type>
+ExtMove *generate(const Position &pos, ExtMove *moveList) {
 
     static_assert(Type != LEGAL, "Unsupported type in generate()");
     assert((Type == EVASIONS) == bool(pos.checkers()));
@@ -225,11 +226,11 @@ ExtMove* generate(const Position& pos, ExtMove* moveList) {
 }
 
 // Explicit template instantiations
-template ExtMove* generate<CAPTURES>(const Position&, ExtMove*);
-template ExtMove* generate<QUIETS>(const Position&, ExtMove*);
-template ExtMove* generate<EVASIONS>(const Position&, ExtMove*);
-template ExtMove* generate<NON_EVASIONS>(const Position&, ExtMove*);
-
+template ExtMove *generate<CAPTURES>(const Position &, ExtMove *);
+template ExtMove *generate<QUIETS>(const Position &, ExtMove *);
+template ExtMove *generate<EVASIONS>(const Position &, ExtMove *);
+template ExtMove *generate<NON_EVASIONS>(const Position &, ExtMove *);
+template ExtMove *generate<CHECKING>(const Position &, ExtMove *);
 
 // generate<LEGAL> generates all the legal moves in the given position
 

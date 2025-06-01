@@ -24,6 +24,7 @@
 
 #include "bitboard.h"
 #include "misc.h"
+#include "movegen.h"
 #include "position.h"
 
 namespace Stockfish {
@@ -247,20 +248,17 @@ top:
         [[fallthrough]];
 
     case QUIET_INIT :
-        if (!skipQuiets)
-        {
-            cur = endBadQuiets = endBadCaptures;
-            endCur             = generate<QUIETS>(pos, cur);
+        cur = endBadQuiets = endBadCaptures;
+        endCur             = skipQuiets ? generate<CHECKING>(pos, cur) : generate<QUIETS>(pos, cur);
 
-            score<QUIETS>();
-            partial_insertion_sort(cur, endCur, -3560 * depth);
-        }
+        score<QUIETS>();
+        partial_insertion_sort(cur, endCur, -3560 * depth);
 
         ++stage;
         [[fallthrough]];
 
     case GOOD_QUIET :
-        if (!skipQuiets && select([&]() {
+        if (select([&]() {
                 if (cur->value > -14000)
                     return true;
                 *endBadQuiets++ = *cur;
@@ -287,10 +285,7 @@ top:
         [[fallthrough]];
 
     case BAD_QUIET :
-        if (!skipQuiets)
-            return select([]() { return true; });
-
-        return Move::none();
+        return select([]() { return true; });
 
     case EVASION_INIT :
         cur    = moves;

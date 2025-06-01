@@ -327,8 +327,11 @@ void Position::set_check_info() const {
     st->checkSquares[ROOK]   = attacks_bb<ROOK>(ksq, pieces());
     st->checkSquares[QUEEN]  = st->checkSquares[BISHOP] | st->checkSquares[ROOK];
     st->checkSquares[KING]   = 0;
+    st->checkSquares[ALL_PIECES] =
+        st->checkSquares[PAWN]   | st->checkSquares[KNIGHT] |
+        st->checkSquares[BISHOP] | st->checkSquares[ROOK]   |
+        st->checkSquares[QUEEN]  | st->checkSquares[KING];
 }
-
 
 // Computes the hash keys of the position, and other
 // data that once computed is updated incrementally as moves are made.
