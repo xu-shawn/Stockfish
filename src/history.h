@@ -30,6 +30,7 @@
 
 #include "misc.h"
 #include "position.h"
+#include "types.h"
 
 namespace Stockfish {
 
@@ -90,6 +91,8 @@ class StatsEntry {
 
         assert(std::abs(entry) <= D);
     }
+
+    void operator<<(int) const = delete;
 };
 
 enum StatsType {
@@ -167,6 +170,8 @@ template<CorrHistType T>
 using CorrectionHistory = typename Detail::CorrHistTypedef<T>::type;
 
 using TTMoveHistory = StatsEntry<std::int16_t, 8192>;
+
+using LMRHistory = Stats<std::int16_t, 8192, MAX_PLY, 2, 2, 2, 2, 2, MAX_MOVES>;
 
 }  // namespace Stockfish
 
