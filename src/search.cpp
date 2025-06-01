@@ -1381,7 +1381,7 @@ moves_loop:  // When in check, search starts here
 
         if (value + inc > bestValue)
         {
-            lmrHist << 800;
+            lmrHist.push_result(true);
             bestValue = value;
 
             if (value + inc > alpha)
@@ -1410,7 +1410,7 @@ moves_loop:  // When in check, search starts here
             }
         }
         else
-            lmrHist << -200;
+            lmrHist.push_result(false);
 
         // If the move is worse than some previously searched move,
         // remember it, to update its stats later.

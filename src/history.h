@@ -75,6 +75,7 @@ class StatsEntry {
     static_assert(std::is_arithmetic_v<T>, "Not an arithmetic type");
     static_assert(D <= std::numeric_limits<T>::max(), "D overflows T");
 
+   protected:
     T entry;
 
    public:
@@ -171,7 +172,16 @@ using CorrectionHistory = typename Detail::CorrHistTypedef<T>::type;
 
 using TTMoveHistory = StatsEntry<std::int16_t, 8192>;
 
-using LMRHistory = Stats<std::int16_t, 8192, MAX_PLY, 2, 2, 2, 2, 2, MAX_MOVES>;
+template<typename T, int D>
+class LMRStatEntry : public StatsEntry<T, D> {
+   public:
+    void push_result(bool success) {
+        const int delta = (success ? D : -D) - this->entry;
+        this->entry += delta / 1024;
+    }
+};
+
+using LMRHistory = MultiArray<LMRStatEntry<std::int16_t, 8192>, MAX_PLY, 2, 2, 2, 2, 2, MAX_MOVES>;
 
 }  // namespace Stockfish
 
