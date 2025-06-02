@@ -1252,6 +1252,9 @@ moves_loop:  // When in check, search starts here
                                            newDepth + !allNode + (PvNode && !bestMove)))
                     + (ss - 1)->isPvNode;
 
+            if (depth >= 10 && d == 1)
+                d++;
+
             ss->reduction = newDepth - d;
             value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
             ss->reduction = 0;
