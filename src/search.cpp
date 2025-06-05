@@ -378,7 +378,7 @@ void Search::Worker::iterative_deepening() {
                 else if (bestValue >= beta)
                 {
                     beta = std::min(bestValue + delta, VALUE_INFINITE);
-                    rootDepth = std::max(1, rootDepth - bool(ss->moveCount));
+                    rootDepth = std::max(1, rootDepth - (ss->moveCount > 1));
                     ++failedHighCnt;
                 }
                 else
