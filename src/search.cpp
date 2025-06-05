@@ -28,7 +28,9 @@
 #include <cstdlib>
 #include <initializer_list>
 #include <iostream>
+#include <iterator>
 #include <list>
+#include <numeric>
 #include <ratio>
 #include <string>
 #include <utility>
@@ -298,7 +300,10 @@ void Search::Worker::iterative_deepening() {
         // Save the last iteration's scores before the first PV line is searched and
         // all the move scores except the (new) PV are set to -VALUE_INFINITE.
         for (RootMove& rm : rootMoves)
+        {
             rm.previousScore = rm.score;
+            rm.effort        = rm.effort * 3 / 4;
+        }
 
         size_t pvFirst = 0;
         pvLast         = 0;
@@ -452,8 +457,11 @@ void Search::Worker::iterative_deepening() {
         // Do we have time for the next iteration? Can we stop searching now?
         if (limits.use_time_management() && !threads.stop && !mainThread->stopOnPonderhit)
         {
+            const uint64_t totalEffort = std::accumulate(
+              std::cbegin(rootMoves), std::cend(rootMoves), std::uint64_t{},
+              [](const std::uint64_t acc, const RootMove& rm) { return acc + rm.effort; });
             uint64_t nodesEffort =
-              rootMoves[0].effort * 100000 / std::max(size_t(1), size_t(nodes));
+              rootMoves[0].effort * 100000 / std::max<uint64_t>(1, totalEffort);
 
             double fallingEval =
               (11.396 + 2.035 * (mainThread->bestPreviousAverageScore - bestValue)
