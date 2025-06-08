@@ -25,6 +25,7 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <numeric>
 #include <sstream>
 #include <tuple>
 
@@ -77,7 +78,9 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
     optimism += optimism * nnueComplexity / 468;
     nnue -= nnue * nnueComplexity / 18000;
 
-    int material = 535 * pos.count<PAWN>() + pos.non_pawn_material();
+    static constexpr auto pawnValue =
+        prefix_sum(std::array{735, 485, 485, 485, 485, 485, 485, 435});
+    int material = pawnValue[pos.count<PAWN>()] + pos.non_pawn_material();
     int v        = (nnue * (77777 + material) + optimism * (7777 + material)) / 77777;
 
     // Damp down the evaluation linearly when shuffling

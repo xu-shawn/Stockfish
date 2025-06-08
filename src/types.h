@@ -36,6 +36,7 @@
 // -DUSE_PEXT    | Add runtime support for use of pext asm-instruction. Works
 //               | only in 64-bit mode and requires hardware with pext support.
 
+    #include <array>
     #include <cassert>
     #include <cstddef>
     #include <cstdint>
@@ -438,6 +439,16 @@ struct is_all_same {
 
 template<typename... Ts>
 constexpr auto is_all_same_v = is_all_same<Ts...>::value;
+
+template <typename T, std::size_t Size>
+constexpr std::array<T, Size> prefix_sum (const std::array<T, Size>& input) {
+    std::array<T, Size> result{};
+    result[0] = input[0];
+    for (std::size_t i = 1; i < Size; i ++) {
+        result[i] = result[i - 1] + input[i];
+    }
+    return result;
+}
 
 }  // namespace Stockfish
 
