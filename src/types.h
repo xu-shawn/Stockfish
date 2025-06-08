@@ -441,11 +441,11 @@ template<typename... Ts>
 constexpr auto is_all_same_v = is_all_same<Ts...>::value;
 
 template <typename T, std::size_t Size>
-constexpr std::array<T, Size> prefix_sum (const std::array<T, Size>& input) {
-    std::array<T, Size> result{};
-    result[0] = input[0];
-    for (std::size_t i = 1; i < Size; i ++) {
-        result[i] = result[i - 1] + input[i];
+constexpr std::array<T, Size + 1> prefix_sum (const std::array<T, Size>& input) {
+    std::array<T, Size + 1> result{};
+    result[0] = 0;
+    for (std::size_t i = 1; i < Size + 1; i ++) {
+        result[i] = result[i - 1] + input[i - 1];
     }
     return result;
 }
