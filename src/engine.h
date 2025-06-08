@@ -118,6 +118,7 @@ class Engine {
     OptionsMap                               options;
     ThreadPool                               threads;
     TranspositionTable                       tt;
+    Search::RootEffort                       rootEffort;
     LazyNumaReplicated<Eval::NNUE::Networks> networks;
 
     Search::SearchManager::UpdateContext  updateContext;

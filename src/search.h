@@ -132,21 +132,38 @@ struct LimitsType {
 };
 
 
+struct RootEffort {
+    std::array<std::atomic_uint64_t, SQUARE_NB * SQUARE_NB> data;
+    RootEffort() : data{} {}
+    std::atomic_uint64_t& operator[](Move move) { return data[move.from_to()]; }
+    void update(Move move, uint64_t bonus) {
+        data[move.from_to()] += bonus;
+    }
+    void clear() {
+        for (auto& ele : data)
+            ele = 0;
+    }
+};
+
+
 // The UCI stores the uci options, thread pool, and transposition table.
 // This struct is used to easily forward data to the Search::Worker class.
 struct SharedState {
     SharedState(const OptionsMap&                               optionsMap,
                 ThreadPool&                                     threadPool,
                 TranspositionTable&                             transpositionTable,
+                RootEffort&                                     effort,
                 const LazyNumaReplicated<Eval::NNUE::Networks>& nets) :
         options(optionsMap),
         threads(threadPool),
         tt(transpositionTable),
+        rootEffort(effort),
         networks(nets) {}
 
     const OptionsMap&                               options;
     ThreadPool&                                     threads;
     TranspositionTable&                             tt;
+    RootEffort&                                     rootEffort;
     const LazyNumaReplicated<Eval::NNUE::Networks>& networks;
 };
 
@@ -353,6 +370,7 @@ class Worker {
     const OptionsMap&                               options;
     ThreadPool&                                     threads;
     TranspositionTable&                             tt;
+    RootEffort&                                     rootEffort;
     const LazyNumaReplicated<Eval::NNUE::Networks>& networks;
 
     // Used by NNUE

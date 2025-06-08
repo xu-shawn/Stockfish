@@ -143,6 +143,7 @@ Search::Worker::Worker(SharedState&                    sharedState,
     options(sharedState.options),
     threads(sharedState.threads),
     tt(sharedState.tt),
+    rootEffort(sharedState.rootEffort),
     networks(sharedState.networks),
     refreshTable(networks[token]) {
     clear();
@@ -168,6 +169,7 @@ void Search::Worker::start_searching() {
     main_manager()->tm.init(limits, rootPos.side_to_move(), rootPos.game_ply(), options,
                             main_manager()->originalTimeAdjust);
     tt.new_search();
+    rootEffort.clear();
 
     if (rootMoves.empty())
     {
@@ -453,7 +455,8 @@ void Search::Worker::iterative_deepening() {
         if (limits.use_time_management() && !threads.stop && !mainThread->stopOnPonderhit)
         {
             uint64_t nodesEffort =
-              rootMoves[0].effort * 100000 / std::max(size_t(1), size_t(nodes));
+                rootEffort[rootMoves[0].pv[0]] * 100000 /
+                std::max<std::uint64_t>(1, threads.nodes_searched());
 
             double fallingEval =
               (11.396 + 2.035 * (mainThread->bestPreviousAverageScore - bestValue)
@@ -1310,7 +1313,7 @@ moves_loop:  // When in check, search starts here
             RootMove& rm =
               *std::find(thisThread->rootMoves.begin(), thisThread->rootMoves.end(), move);
 
-            rm.effort += nodes - nodeCount;
+            rootEffort.update(move, nodes - nodeCount);
 
             rm.averageScore =
               rm.averageScore != -VALUE_INFINITE ? (value + rm.averageScore) / 2 : value;
