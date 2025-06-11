@@ -29,6 +29,7 @@
 #include <initializer_list>
 #include <iostream>
 #include <list>
+#include <numeric>
 #include <ratio>
 #include <string>
 #include <utility>
@@ -158,28 +159,28 @@ void Search::Worker::start_searching() {
 
     accumulatorStack.reset();
 
-    // Non-main threads go directly to iterative_deepening()
-    if (!is_mainthread())
-    {
-        iterative_deepening();
-        return;
-    }
-
-    main_manager()->tm.init(limits, rootPos.side_to_move(), rootPos.game_ply(), options,
-                            main_manager()->originalTimeAdjust);
+    tm.init(limits, rootPos.side_to_move(), rootPos.game_ply(), options, originalTimeAdjust);
     tt.new_search();
 
-    if (rootMoves.empty())
+    if (is_mainthread())
     {
-        rootMoves.emplace_back(Move::none());
-        main_manager()->updates.onUpdateNoMoves(
-          {0, {rootPos.checkers() ? -VALUE_MATE : VALUE_DRAW, rootPos}});
+        if (rootMoves.empty())
+        {
+            rootMoves.emplace_back(Move::none());
+            main_manager()->updates.onUpdateNoMoves(
+              {0, {rootPos.checkers() ? -VALUE_MATE : VALUE_DRAW, rootPos}});
+        }
+        else
+        {
+            threads.start_searching();  // start non-main threads
+            iterative_deepening();      // main thread start searching
+        }
     }
     else
-    {
-        threads.start_searching();  // start non-main threads
-        iterative_deepening();      // main thread start searching
-    }
+        iterative_deepening();
+
+    if (!is_mainthread())
+        return;
 
     // When we reach the maximum depth, we can arrive here without a raise of
     // threads.stop. However, if we are pondering or in an infinite search,
@@ -196,12 +197,6 @@ void Search::Worker::start_searching() {
     // Wait until all threads have finished
     threads.wait_for_search_finished();
 
-    // When playing in 'nodes as time' mode, subtract the searched nodes from
-    // the available ones before exiting.
-    if (limits.npmsec)
-        main_manager()->tm.advance_nodes_time(threads.nodes_searched()
-                                              - limits.inc[rootPos.side_to_move()]);
-
     Worker* bestThread = this;
     Skill   skill =
       Skill(options["Skill Level"], options["UCI_LimitStrength"] ? int(options["UCI_Elo"]) : 0);
@@ -210,8 +205,17 @@ void Search::Worker::start_searching() {
         && rootMoves[0].pv[0] != Move::none())
         bestThread = threads.get_best_thread()->worker.get();
 
-    main_manager()->bestPreviousScore        = bestThread->rootMoves[0].score;
-    main_manager()->bestPreviousAverageScore = bestThread->rootMoves[0].averageScore;
+    for (auto&& th : threads)
+    {
+        // When playing in 'nodes as time' mode, subtract the searched nodes from
+        // the available ones before exiting.
+        if (th->worker->limits.npmsec)
+            th->worker->tm.advance_nodes_time(threads.nodes_searched()
+                                              - th->worker->limits.inc[rootPos.side_to_move()]);
+
+        th->worker->bestPreviousScore        = bestThread->rootMoves[0].score;
+        th->worker->bestPreviousAverageScore = bestThread->rootMoves[0].averageScore;
+    }
 
     // Send again PV info if we have a new best thread
     if (bestThread != this)
@@ -232,7 +236,8 @@ void Search::Worker::start_searching() {
 // consumed, the user stops the search, or the maximum search depth is reached.
 void Search::Worker::iterative_deepening() {
 
-    SearchManager* mainThread = (is_mainthread() ? main_manager() : nullptr);
+    const bool     mainThread  = is_mainthread();
+    SearchManager& mainManager = *threads.main_thread()->worker->main_manager();
 
     Move pv[MAX_PLY + 1];
 
@@ -265,13 +270,10 @@ void Search::Worker::iterative_deepening() {
 
     ss->pv = pv;
 
-    if (mainThread)
-    {
-        if (mainThread->bestPreviousScore == VALUE_INFINITE)
-            mainThread->iterValue.fill(VALUE_ZERO);
-        else
-            mainThread->iterValue.fill(mainThread->bestPreviousScore);
-    }
+    if (bestPreviousScore == VALUE_INFINITE)
+        iterValue.fill(VALUE_ZERO);
+    else
+        iterValue.fill(bestPreviousScore);
 
     size_t multiPV = size_t(options["MultiPV"]);
     Skill skill(options["Skill Level"], options["UCI_LimitStrength"] ? int(options["UCI_Elo"]) : 0);
@@ -292,8 +294,7 @@ void Search::Worker::iterative_deepening() {
            && !(limits.depth && mainThread && rootDepth > limits.depth))
     {
         // Age out PV variability metric
-        if (mainThread)
-            totBestMoveChanges /= 2;
+        totBestMoveChanges /= 2;
 
         // Save the last iteration's scores before the first PV line is searched and
         // all the move scores except the (new) PV are set to -VALUE_INFINITE.
@@ -373,7 +374,7 @@ void Search::Worker::iterative_deepening() {
 
                     failedHighCnt = 0;
                     if (mainThread)
-                        mainThread->stopOnPonderhit = false;
+                        mainManager.stopOnPonderhit = false;
                 }
                 else if (bestValue >= beta)
                 {
@@ -426,11 +427,8 @@ void Search::Worker::iterative_deepening() {
             lastBestMoveDepth = rootDepth;
         }
 
-        if (!mainThread)
-            continue;
-
         // Have we found a "mate in x"?
-        if (limits.mate && rootMoves[0].score == rootMoves[0].uciScore
+        if (is_mainthread() && limits.mate && rootMoves[0].score == rootMoves[0].uciScore
             && ((rootMoves[0].score >= VALUE_MATE_IN_MAX_PLY
                  && VALUE_MATE - rootMoves[0].score <= 2 * limits.mate)
                 || (rootMoves[0].score != -VALUE_INFINITE
@@ -439,71 +437,67 @@ void Search::Worker::iterative_deepening() {
             threads.stop = true;
 
         // If the skill level is enabled and time is up, pick a sub-optimal best move
-        if (skill.enabled() && skill.time_to_pick(rootDepth))
+        if (is_mainthread() && skill.enabled() && skill.time_to_pick(rootDepth))
             skill.pick_best(rootMoves, multiPV);
 
         // Use part of the gained time from a previous stable move for the current move
-        for (auto&& th : threads)
-        {
-            totBestMoveChanges += th->worker->bestMoveChanges;
-            th->worker->bestMoveChanges = 0;
-        }
+        totBestMoveChanges += bestMoveChanges;
+        bestMoveChanges = 0;
 
         // Do we have time for the next iteration? Can we stop searching now?
-        if (limits.use_time_management() && !threads.stop && !mainThread->stopOnPonderhit)
+        if (limits.use_time_management() && !threads.stop && !mainManager.stopOnPonderhit)
         {
-            uint64_t nodesEffort =
-              rootMoves[0].effort * 100000 / std::max(size_t(1), size_t(nodes));
-
-            double fallingEval =
-              (11.396 + 2.035 * (mainThread->bestPreviousAverageScore - bestValue)
-               + 0.968 * (mainThread->iterValue[iterIdx] - bestValue))
-              / 100.0;
-            fallingEval = std::clamp(fallingEval, 0.5786, 1.6752);
-
-            // If the bestMove is stable over several iterations, reduce time accordingly
-            double k      = 0.527;
-            double center = lastBestMoveDepth + 11;
-            timeReduction = 0.8 + 0.84 / (1.077 + std::exp(-k * (completedDepth - center)));
-            double reduction =
-              (1.4540 + mainThread->previousTimeReduction) / (2.1593 * timeReduction);
-            double bestMoveInstability = 0.9929 + 1.8519 * totBestMoveChanges / threads.size();
-
-            double totalTime =
-              mainThread->tm.optimum() * fallingEval * reduction * bestMoveInstability;
-
-            // Cap used time in case of a single legal move for a better viewer experience
-            if (rootMoves.size() == 1)
-                totalTime = std::min(500.0, totalTime);
-
             auto elapsedTime = elapsed();
 
-            if (completedDepth >= 10 && nodesEffort >= 97056 && elapsedTime > totalTime * 0.6540
-                && !mainThread->ponder)
-                threads.stop = true;
+            if (!can_stop)
+            {
+                uint64_t nodesEffort =
+                  rootMoves[0].effort * 100000 / std::max(size_t(1), size_t(nodes));
 
-            // Stop the search if we have exceeded the totalTime or maximum
-            if (elapsedTime > std::min(totalTime, double(mainThread->tm.maximum())))
+                double fallingEval = (11.396 + 2.035 * (bestPreviousAverageScore - bestValue)
+                                      + 0.968 * (iterValue[iterIdx] - bestValue))
+                                   / 100.0;
+                fallingEval = std::clamp(fallingEval, 0.5786, 1.6752);
+
+                // If the bestMove is stable over several iterations, reduce time accordingly
+                double k         = 0.527;
+                double center    = lastBestMoveDepth + 11;
+                timeReduction    = 0.8 + 0.84 / (1.077 + std::exp(-k * (completedDepth - center)));
+                double reduction = (1.4540 + previousTimeReduction) / (2.1593 * timeReduction);
+                double bestMoveInstability = 0.9929 + 1.8519 * totBestMoveChanges;
+
+                double totalTime = tm.optimum() * fallingEval * reduction * bestMoveInstability;
+
+                if (completedDepth >= 10 && nodesEffort >= 97056
+                    && elapsedTime > totalTime * 0.6540)
+                    can_stop = true;
+
+                // Stop the search if we have exceeded the totalTime or maximum
+                if (elapsedTime > totalTime)
+                    can_stop = true;
+
+                threads.increaseDepth = mainManager.ponder || elapsedTime <= totalTime * 0.5138;
+            }
+
+            if (stop_consensus() || elapsedTime > tm.maximum())
             {
                 // If we are allowed to ponder do not stop the search now but
                 // keep pondering until the GUI sends "ponderhit" or "stop".
-                if (mainThread->ponder)
-                    mainThread->stopOnPonderhit = true;
+                if (mainManager.ponder)
+                    mainManager.stopOnPonderhit = true;
                 else
                     threads.stop = true;
             }
-            else
-                threads.increaseDepth = mainThread->ponder || elapsedTime <= totalTime * 0.5138;
         }
 
-        mainThread->iterValue[iterIdx] = bestValue;
-        iterIdx                        = (iterIdx + 1) & 3;
+        iterValue[iterIdx] = bestValue;
+        iterIdx            = (iterIdx + 1) & 3;
     }
 
-    if (!mainThread)
-        return;
+    previousTimeReduction = timeReduction;
 
-    mainThread->previousTimeReduction = timeReduction;
+    if (!is_mainthread())
+        return;
 
     // If the skill level is enabled, swap the best PV line with the sub-optimal one
     if (skill.enabled())
@@ -1766,10 +1760,17 @@ Depth Search::Worker::reduction(bool i, Depth d, int mn, int delta) const {
 // This function is intended for use only when printing PV outputs, and not used
 // for making decisions within the search algorithm itself.
 TimePoint Search::Worker::elapsed() const {
-    return main_manager()->tm.elapsed([this]() { return threads.nodes_searched(); });
+    return tm.elapsed([this]() { return threads.nodes_searched(); });
 }
 
-TimePoint Search::Worker::elapsed_time() const { return main_manager()->tm.elapsed_time(); }
+TimePoint Search::Worker::elapsed_time() const { return tm.elapsed_time(); }
+
+bool Search::Worker::stop_consensus() const {
+    std::size_t total_stop =
+      std::accumulate(std::begin(threads), std::end(threads), std::size_t{},
+                      [](std::size_t sum, auto&& th) { return sum + th->worker->can_stop; });
+    return total_stop * 2 >= threads.num_threads();
+}
 
 Value Search::Worker::evaluate(const Position& pos) {
     return Eval::evaluate(networks[numaAccessToken], pos, accumulatorStack, refreshTable,
@@ -1963,7 +1964,7 @@ void SearchManager::check_time(Search::Worker& worker) {
 
     static TimePoint lastInfoTime = now();
 
-    TimePoint elapsed = tm.elapsed([&worker]() { return worker.threads.nodes_searched(); });
+    TimePoint elapsed = worker.tm.elapsed([&worker]() { return worker.threads.nodes_searched(); });
     TimePoint tick    = worker.limits.startTime + elapsed;
 
     if (tick - lastInfoTime >= 1000)
@@ -1980,7 +1981,8 @@ void SearchManager::check_time(Search::Worker& worker) {
       // Later we rely on the fact that we can at least use the mainthread previous
       // root-search score and PV in a multithreaded environment to prove mated-in scores.
       worker.completedDepth >= 1
-      && ((worker.limits.use_time_management() && (elapsed > tm.maximum() || stopOnPonderhit))
+      && ((worker.limits.use_time_management()
+           && (elapsed > worker.tm.maximum() || stopOnPonderhit))
           || (worker.limits.movetime && elapsed >= worker.limits.movetime)
           || (worker.limits.nodes && worker.threads.nodes_searched() >= worker.limits.nodes)))
         worker.threads.stop = worker.threads.abortedSearch = true;
@@ -2181,7 +2183,7 @@ void SearchManager::pv(Search::Worker&           worker,
         if (!isExact)
             info.bound = bound;
 
-        TimePoint time = std::max(TimePoint(1), tm.elapsed_time());
+        TimePoint time = std::max(TimePoint(1), worker.tm.elapsed_time());
         info.timeMs    = time;
         info.nodes     = nodes;
         info.nps       = nodes * 1000 / time;

@@ -239,16 +239,9 @@ class SearchManager: public ISearchManager {
             const TranspositionTable& tt,
             Depth                     depth);
 
-    Stockfish::TimeManagement tm;
-    double                    originalTimeAdjust;
-    int                       callsCnt;
-    std::atomic_bool          ponder;
-
-    std::array<Value, 4> iterValue;
-    double               previousTimeReduction;
-    Value                bestPreviousScore;
-    Value                bestPreviousAverageScore;
-    bool                 stopOnPonderhit;
+    bool             stopOnPonderhit;
+    std::atomic_bool ponder;
+    int              callsCnt;
 
     size_t id;
 
@@ -323,12 +316,16 @@ class Worker {
     TimePoint elapsed() const;
     TimePoint elapsed_time() const;
 
+    bool stop_consensus() const;
+
     Value evaluate(const Position&);
 
     LimitsType limits;
 
     size_t                pvIdx, pvLast;
-    std::atomic<uint64_t> nodes, tbHits, bestMoveChanges;
+    std::atomic<uint64_t> nodes, tbHits;
+    std::atomic_bool      can_stop;
+    uint64_t              bestMoveChanges;
     int                   selDepth, nmpMinPly;
 
     Value optimism[COLOR_NB];
@@ -347,6 +344,14 @@ class Worker {
 
     // The main thread has a SearchManager, the others have a NullSearchManager
     std::unique_ptr<ISearchManager> manager;
+
+    Stockfish::TimeManagement tm;
+    double                    originalTimeAdjust;
+
+    std::array<Value, 4> iterValue;
+    double               previousTimeReduction;
+    Value                bestPreviousScore;
+    Value                bestPreviousAverageScore;
 
     Tablebases::Config tbConfig;
 
