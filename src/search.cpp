@@ -377,7 +377,7 @@ void Search::Worker::iterative_deepening() {
                 }
                 else if (bestValue >= beta)
                 {
-                    beta = std::min(bestValue + delta, VALUE_INFINITE);
+                    beta = std::min(beta + delta, VALUE_INFINITE);
                     ++failedHighCnt;
                 }
                 else
@@ -1407,10 +1407,6 @@ moves_loop:  // When in check, search starts here
     // return a fail low score.
 
     assert(moveCount || !ss->inCheck || excludedMove || !MoveList<LEGAL>(pos).size());
-
-    // Adjust best value for fail high cases
-    if (bestValue >= beta && !is_decisive(bestValue) && !is_decisive(alpha))
-        bestValue = (bestValue * depth + beta) / (depth + 1);
 
     if (!moveCount)
         bestValue = excludedMove ? alpha : ss->inCheck ? mated_in(ss->ply) : VALUE_DRAW;
