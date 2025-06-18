@@ -283,7 +283,7 @@ void Search::Worker::iterative_deepening() {
 
     multiPV = std::min(multiPV, rootMoves.size());
 
-    int searchAgainCounter = 0;
+    searchAgainCounter = 0;
 
     lowPlyHistory.fill(86);
 
@@ -1194,6 +1194,7 @@ moves_loop:  // When in check, search starts here
         r += 316;  // Base reduction offset to compensate for other tweaks
         r -= moveCount * 66;
         r -= std::abs(correctionValue) / 28047;
+        r -= 512 * searchAgainCounter;
 
         // Increase reduction for cut nodes
         if (cutNode)

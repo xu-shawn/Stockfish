@@ -339,6 +339,8 @@ class Worker {
     Depth     rootDepth, completedDepth;
     Value     rootDelta;
 
+    int searchAgainCounter;
+
     size_t                    threadIdx;
     NumaReplicatedAccessToken numaAccessToken;
 
