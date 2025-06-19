@@ -137,7 +137,7 @@ jobs:
 
           # 5. Generate a backtrace from the core dump
           echo "--- GDB Backtrace ---"
-          gdb -c /tmp/core* --batch -ex "thread apply all bt full" ./my_binary
+          gdb -c /tmp/core* --batch -ex "thread apply all bt full" ./stockfish
           echo "--- End GDB Backtrace ---"
 
           ../tests/signature.sh $benchref
