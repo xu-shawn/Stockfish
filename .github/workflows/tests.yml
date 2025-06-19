@@ -119,15 +119,19 @@ jobs:
           # 1. Enable core dumps
           ulimit -c unlimited
 
+          # 2. Install gdb
+          sudo apt-get update && sudo apt-get install -y gdb
+
+          ls /tmp
+
           sudo sysctl -w kernel.core_pattern=/tmp/core
 
-          # 2. Run the program. The `|| true` prevents the CI step
+          # 3. Run the program. The `|| true` prevents the CI step
           # from failing immediately upon the segfault, allowing the
           # next commands to run.
           ./stockfish bench || true
 
-          # 3. Install gdb
-          sudo apt-get update && sudo apt-get install -y gdb
+          ls /tmp
 
           # 4. Check if the core file was created
           if [ ! -f /tmp/core* ]; then
