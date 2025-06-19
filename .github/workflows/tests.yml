@@ -115,5 +115,27 @@ jobs:
         run: |
           echo "cd src && export LDFLAGS='-static' && make clean && make -j4 ARCH=riscv64 build debug=yes" > script.sh
           docker run --rm --platform ${{ matrix.config.platform }} -v ${{ github.workspace }}:/app sf_builder
-          ./stockfish bench
+
+          # 1. Enable core dumps
+          ulimit -c unlimited
+
+          # 2. Run the program. The `|| true` prevents the CI step
+          # from failing immediately upon the segfault, allowing the
+          # next commands to run.
+          ./stockfish bench || true
+
+          # 3. Install gdb
+          sudo apt-get update && sudo apt-get install -y gdb
+
+          # 4. Check if the core file was created
+          if [ ! -f core* ]; then
+            echo "No core dump file found. The program might not have crashed."
+            exit 1
+          fi
+
+          # 5. Generate a backtrace from the core dump
+          echo "--- GDB Backtrace ---"
+          gdb -c core* --batch -ex "thread apply all bt full" ./my_binary
+          echo "--- End GDB Backtrace ---"
+
           ../tests/signature.sh $benchref
