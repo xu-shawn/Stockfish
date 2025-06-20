@@ -284,6 +284,7 @@ void Search::Worker::iterative_deepening() {
     multiPV = std::min(multiPV, rootMoves.size());
 
     int searchAgainCounter = 0;
+    int lastStopIncrease = 0;
 
     lowPlyHistory.fill(86);
 
@@ -291,6 +292,12 @@ void Search::Worker::iterative_deepening() {
     while (++rootDepth < MAX_PLY && !threads.stop
            && !(limits.depth && mainThread && rootDepth > limits.depth))
     {
+        if (rootDepth != lastStopIncrease && rootDepth % threads.num_threads() == threadIdx)
+        {
+            lastStopIncrease = rootDepth;
+            rootDepth --;
+        }
+
         // Age out PV variability metric
         if (mainThread)
             totBestMoveChanges /= 2;
