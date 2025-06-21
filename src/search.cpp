@@ -679,7 +679,7 @@ Value Search::Worker::search(
         && (cutNode == (ttData.value >= beta) || depth > 5))
     {
         if (PvNode)
-            depth = std::max(depth, ttData.depth);
+            depth += (ttData.value >= beta);
         else
         {
             // If ttMove is quiet, update move sorting heuristics on TT hit
