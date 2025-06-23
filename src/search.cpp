@@ -567,9 +567,10 @@ template<NodeType nodeType>
 Value Search::Worker::search(
   Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode) {
 
-    constexpr bool PvNode   = nodeType != NonPV;
-    constexpr bool rootNode = nodeType == Root;
-    const bool     allNode  = !(PvNode || cutNode);
+    constexpr bool PvNode     = nodeType != NonPV && nodeType != HalfPV;
+    constexpr bool HalfPvNode = nodeType == HalfPV;
+    constexpr bool rootNode   = nodeType == Root;
+    const bool     allNode    = !(PvNode || cutNode);
 
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
@@ -1227,6 +1228,8 @@ moves_loop:  // When in check, search starts here
         // Decrease/increase reduction for moves with a good/bad history
         r -= ss->statScore * 826 / 8192;
 
+        Value pvsAlpha = (HalfPvNode && bestValue == alpha) ? beta - 1 : alpha;
+
         // Step 17. Late moves reduction / extension (LMR)
         if (depth >= 2 && moveCount > 1)
         {
@@ -1240,28 +1243,28 @@ moves_loop:  // When in check, search starts here
                     + (ss - 1)->isPvNode;
 
             ss->reduction = newDepth - d;
-            value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+            value         = -search<NonPV>(pos, ss + 1, -(pvsAlpha + 1), -pvsAlpha, d, true);
             ss->reduction = 0;
 
             // Do a full-depth search when reduced LMR search fails high
             // (*Scaler) Usually doing more shallower searches
             // doesn't scale well to longer TCs
-            if (value > alpha && d < newDepth)
+            if (value > pvsAlpha && d < newDepth)
             {
                 // Adjust full-depth search based on LMR results - if the result was
                 // good enough search deeper, if it was bad enough search shallower.
-                const bool doDeeperSearch    = value > (bestValue + 42 + 2 * newDepth);
-                const bool doShallowerSearch = value < bestValue + 9;
+                const bool doDeeperSearch    = !HalfPvNode && value > (bestValue + 42 + 2 * newDepth);
+                const bool doShallowerSearch = !HalfPvNode && value < bestValue + 9;
 
                 newDepth += doDeeperSearch - doShallowerSearch;
 
                 if (newDepth > d)
-                    value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, newDepth, !cutNode);
+                    value = -search<NonPV>(pos, ss + 1, -(pvsAlpha + 1), -pvsAlpha, newDepth, !cutNode);
 
                 // Post LMR continuation history updates
                 update_continuation_histories(ss, movedPiece, move.to_sq(), 1508);
             }
-            else if (value > alpha && value < bestValue + 9)
+            else if (value > pvsAlpha && value < bestValue + 9)
                 newDepth--;
         }
 
@@ -1275,13 +1278,16 @@ moves_loop:  // When in check, search starts here
             r -= ttMoveHistory / 8;
 
             // Note that if expected reduction is high, we reduce search depth here
-            value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha,
+            value = -search<PvNode ? HalfPV : NonPV>(pos, ss + 1, -(pvsAlpha + 1), -pvsAlpha,
                                    newDepth - (r > 3564) - (r > 4969 && newDepth > 2), !cutNode);
+
+            if (PvNode && value >= beta && newDepth <= 4)
+                depth++;
         }
 
         // For PV nodes only, do a full PV search on the first move or after a fail high,
         // otherwise let the parent node fail low with value <= alpha and try another move.
-        if (PvNode && (moveCount == 1 || value > alpha))
+        if (PvNode && (moveCount == 1 || value > pvsAlpha))
         {
             (ss + 1)->pv    = pv;
             (ss + 1)->pv[0] = Move::none();
@@ -1502,6 +1508,7 @@ template<NodeType nodeType>
 Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta) {
 
     static_assert(nodeType != Root);
+    static_assert(nodeType != HalfPV);
     constexpr bool PvNode = nodeType == PV;
 
     assert(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE);

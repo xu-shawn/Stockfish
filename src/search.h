@@ -47,6 +47,7 @@ namespace Stockfish {
 // Different node types, used as a template parameter
 enum NodeType {
     NonPV,
+    HalfPV,
     PV,
     Root
 };
