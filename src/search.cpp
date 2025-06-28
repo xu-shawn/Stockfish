@@ -1170,6 +1170,9 @@ moves_loop:  // When in check, search starts here
                 extension = -2;
         }
 
+        if (PvNode && extension <= 0 && ss->ply >= rootDepth && ttData.depth > depth && ttData.value >= beta)
+            extension = 1;
+
         // Step 16. Make the move
         do_move(pos, move, st, givesCheck);
 
