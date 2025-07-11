@@ -819,7 +819,7 @@ Value Search::Worker::search(
               << bonus * 1266 / 1024;
     }
 
-    if (std::abs(ttCorrection) > 25)
+    if (std::abs(ttCorrection) > 75)
     {
         improving         = false;
         opponentWorsening = false;
