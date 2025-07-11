@@ -771,6 +771,7 @@ Value Search::Worker::search(
 
     // Step 6. Static evaluation of the position
     Value      unadjustedStaticEval = VALUE_NONE;
+    Value      ttCorrection         = 0;
     const auto correctionValue      = correction_value(*thisThread, pos, ss);
     if (ss->inCheck)
     {
@@ -793,7 +794,10 @@ Value Search::Worker::search(
         // ttValue can be used as a better position evaluation
         if (is_valid(ttData.value)
             && (ttData.bound & (ttData.value > eval ? BOUND_LOWER : BOUND_UPPER)))
-            eval = ttData.value;
+        {
+            ttCorrection = ttData.value - eval;
+            eval         = ttData.value;
+        }
     }
     else
     {
@@ -813,6 +817,14 @@ Value Search::Worker::search(
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
             thisThread->pawnHistory[pawn_structure_index(pos)][pos.piece_on(prevSq)][prevSq]
               << bonus * 1266 / 1024;
+    }
+
+    if (std::abs(ttCorrection) > 50)
+    {
+        improving         = false;
+        opponentWorsening = false;
+
+        goto moves_loop;
     }
 
     // Set up the improving flag, which is true if current static evaluation is
