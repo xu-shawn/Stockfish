@@ -54,7 +54,8 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
                      const Position&                pos,
                      Eval::NNUE::AccumulatorStack&  accumulators,
                      Eval::NNUE::AccumulatorCaches& caches,
-                     int                            optimism) {
+                     int                            optimism,
+                     int                            ply) {
 
     assert(!pos.checkers());
 
@@ -82,6 +83,8 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
 
     // Damp down the evaluation linearly when shuffling
     v -= v * pos.rule50_count() / 212;
+
+    v += v * (1024 + ply) / 1024;
 
     // Guarantee evaluation does not hit the tablebase range
     v = std::clamp(v, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
@@ -112,7 +115,7 @@ std::string Eval::trace(Position& pos, const Eval::NNUE::Networks& networks) {
     v                       = pos.side_to_move() == WHITE ? v : -v;
     ss << "NNUE evaluation        " << 0.01 * UCIEngine::to_cp(v, pos) << " (white side)\n";
 
-    v = evaluate(networks, pos, accumulators, *caches, VALUE_ZERO);
+    v = evaluate(networks, pos, accumulators, *caches, VALUE_ZERO, 0);
     v = pos.side_to_move() == WHITE ? v : -v;
     ss << "Final evaluation       " << 0.01 * UCIEngine::to_cp(v, pos) << " (white side)";
     ss << " [with scaled NNUE, ...]";
