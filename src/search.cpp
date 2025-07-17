@@ -617,6 +617,7 @@ Value Search::Worker::search(
     priorCapture       = pos.captured_piece();
     Color us           = pos.side_to_move();
     ss->moveCount      = 0;
+    ss->depth          = depth;
     bestValue          = -VALUE_INFINITE;
     maxValue           = VALUE_INFINITE;
 
@@ -669,6 +670,7 @@ Value Search::Worker::search(
                             : Move::none();
     ttData.value = ttHit ? value_from_tt(ttData.value, ss->ply, pos.rule50_count()) : VALUE_NONE;
     ss->ttPv     = excludedMove ? ss->ttPv : PvNode || (ttHit && ttData.is_pv);
+    ss->ttDepth  = ttHit ? ttData.depth : 0;
     ttCapture    = ttData.move && pos.capture_stage(ttData.move);
 
     // At this point, if excluded, skip straight to step 6, static eval. However,
@@ -900,6 +902,9 @@ Value Search::Worker::search(
     // (*Scaler) Especially if they make IIR less aggressive.
     if (!allNode && depth >= 6 && !ttData.move)
         depth--;
+
+    if (depth < (ss - 1)->depth && ttData.depth > (ss - 1)->ttDepth)
+        depth++;
 
     // Step 11. ProbCut
     // If we have a good enough capture (or queen promotion) and a reduced search

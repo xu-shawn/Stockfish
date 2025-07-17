@@ -77,6 +77,8 @@ struct Stack {
     int                         reduction;
     bool                        isPvNode;
     int                         quietMoveStreak;
+    Depth                       depth;
+    Depth                       ttDepth;
 };
 
 
