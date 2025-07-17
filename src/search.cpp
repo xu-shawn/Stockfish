@@ -371,17 +371,30 @@ void Search::Worker::iterative_deepening() {
                 // otherwise exit the loop.
                 if (bestValue <= alpha)
                 {
-                    beta  = (alpha + beta) / 2;
+                    if (bestValue >= 0)
+                    {
+                        beta          = (alpha + beta) / 2;
+                        failedHighCnt = 0;
+                    }
+                    else
+                        ++failedHighCnt;
+
                     alpha = std::max(bestValue - delta, -VALUE_INFINITE);
 
-                    failedHighCnt = 0;
                     if (mainThread)
                         mainThread->stopOnPonderhit = false;
                 }
                 else if (bestValue >= beta)
                 {
+                    if (bestValue >= 0)
+                        ++failedHighCnt;
+                    else
+                    {
+                        alpha         = (alpha + beta) / 2;
+                        failedHighCnt = 0;
+                    }
+
                     beta = std::min(bestValue + delta, VALUE_INFINITE);
-                    ++failedHighCnt;
                 }
                 else
                     break;
