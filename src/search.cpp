@@ -903,9 +903,6 @@ Value Search::Worker::search(
     if (!allNode && depth >= 6 && !ttData.move)
         depth--;
 
-    if (depth < (ss - 1)->depth && ttData.depth > (ss - 1)->ttDepth)
-        depth++;
-
     // Step 11. ProbCut
     // If we have a good enough capture (or queen promotion) and a reduced search
     // returns a value much above beta, we can (almost) safely prune the previous move.
@@ -1256,7 +1253,8 @@ moves_loop:  // When in check, search starts here
             {
                 // Adjust full-depth search based on LMR results - if the result was
                 // good enough search deeper, if it was bad enough search shallower.
-                const bool doDeeperSearch    = value > (bestValue + 42 + 2 * newDepth);
+                const bool doDeeperSearch =
+                  (value > (bestValue + 42 + 2 * newDepth)) || (ss + 1)->ttDepth >= newDepth;
                 const bool doShallowerSearch = value < bestValue + 9;
 
                 newDepth += doDeeperSearch - doShallowerSearch;
