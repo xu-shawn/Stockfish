@@ -1367,6 +1367,8 @@ moves_loop:  // When in check, search starts here
         {
             bestValue = value;
 
+            mainHistory[us][move.from_to()] << 100;
+
             if (value + inc > alpha)
             {
                 bestMove = move;
