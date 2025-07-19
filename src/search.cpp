@@ -573,6 +573,8 @@ Value Search::Worker::search(
     constexpr bool rootNode = nodeType == Root;
     const bool     allNode  = !(PvNode || cutNode);
 
+    SuppressOutputGuard guard;
+
     // Dive into quiescence search when the depth reaches zero
     if (depth <= 0)
     {
@@ -916,7 +918,7 @@ Value Search::Worker::search(
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &thisThread->captureHistory);
         Depth      probCutDepth = std::max(depth - 5, 0);
 
-        while ((move = mp.next_move()) != Move::none())
+        while ((move = mp.next_move().first) != Move::none())
         {
             assert(move.is_ok());
 
@@ -977,10 +979,28 @@ moves_loop:  // When in check, search starts here
 
     int moveCount = 0;
 
+    bool monitorNode = false;
+
+    if (!suppressOutput && (nodes & ((1 << 19) - 1)) == 0)
+    {
+        guard.set_worker(this);
+        monitorNode = true;
+
+        sync_cout << pos << sync_endl;
+        sync_cout << "info string " << depth << sync_endl;
+    }
+
+    int moveValue = 0;
+
     // Step 13. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
-    while ((move = mp.next_move()) != Move::none())
+    while (true)
     {
+        std::tie(move, moveValue) = mp.next_move();
+
+        if (move == Move::none())
+            break;
+
         assert(move.is_ok());
 
         if (move == excludedMove)
@@ -989,6 +1009,10 @@ moves_loop:  // When in check, search starts here
         // Check for legality
         if (!pos.legal(move))
             continue;
+
+        if (monitorNode)
+            sync_cout << "info string " << UCIEngine::move(move, false) << " " << moveValue
+                      << sync_endl;
 
         // At root obey the "searchmoves" option and skip moves not listed in Root
         // Move List. In MultiPV mode we also skip PV moves that have been already
@@ -1487,6 +1511,13 @@ moves_loop:  // When in check, search starts here
         update_correction_history(pos, ss, *thisThread, bonus);
     }
 
+    if (monitorNode)
+        sync_cout << "info string "
+                  << (bestValue >= beta    ? "BOUND_LOWER"
+                      : PvNode && bestMove ? "BOUND_EXACT"
+                                           : "BOUND_UPPER")
+                  << sync_endl;
+
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
     return bestValue;
@@ -1623,7 +1654,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
     // Step 5. Loop through all pseudo-legal moves until no moves remain or a beta
     // cutoff occurs.
-    while ((move = mp.next_move()) != Move::none())
+    while ((move = mp.next_move().first) != Move::none())
     {
         assert(move.is_ok());
 

@@ -295,6 +295,23 @@ class Worker {
 
     TTMoveHistory ttMoveHistory;
 
+    bool suppressOutput;
+
+    struct SuppressOutputGuard {
+        Worker* worker = nullptr;
+
+        void set_worker(Worker* w) {
+            assert(!worker);
+            worker = w;
+        }
+
+        ~SuppressOutputGuard() {
+            if (!worker)
+                return;
+            worker->suppressOutput = false;
+        }
+    };
+
    private:
     void iterative_deepening();
 

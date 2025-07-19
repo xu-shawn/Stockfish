@@ -206,7 +206,7 @@ Move MovePicker::select(Pred filter) {
 // This is the most important method of the MovePicker class. We emit one
 // new pseudo-legal move on every call until there are no more moves left,
 // picking the move with the highest score from a list of generated moves.
-Move MovePicker::next_move() {
+std::pair<Move, int> MovePicker::next_move() {
 
     constexpr int goodQuietThreshold = -14000;
 top:
@@ -218,7 +218,7 @@ top:
     case QSEARCH_TT :
     case PROBCUT_TT :
         ++stage;
-        return ttMove;
+        return {ttMove, 0};
 
     case CAPTURE_INIT :
     case PROBCUT_INIT :
@@ -238,7 +238,7 @@ top:
                 std::swap(*endBadCaptures++, *cur);
                 return false;
             }))
-            return *(cur - 1);
+            return {*(cur - 1), -1111111};
 
         ++stage;
         [[fallthrough]];
@@ -257,7 +257,7 @@ top:
 
     case GOOD_QUIET :
         if (!skipQuiets && select([&]() { return cur->value > goodQuietThreshold; }))
-            return *(cur - 1);
+            return {*(cur - 1), (cur - 1)->value};
 
         // Prepare the pointers to loop over the bad captures
         cur    = moves;
@@ -268,7 +268,7 @@ top:
 
     case BAD_CAPTURE :
         if (select([]() { return true; }))
-            return *(cur - 1);
+            return {*(cur - 1), -1111111};
 
         // Prepare the pointers to loop over quiets again
         cur    = endCaptures;
@@ -278,10 +278,10 @@ top:
         [[fallthrough]];
 
     case BAD_QUIET :
-        if (!skipQuiets)
-            return select([&]() { return cur->value <= goodQuietThreshold; });
+        if (!skipQuiets && select([&]() { return cur->value <= goodQuietThreshold; }))
+            return {*(cur - 1), (cur - 1)->value};
 
-        return Move::none();
+        return {Move::none(), 0};
 
     case EVASION_INIT :
         cur    = moves;
@@ -294,14 +294,14 @@ top:
 
     case EVASION :
     case QCAPTURE :
-        return select([]() { return true; });
+        return {select([]() { return true; }), 0};
 
     case PROBCUT :
-        return select([&]() { return pos.see_ge(*cur, threshold); });
+        return {select([&]() { return pos.see_ge(*cur, threshold); }), 0};
     }
 
     assert(false);
-    return Move::none();  // Silence warning
+    return {Move::none(), 0};  // Silence warning
 }
 
 void MovePicker::skip_quiet_moves() { skipQuiets = true; }
