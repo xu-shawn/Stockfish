@@ -249,7 +249,7 @@ top:
             endCur = endGenerated = generate<QUIETS>(pos, cur);
 
             score<QUIETS>();
-            partial_insertion_sort(cur, endCur, -3560 * depth);
+            partial_insertion_sort(cur, endCur, goodQuietThreshold);
         }
 
         ++stage;
