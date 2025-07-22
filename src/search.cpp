@@ -981,7 +981,7 @@ moves_loop:  // When in check, search starts here
 
     bool monitorNode = false;
 
-    if (!suppressOutput && (nodes & ((1 << 19) - 1)) == 0)
+    if (!suppressOutput && (nodes & ((1 << 17) - 1)) == 0)
     {
         guard.set_worker(this);
         monitorNode = true;
