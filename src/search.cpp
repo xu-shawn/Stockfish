@@ -566,7 +566,7 @@ void Search::Worker::clear() {
                     h.fill(-494);
 
     for (size_t i = 1; i < reductions.size(); ++i)
-        reductions[i] = int(2782 / 128.0 * std::log(i));
+        reductions[i] = int(2782 / 128.0 * std::log(std::min<size_t>(i, 32)));
 
     refreshTable.clear(networks[numaAccessToken]);
 }
@@ -1179,8 +1179,7 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
-        r += 650;  // Base reduction offset to compensate for other tweaks
-        r -= moveCount * 69;
+        r += 450;  // Base reduction offset to compensate for other tweaks
         r -= std::abs(correctionValue) / 27160;
 
         // Increase reduction for cut nodes
