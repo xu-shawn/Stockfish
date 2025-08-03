@@ -585,7 +585,12 @@ Value Search::Worker::search(
     if (depth <= 0)
     {
         constexpr auto nt = PvNode ? PV : NonPV;
-        return qsearch<nt>(pos, ss, alpha, beta);
+        Value v = qsearch<nt>(pos, ss, alpha, beta);
+
+        if (v >= beta)
+            return v;
+
+        depth = 1;
     }
 
     // Limit the depth if extensions made it too large
@@ -829,6 +834,7 @@ Value Search::Worker::search(
 
     if (priorReduction >= (depth < 10 ? 1 : 3) && !opponentWorsening)
         depth++;
+
     if (priorReduction >= 2 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 177)
         depth--;
 
