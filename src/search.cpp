@@ -587,7 +587,7 @@ Value Search::Worker::search(
         constexpr auto nt = PvNode ? PV : NonPV;
         Value v = qsearch<nt>(pos, ss, alpha, beta);
 
-        if (v >= beta)
+        if (PvNode || v <= alpha || !(ss-1)->reduction)
             return v;
 
         depth = 1;
