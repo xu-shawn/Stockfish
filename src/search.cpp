@@ -1249,7 +1249,7 @@ moves_loop:  // When in check, search starts here
         else if (!PvNode || moveCount > 1)
         {
             // Increase reduction if ttMove is not present
-            if (!ttData.move)
+            if (!ttData.move && ss->ply <= rootDepth * 3 / 2)
                 r += 1139;
 
             const int threshold1 = depth <= 4 ? 2000 : 3200;
