@@ -573,7 +573,7 @@ void Search::Worker::clear() {
 // Main search function for both PV and non-PV nodes
 template<NodeType nodeType>
 Value Search::Worker::search(
-  Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode) {
+    Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode, bool noResearch) {
 
     constexpr bool PvNode   = nodeType != NonPV;
     constexpr bool rootNode = nodeType == Root;
@@ -898,7 +898,7 @@ Value Search::Worker::search(
     // Step 10. Internal iterative reductions
     // At sufficient depth, reduce depth for PV/Cut nodes without a TTMove.
     // (*Scaler) Especially if they make IIR less aggressive.
-    if (!allNode && depth >= 6 && !ttData.move && priorReduction <= 3)
+    if (!allNode && depth >= 6 && !ttData.move && noResearch)
         depth--;
 
     // Step 11. ProbCut
@@ -1258,7 +1258,7 @@ moves_loop:  // When in check, search starts here
             // Note that if expected reduction is high, we reduce search depth here
             value = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha,
                                    newDepth - (r > threshold1) - (r > threshold2 && newDepth > 2),
-                                   !cutNode);
+                                   !cutNode, PvNode);
         }
 
         // For PV nodes only, do a full PV search on the first move or after a fail high,
@@ -1272,7 +1272,7 @@ moves_loop:  // When in check, search starts here
             if (move == ttData.move && rootDepth > 8)
                 newDepth = std::max(newDepth, 1);
 
-            value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
+            value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false, true);
         }
 
         // Step 19. Undo move
