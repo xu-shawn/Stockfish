@@ -115,7 +115,7 @@ void update_correction_history(const Position& pos,
           << bonus * 137 / 128;
 }
 
-void print_curr_variation(const Stack* begin, const Stack* end) {
+void print_curr_variation(const Stack* begin, const Stack* end, const size_t threadIdx) {
     sync_cout_start();
 
     auto bound_to_string = [](Bound b) {
@@ -133,6 +133,8 @@ void print_curr_variation(const Stack* begin, const Stack* end) {
             return "UNKNOWN";
         };
     };
+
+    std::cout << "Thread #" << threadIdx << std::endl;
 
     std::cout << "info moves " << UCIEngine::move(begin->currentMove, false);
     for (const Stack* curr = begin + 1; curr < end; curr++)
@@ -638,7 +640,7 @@ Value Search::Worker::search(
     }
 
     if ((nodes & ((1 << 23) - 1)) == 0)
-        print_curr_variation(rootSS, ss);
+        print_curr_variation(rootSS, ss, threadIdx);
 
     assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
