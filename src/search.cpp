@@ -129,6 +129,8 @@ void print_curr_variation(const Stack* begin, const Stack* end) {
             return "EXACT";
         case BOUND_NONE :
             return "NONE";
+        default:
+            return "UNKNOWN";
         };
     };
 
@@ -635,7 +637,7 @@ Value Search::Worker::search(
             return alpha;
     }
 
-    if ((nodes & ((1 << 24) - 1)) == 0)
+    if ((nodes & ((1 << 23) - 1)) == 0)
         print_curr_variation(rootSS, ss);
 
     assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
