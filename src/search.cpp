@@ -836,7 +836,7 @@ Value Search::Worker::search(
     if (priorReduction >= 2 && depth >= 2 && ss->staticEval + (ss - 1)->staticEval > 173)
         depth--;
 
-    if (ss->ttPv && std::abs(correctionValue) >= 20485760 && ttData.move)
+    if (eval != ss->staticEval && std::abs(correctionValue) >= 20485760 && ttData.move)
         depth++;
 
     // Step 7. Razoring
