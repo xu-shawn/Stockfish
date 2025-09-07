@@ -291,6 +291,7 @@ class Worker {
     CorrectionHistory<Minor>        minorPieceCorrectionHistory;
     CorrectionHistory<NonPawn>      nonPawnCorrectionHistory;
     CorrectionHistory<Continuation> continuationCorrectionHistory;
+    CorrectionHistory<Nodes>        nodesCorrectionHistory;
 
     TTMoveHistory ttMoveHistory;
 
