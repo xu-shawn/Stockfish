@@ -136,11 +136,12 @@ void update_all_stats(const Position& pos,
 
 }  // namespace
 
-Search::Worker::Worker(SharedState&                    sharedState,
-                       std::unique_ptr<ISearchManager> sm,
-                       size_t                          threadId,
-                       NumaReplicatedAccessToken       token) :
-    // Unpack the SharedState struct into member variables
+Search::Worker::Worker(
+  SharedState&                    sharedState,
+  std::unique_ptr<ISearchManager> sm,
+  size_t                          threadId,
+  NumaReplicatedAccessToken       token) :  // Unpack the SharedState struct into member variables
+    corrhist_log_file("corrhist_log.txt", std::ios::app),
     threadIdx(threadId),
     numaAccessToken(token),
     manager(std::move(sm)),
@@ -791,6 +792,7 @@ Value Search::Worker::search(
     // Step 6. Static evaluation of the position
     Value      unadjustedStaticEval = VALUE_NONE;
     const auto correctionValue      = correction_value(*this, pos, ss);
+
     if (ss->inCheck)
     {
         // Skip early pruning when in check
@@ -819,7 +821,8 @@ Value Search::Worker::search(
         unadjustedStaticEval = evaluate(pos);
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 
-        // Static evaluation is saved as it was before adjustment by correction history
+        // Static evaluation is saved as it was before adjustment by
+        // correction history
         ttWriter.write(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_UNSEARCHED, Move::none(),
                        unadjustedStaticEval, tt.generation());
     }
@@ -833,6 +836,14 @@ Value Search::Worker::search(
             && ((ss - 1)->currentMove).type_of() != PROMOTION)
             pawnHistory[pawn_history_index(pos)][pos.piece_on(prevSq)][prevSq]
               << bonus * 1438 / 1024;
+    }
+
+    {
+        const auto scaledCorrection = correctionValue / 131072;
+
+        if (std::abs(scaledCorrection) >= 150 && std::abs(unadjustedStaticEval) <= 600)
+            corrhist_log_file << pos.fen() << " | " << correctionValue / 131072 << " | "
+                              << unadjustedStaticEval << std::endl;
     }
 
     // Set up the improving flag, which is true if current static evaluation is

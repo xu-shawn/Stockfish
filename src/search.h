@@ -25,6 +25,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <fstream>
 #include <functional>
 #include <memory>
 #include <string>
@@ -326,6 +327,8 @@ class Worker {
     Value evaluate(const Position&);
 
     LimitsType limits;
+
+    std::fstream corrhist_log_file;
 
     size_t                pvIdx, pvLast;
     std::atomic<uint64_t> nodes, tbHits, bestMoveChanges;
