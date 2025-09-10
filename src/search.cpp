@@ -675,6 +675,7 @@ Value Search::Worker::search(
     (ss - 1)->reduction = 0;
     ss->statScore       = 0;
     (ss + 2)->cutoffCnt = 0;
+    (ss + 1)->ttHit     = false;
 
     // Step 4. Transposition table lookup
     excludedMove                   = ss->excludedMove;
@@ -724,9 +725,12 @@ Value Search::Worker::search(
                 auto [ttHitNext, ttDataNext, ttWriterNext] = tt.probe(nextPosKey);
                 pos.undo_move(ttData.move);
 
-                // Check that the ttValue after the tt move would also trigger a cutoff
+                (ss + 1)->ttHit = true;
+
                 if (!is_valid(ttDataNext.value))
                     return ttData.value;
+
+                // Check that the ttValue after the tt move would also trigger a cutoff
                 if ((ttData.value >= beta) == (-ttDataNext.value >= beta))
                     return ttData.value;
             }
@@ -1132,9 +1136,10 @@ moves_loop:  // When in check, search starts here
             {
                 int corrValAdj   = std::abs(correctionValue) / 229958;
                 int doubleMargin = -4 + 198 * PvNode - 212 * !ttCapture - corrValAdj
-                                 - 921 * ttMoveHistory / 127649 - (ss->ply > rootDepth) * 45;
+                                 - 921 * ttMoveHistory / 127649 - (ss->ply > rootDepth) * 45
+                                 - (ss + 1)->ttHit * 50;
                 int tripleMargin = 76 + 308 * PvNode - 250 * !ttCapture + 92 * ss->ttPv - corrValAdj
-                                 - (ss->ply * 2 > rootDepth * 3) * 52;
+                                 - (ss->ply * 2 > rootDepth * 3) * 52 - (ss + 1)->ttHit * 50;
 
                 extension =
                   1 + (value < singularBeta - doubleMargin) + (value < singularBeta - tripleMargin);
