@@ -1204,6 +1204,9 @@ moves_loop:  // When in check, search starts here
         if (move == ttData.move)
             r -= 2018;
 
+        if (moveCount > 1 && bestValue <= alpha - 25 && ss->staticEval >= beta + 30)
+            r -= 512;
+
         if (capture)
             ss->statScore = 803 * int(PieceValue[pos.captured_piece()]) / 128
                           + captureHistory[movedPiece][move.to_sq()][type_of(pos.captured_piece())];
