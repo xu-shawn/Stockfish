@@ -799,8 +799,8 @@ Value Search::Worker::search(
 
     // Step 6. Static evaluation of the position
     Value      unadjustedStaticEval = VALUE_NONE;
-    const auto correctionValue =
-      correction_value(*this, nodes.load(std::memory_order_relaxed), pos, ss);
+    const auto correctionNodes      = nodes.load(std::memory_order_relaxed);
+    const auto correctionValue      = correction_value(*this, correctionNodes, pos, ss);
     if (ss->inCheck)
     {
         // Skip early pruning when in check
@@ -1473,7 +1473,7 @@ moves_loop:  // When in check, search starts here
     {
         auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / 8,
                                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
-        update_correction_history(pos, ss, *this, bonus, nodes.load(std::memory_order_relaxed));
+        update_correction_history(pos, ss, *this, bonus, correctionValue);
     }
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
