@@ -87,6 +87,7 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
                  : 8;
 
     return 9536 * pcv + 8494 * micv + 10132 * (wnpcv + bnpcv) + 7156 * cntcv;
+    ;
 }
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation
@@ -572,6 +573,8 @@ void Search::Worker::clear() {
         for (auto& h : to)
             h.fill(8);
 
+    pawnDrawHistory.fill(0);
+
     for (bool inCheck : {false, true})
         for (StatsType c : {NoCaptures, Captures})
             for (auto& to : continuationHistory[inCheck][c])
@@ -789,8 +792,9 @@ Value Search::Worker::search(
     }
 
     // Step 6. Static evaluation of the position
-    Value      unadjustedStaticEval = VALUE_NONE;
-    const auto correctionValue      = correction_value(*this, pos, ss);
+    Value unadjustedStaticEval = VALUE_NONE;
+    auto  correctionValue      = correction_value(*this, pos, ss);
+
     if (ss->inCheck)
     {
         // Skip early pruning when in check
@@ -799,13 +803,20 @@ Value Search::Worker::search(
         goto moves_loop;
     }
     else if (excludedMove)
+    {
         unadjustedStaticEval = eval = ss->staticEval;
+        const auto pdv              = pawnDrawHistory[pawn_correction_history_index(pos)][us];
+        correctionValue += pdv * (unadjustedStaticEval >= 0 ? 1 : -1) * 2000;
+    }
     else if (ss->ttHit)
     {
         // Never assume anything about values stored in TT
         unadjustedStaticEval = ttData.eval;
         if (!is_valid(unadjustedStaticEval))
             unadjustedStaticEval = evaluate(pos);
+
+        const auto pdv = pawnDrawHistory[pawn_correction_history_index(pos)][us];
+        correctionValue += pdv * (unadjustedStaticEval >= 0 ? 1 : -1) * 2000;
 
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 
@@ -817,6 +828,10 @@ Value Search::Worker::search(
     else
     {
         unadjustedStaticEval = evaluate(pos);
+
+        const auto pdv = pawnDrawHistory[pawn_correction_history_index(pos)][us];
+        correctionValue += pdv * (unadjustedStaticEval >= 0 ? 1 : -1) * 2000;
+
         ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
 
         // Static evaluation is saved as it was before adjustment by correction history
@@ -1464,6 +1479,8 @@ moves_loop:  // When in check, search starts here
         auto bonus = std::clamp(int(bestValue - ss->staticEval) * depth / 8,
                                 -CORRECTION_HISTORY_LIMIT / 4, CORRECTION_HISTORY_LIMIT / 4);
         update_correction_history(pos, ss, *this, bonus);
+        pawnDrawHistory[pawn_correction_history_index(pos)][us]
+          << bonus * (ss->staticEval >= 0 ? 1 : -1);
     }
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
