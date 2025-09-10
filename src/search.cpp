@@ -1456,6 +1456,9 @@ moves_loop:  // When in check, search starts here
                        moveCount != 0 ? depth : std::min(MAX_PLY - 1, depth + 6), bestMove,
                        unadjustedStaticEval, tt.generation());
 
+    ss->staticEval =
+      to_corrected_static_eval(unadjustedStaticEval, correction_value(*this, pos, ss));
+
     // Adjust correction history
     if (!ss->inCheck && !(bestMove && pos.capture(bestMove))
         && ((bestValue < ss->staticEval && bestValue < beta)  // negative correction & no fail high
