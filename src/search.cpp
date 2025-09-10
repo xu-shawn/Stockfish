@@ -1173,7 +1173,7 @@ moves_loop:  // When in check, search starts here
 
         // Add extension to new depth
         newDepth += extension;
-        uint64_t nodeCount = rootNode ? uint64_t(nodes) : 0;
+        uint64_t nodeCount = uint64_t(nodes.load(std::memory_order_relaxed));
 
         // Decrease reduction for PvNodes (*Scaler)
         if (ss->ttPv)
@@ -1223,10 +1223,11 @@ moves_loop:  // When in check, search starts here
             // beyond the first move depth.
             // To prevent problems when the max value is less than the min value,
             // std::clamp has been replaced by a more robust implementation.
-            Depth d = std::max(1, std::min(newDepth - r / 1024, newDepth + 2)) + PvNode;
+            Depth d        = std::max(1, std::min(newDepth - r / 1024, newDepth + 2)) + PvNode;
+            Value lmrAlpha = alpha - nodeCount % 4;
 
             ss->reduction = newDepth - d;
-            value         = -search<NonPV>(pos, ss + 1, -(alpha + 1), -alpha, d, true);
+            value         = -search<NonPV>(pos, ss + 1, -(lmrAlpha + 1), -lmrAlpha, d, true);
             ss->reduction = 0;
 
             // Do a full-depth search when reduced LMR search fails high
