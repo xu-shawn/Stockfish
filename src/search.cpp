@@ -1182,7 +1182,7 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
-        r += 543;  // Base reduction offset to compensate for other tweaks
+        r += 453;  // Base reduction offset to compensate for other tweaks
         r -= moveCount * 66;
         r -= std::abs(correctionValue) / 30450;
 
@@ -1356,8 +1356,7 @@ moves_loop:  // When in check, search starts here
 
                 if (value >= beta)
                 {
-                    // (*Scaler) Especially if they make cutoffCnt increment more often.
-                    ss->cutoffCnt += (extension < 2) || PvNode;
+                    ss->cutoffCnt++;
                     assert(value >= beta);  // Fail high
                     break;
                 }
