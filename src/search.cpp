@@ -1039,7 +1039,7 @@ moves_loop:  // When in check, search starts here
 
         // Step 14. Pruning at shallow depth.
         // Depth conditions are important for mate finding.
-        if (!rootNode && pos.non_pawn_material(us) && !is_loss(bestValue))
+        if (!rootNode && pos.non_pawn_material(us) > PieceValue[movedPiece] && !is_loss(bestValue))
         {
             // Skip quiet moves if movecount exceeds our FutilityMoveCount threshold
             if (moveCount >= (3 + depth * depth) / (2 - improving))
