@@ -625,7 +625,7 @@ Value Search::Worker::search(
     Depth extension, newDepth;
     Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
-    bool  capture, ttCapture;
+    bool  capture, ttCapture, ttCaptureNext;
     int   priorReduction;
     Piece movedPiece;
 
@@ -675,6 +675,7 @@ Value Search::Worker::search(
     (ss - 1)->reduction = 0;
     ss->statScore       = 0;
     (ss + 2)->cutoffCnt = 0;
+    ttCaptureNext       = false;
 
     // Step 4. Transposition table lookup
     excludedMove                   = ss->excludedMove;
@@ -722,6 +723,7 @@ Value Search::Worker::search(
                 pos.do_move(ttData.move, st);
                 Key nextPosKey                             = pos.key();
                 auto [ttHitNext, ttDataNext, ttWriterNext] = tt.probe(nextPosKey);
+                ttCaptureNext = ttDataNext.move && pos.capture_stage(ttDataNext.move);
                 pos.undo_move(ttData.move);
 
                 // Check that the ttValue after the tt move would also trigger a cutoff
@@ -850,7 +852,7 @@ Value Search::Worker::search(
     // Step 7. Razoring
     // If eval is really low, skip search entirely and return the qsearch value.
     // For PvNodes, we must have a guard against mates being returned.
-    if (!PvNode && eval < alpha - 514 - 294 * depth * depth)
+    if (!PvNode && eval < alpha - 514 - 294 * depth * depth + 300 * ttCaptureNext)
         return qsearch<NonPV>(pos, ss, alpha, beta);
 
     // Step 8. Futility pruning: child node
