@@ -730,9 +730,7 @@ Value Search::Worker::search(
 
                 if ((ttData.value >= beta) == (-ttDataNext.value >= beta))
                 {
-                    if (ttData.depth > ttDataNext.depth
-                        && (ttDataNext.bound
-                            & (-ttDataNext.value >= beta ? BOUND_UPPER : BOUND_LOWER)))
+                    if (ttData.depth > ttDataNext.depth && (ttDataNext.bound & BOUND_LOWER))
                         return -ttDataNext.value;
 
                     return ttData.value;
