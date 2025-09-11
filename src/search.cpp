@@ -728,7 +728,7 @@ Value Search::Worker::search(
                 if (!is_valid(ttDataNext.value))
                     return ttData.value;
                 if ((ttData.value >= beta) == (-ttDataNext.value >= beta))
-                    return ttData.value;
+                    return -ttDataNext.value;
             }
             else
                 return ttData.value;
