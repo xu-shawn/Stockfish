@@ -340,12 +340,21 @@ void Search::Worker::iterative_deepening() {
             int failedHighCnt = 0;
             while (true)
             {
+                sync_cout_start();
+                std::cout << "info string bound [" << alpha << ", " << beta << "] delta " << delta;
+                sync_cout_end();
+
                 // Adjust the effective depth searched, but ensure at least one
-                // effective increment for every four searchAgain steps (see issue #2717).
+                // effective increment for every four searchAgain steps (see
+                // issue #2717).
                 Depth adjustedDepth =
                   std::max(1, rootDepth - failedHighCnt - 3 * (searchAgainCounter + 1) / 4);
                 rootDelta = beta - alpha;
                 bestValue = search<Root>(rootPos, ss, alpha, beta, adjustedDepth, false);
+
+                sync_cout_start();
+                std::cout << " bestValue " << bestValue << std::endl;
+                sync_cout_end();
 
                 // Bring the best move to the front. It is critical that sorting
                 // is done with a stable algorithm because all the values but the
@@ -364,8 +373,7 @@ void Search::Worker::iterative_deepening() {
                 // When failing high/low give some update before a re-search. To avoid
                 // excessive output that could hang GUIs like Fritz 19, only start
                 // at nodes > 10M (rather than depth N, which can be reached quickly)
-                if (mainThread && multiPV == 1 && (bestValue <= alpha || bestValue >= beta)
-                    && nodes > 10000000)
+                if (mainThread && multiPV == 1 && (bestValue <= alpha || bestValue >= beta))
                     main_manager()->pv(*this, threads, tt, rootDepth);
 
                 // In case of failing low/high increase aspiration window and re-search,
@@ -997,11 +1005,6 @@ moves_loop:  // When in check, search starts here
 
         ss->moveCount = ++moveCount;
 
-        if (rootNode && is_mainthread() && nodes > 10000000)
-        {
-            main_manager()->updates.onIter(
-              {depth, UCIEngine::move(move, pos.is_chess960()), moveCount + pvIdx});
-        }
         if (PvNode)
             (ss + 1)->pv = nullptr;
 
