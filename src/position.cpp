@@ -844,7 +844,7 @@ DirtyPiece Position::do_move(Move                      m,
         }
 
         // Update pawn hash key
-        st->pawnKey ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
+        st->pawnKey ^= Zobrist::psq[pc][to];
 
         // Reset rule 50 draw counter
         st->rule50 = 0;
