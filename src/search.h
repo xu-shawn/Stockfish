@@ -292,7 +292,8 @@ class Worker {
     CorrectionHistory<NonPawn>      nonPawnCorrectionHistory;
     CorrectionHistory<Continuation> continuationCorrectionHistory;
 
-    TTMoveHistory ttMoveHistory;
+    TTMoveHistory         ttMoveHistory;
+    MetaCorrectionHistory metaCorrectionHistory;
 
    private:
     void iterative_deepening();
