@@ -56,7 +56,15 @@ struct TTEntry {
     }
 
     bool is_occupied() const;
-    void save(Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8);
+    void save(Key     k,
+              Value   v,
+              bool    pv,
+              Bound   b,
+              Depth   d,
+              Move    m,
+              Value   ev,
+              uint8_t generation8,
+              size_t  threadIdx);
     // The returned age is a multiple of TranspositionTable::GENERATION_DELTA
     uint8_t relative_age(const uint8_t generation8) const;
 
@@ -90,8 +98,15 @@ bool TTEntry::is_occupied() const { return bool(depth8); }
 
 // Populates the TTEntry with a new node's data, possibly
 // overwriting an old position. The update is not atomic and can be racy.
-void TTEntry::save(
-  Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8) {
+void TTEntry::save(Key     k,
+                   Value   v,
+                   bool    pv,
+                   Bound   b,
+                   Depth   d,
+                   Move    m,
+                   Value   ev,
+                   uint8_t generation8,
+                   size_t  threadIdx) {
 
     // Preserve the old ttmove if we don't have a new one
     if (m || uint16_t(k) != key16)
@@ -110,7 +125,8 @@ void TTEntry::save(
         value16   = int16_t(v);
         eval16    = int16_t(ev);
     }
-    else if (depth8 + DEPTH_ENTRY_OFFSET >= 5 && Bound(genBound8 & 0x3) != BOUND_EXACT)
+    else if (threadIdx == 0 && depth8 + DEPTH_ENTRY_OFFSET >= 5
+             && Bound(genBound8 & 0x3) != BOUND_EXACT)
         depth8--;
 }
 
@@ -129,9 +145,16 @@ uint8_t TTEntry::relative_age(const uint8_t generation8) const {
 TTWriter::TTWriter(TTEntry* tte) :
     entry(tte) {}
 
-void TTWriter::write(
-  Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8) {
-    entry->save(k, v, pv, b, d, m, ev, generation8);
+void TTWriter::write(Key     k,
+                     Value   v,
+                     bool    pv,
+                     Bound   b,
+                     Depth   d,
+                     Move    m,
+                     Value   ev,
+                     uint8_t generation8,
+                     size_t  threadIdx) {
+    entry->save(k, v, pv, b, d, m, ev, generation8, threadIdx);
 }
 
 

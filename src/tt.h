@@ -69,7 +69,15 @@ struct TTData {
 // This is used to make racy writes to the global TT.
 struct TTWriter {
    public:
-    void write(Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, uint8_t generation8);
+    void write(Key     k,
+               Value   v,
+               bool    pv,
+               Bound   b,
+               Depth   d,
+               Move    m,
+               Value   ev,
+               uint8_t generation8,
+               size_t  threadIdx);
 
    private:
     friend class TranspositionTable;
