@@ -554,7 +554,8 @@ void Search::Worker::clear() {
     minorPieceCorrectionHistory.fill(0);
     nonPawnCorrectionHistory.fill(0);
 
-    ttMoveHistory = 0;
+    ttMoveHistory         = 0;
+    metaCorrectionHistory = 0;
 
     for (auto& to : continuationCorrectionHistory)
         for (auto& h : to)
@@ -779,6 +780,7 @@ Value Search::Worker::search(
     // Step 6. Static evaluation of the position
     Value      unadjustedStaticEval = VALUE_NONE;
     const auto correctionValue      = correction_value(*this, pos, ss);
+    metaCorrectionHistory << correctionValue / 65536;
     if (ss->inCheck)
     {
         // Skip early pruning when in check
@@ -1174,6 +1176,7 @@ moves_loop:  // When in check, search starts here
         r += 843;  // Base reduction offset to compensate for other tweaks
         r -= moveCount * 66;
         r -= std::abs(correctionValue) / 30450;
+        r -= std::abs(metaCorrectionHistory) / 4;
 
         // Increase reduction for cut nodes
         if (cutNode)
