@@ -108,17 +108,14 @@ struct AccumulatorCaches {
     template<typename Networks>
     void clear(const Networks& networks) {
         big.clear(networks.big);
-        small.clear(networks.small);
     }
 
     Cache<TransformedFeatureDimensionsBig>   big;
-    Cache<TransformedFeatureDimensionsSmall> small;
 };
 
 
 struct AccumulatorState {
     Accumulator<TransformedFeatureDimensionsBig>   accumulatorBig;
-    Accumulator<TransformedFeatureDimensionsSmall> accumulatorSmall;
     DirtyPiece                                     dirtyPiece;
 
     void reset(const DirtyPiece& dp) noexcept;

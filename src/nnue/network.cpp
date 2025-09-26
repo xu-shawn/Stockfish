@@ -456,8 +456,4 @@ template class Network<
   NetworkArchitecture<TransformedFeatureDimensionsBig, L2Big, L3Big>,
   FeatureTransformer<TransformedFeatureDimensionsBig, &AccumulatorState::accumulatorBig>>;
 
-template class Network<
-  NetworkArchitecture<TransformedFeatureDimensionsSmall, L2Small, L3Small>,
-  FeatureTransformer<TransformedFeatureDimensionsSmall, &AccumulatorState::accumulatorSmall>>;
-
 }  // namespace Stockfish::Eval::NNUE

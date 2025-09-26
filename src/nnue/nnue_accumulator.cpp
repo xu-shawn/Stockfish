@@ -68,7 +68,6 @@ void update_accumulator_refresh_cache(
 void AccumulatorState::reset(const DirtyPiece& dp) noexcept {
     dirtyPiece = dp;
     accumulatorBig.computed.fill(false);
-    accumulatorSmall.computed.fill(false);
 }
 
 const AccumulatorState& AccumulatorStack::latest() const noexcept {
@@ -90,13 +89,6 @@ void AccumulatorStack::reset(const Position&    rootPos,
     update_accumulator_refresh_cache<BLACK, TransformedFeatureDimensionsBig,
                                      &AccumulatorState::accumulatorBig>(
       *networks.big.featureTransformer, rootPos, m_accumulators[0], caches.big);
-
-    update_accumulator_refresh_cache<WHITE, TransformedFeatureDimensionsSmall,
-                                     &AccumulatorState::accumulatorSmall>(
-      *networks.small.featureTransformer, rootPos, m_accumulators[0], caches.small);
-    update_accumulator_refresh_cache<BLACK, TransformedFeatureDimensionsSmall,
-                                     &AccumulatorState::accumulatorSmall>(
-      *networks.small.featureTransformer, rootPos, m_accumulators[0], caches.small);
 }
 
 void AccumulatorStack::push(const DirtyPiece& dirtyPiece) noexcept {
@@ -198,12 +190,6 @@ AccumulatorStack::evaluate<TransformedFeatureDimensionsBig, &AccumulatorState::a
   const FeatureTransformer<TransformedFeatureDimensionsBig, &AccumulatorState::accumulatorBig>&
                                                              featureTransformer,
   AccumulatorCaches::Cache<TransformedFeatureDimensionsBig>& cache) noexcept;
-template void
-AccumulatorStack::evaluate<TransformedFeatureDimensionsSmall, &AccumulatorState::accumulatorSmall>(
-  const Position& pos,
-  const FeatureTransformer<TransformedFeatureDimensionsSmall, &AccumulatorState::accumulatorSmall>&
-                                                               featureTransformer,
-  AccumulatorCaches::Cache<TransformedFeatureDimensionsSmall>& cache) noexcept;
 
 
 namespace {
