@@ -780,7 +780,7 @@ Value Search::Worker::search(
     // Step 6. Static evaluation of the position
     Value      unadjustedStaticEval = VALUE_NONE;
     const auto correctionValue      = correction_value(*this, pos, ss);
-    metaCorrectionHistory << correctionValue / 65536;
+    metaCorrectionHistory << correctionValue / 16384;
     if (ss->inCheck)
     {
         // Skip early pruning when in check
@@ -1173,7 +1173,8 @@ moves_loop:  // When in check, search starts here
 
         // These reduction adjustments have no proven non-linear scaling
 
-        r += 900;  // Base reduction offset to compensate for other tweaks
+        r += 884;  // Base reduction offset to compensate for other tweaks
+        r += 543;
         r -= moveCount * 66;
         r -= std::abs(correctionValue) / 30450;
         r -= std::abs(metaCorrectionHistory) / 8;
