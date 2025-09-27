@@ -48,7 +48,7 @@ class TimeManagement {
     TimePoint elapsed(FUNC nodes) const {
         return useNodesTime ? TimePoint(nodes()) : elapsed_time();
     }
-    TimePoint elapsed_time() const { return now() - startTime; };
+    TimePoint elapsed_time() const { return std::max(now() - startTime, TimePoint(1)); };
 
     void clear();
     void advance_nodes_time(std::int64_t nodes);

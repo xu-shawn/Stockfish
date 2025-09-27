@@ -55,10 +55,9 @@ Engine::Engine(std::optional<std::string> path) :
     numaContext(NumaConfig::from_system()),
     states(new std::deque<StateInfo>(1)),
     threads(),
-    networks(
-      numaContext,
-      NN::Networks(
-        NN::NetworkBig({EvalFileDefaultNameBig, "None", ""}, NN::EmbeddedNNUEType::BIG))) {
+    networks(numaContext,
+             NN::Networks(
+               NN::NetworkBig({EvalFileDefaultNameBig, "None", ""}, NN::EmbeddedNNUEType::BIG))) {
     pos.set(StartFEN, false, &states->back());
 
 
@@ -264,9 +263,8 @@ void Engine::load_big_network(const std::string& file) {
 }
 
 void Engine::save_network(const std::pair<std::optional<std::string>, std::string> files[2]) {
-    networks.modify_and_replicate([&files](NN::Networks& networks_) {
-        networks_.big.save(files[0].first);
-    });
+    networks.modify_and_replicate(
+      [&files](NN::Networks& networks_) { networks_.big.save(files[0].first); });
 }
 
 // utility functions

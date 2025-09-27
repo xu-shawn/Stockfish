@@ -39,6 +39,8 @@
 #include "types.h"
 #include "ucioption.h"
 
+std::string js_getline();  // src/dualnet-glue.cpp
+
 namespace Stockfish {
 
 constexpr auto BenchmarkCommand = "speedtest";
@@ -65,8 +67,8 @@ void UCIEngine::print_info_string(std::string_view str) {
 }
 
 UCIEngine::UCIEngine(int argc, char** argv) :
-    engine(argv[0]),
-    cli(argc, argv) {
+    engine(),
+    cli(0, nullptr) {
 
     engine.get_options().add_info_listener([](const std::optional<std::string>& str) {
         if (str.has_value())
@@ -96,6 +98,8 @@ void UCIEngine::loop() {
         if (cli.argc == 1
             && !getline(std::cin, cmd))  // Wait for an input or an end-of-file (EOF) indication
             cmd = "quit";
+
+        cmd = js_getline();
 
         std::istringstream is(cmd);
 
@@ -175,7 +179,7 @@ void UCIEngine::loop() {
             sync_cout << "Unknown command: '" << cmd << "'. Type help for more information."
                       << sync_endl;
 
-    } while (token != "quit" && cli.argc == 1);  // The command-line arguments are one-shot
+    } while (token != "quit");  // The command-line arguments are one-shot
 }
 
 Search::LimitsType UCIEngine::parse_limits(std::istream& is) {

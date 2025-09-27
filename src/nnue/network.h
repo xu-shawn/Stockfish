@@ -76,14 +76,15 @@ class Network {
                                  AccumulatorStack&                       accumulatorStack,
                                  AccumulatorCaches::Cache<FTDimensions>* cache) const;
 
+    std::optional<std::string> load(std::istream&);
+
    private:
     void load_user_net(const std::string&, const std::string&);
     void load_internal();
 
     void initialize();
 
-    bool                       save(std::ostream&, const std::string&, const std::string&) const;
-    std::optional<std::string> load(std::istream&);
+    bool save(std::ostream&, const std::string&, const std::string&) const;
 
     bool read_header(std::istream&, std::uint32_t*, std::string*) const;
     bool write_header(std::ostream&, std::uint32_t, const std::string&) const;

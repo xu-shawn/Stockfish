@@ -477,6 +477,7 @@ bool is_whitespace(std::string_view s) {
 }
 
 std::string CommandLine::get_binary_directory(std::string argv0) {
+    return "";
     std::string pathSeparator;
 
 #ifdef _WIN32
@@ -511,6 +512,7 @@ std::string CommandLine::get_binary_directory(std::string argv0) {
 }
 
 std::string CommandLine::get_working_directory() {
+    return "";
     std::string workingDirectory = "";
     char        buff[40000];
     char*       cwd = GETCWD(buff, 40000);

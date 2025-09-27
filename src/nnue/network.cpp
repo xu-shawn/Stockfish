@@ -47,7 +47,6 @@
 // Note that this does not work in Microsoft Visual Studio.
 #if !defined(_MSC_VER) && !defined(NNUE_EMBEDDING_OFF)
 INCBIN(EmbeddedNNUEBig, EvalFileDefaultNameBig);
-INCBIN(EmbeddedNNUESmall, EvalFileDefaultNameSmall);
 #else
 const unsigned char        gEmbeddedNNUEBigData[1]   = {0x0};
 const unsigned char* const gEmbeddedNNUEBigEnd       = &gEmbeddedNNUEBigData[1];
@@ -241,6 +240,7 @@ Network<Arch, Transformer>::evaluate(const Position&                         pos
 template<typename Arch, typename Transformer>
 void Network<Arch, Transformer>::verify(std::string                                  evalfilePath,
                                         const std::function<void(std::string_view)>& f) const {
+    return;  // Yep
     if (evalfilePath.empty())
         evalfilePath = evalFile.defaultName;
 

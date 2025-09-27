@@ -89,6 +89,14 @@ class Engine {
     void load_small_network(const std::string& file);
     void save_network(const std::pair<std::optional<std::string>, std::string> files[2]);
 
+    void load_big_network(std::istream& is) {
+        networks.modify_and_replicate([this, &is](auto& networks_) { networks_.big.load(is); });
+        threads.clear();
+        threads.ensure_network_replicated();
+    }
+
+    void load_small_network(std::istream& is) { load_big_network(is); }
+
     // utility functions
 
     void trace_eval() const;

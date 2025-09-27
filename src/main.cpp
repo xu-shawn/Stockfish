@@ -27,6 +27,8 @@
 
 using namespace Stockfish;
 
+UCIEngine* uci_global;
+
 int main(int argc, char* argv[]) {
 
     std::cout << engine_info() << std::endl;
@@ -34,11 +36,13 @@ int main(int argc, char* argv[]) {
     Bitboards::init();
     Position::init();
 
-    UCIEngine uci(argc, argv);
+    uci_global = new UCIEngine(0, nullptr);
+    Tune::init(uci_global->engine_options());
 
-    Tune::init(uci.engine_options());
+    uci_global->loop();
 
-    uci.loop();
+    delete uci_global;
+    uci_global = nullptr;
 
     return 0;
 }

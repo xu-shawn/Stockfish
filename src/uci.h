@@ -39,6 +39,7 @@ using Value = int;
 class UCIEngine {
    public:
     UCIEngine(int argc, char** argv);
+    UCIEngine() = delete;
 
     void loop();
 
@@ -54,8 +55,9 @@ class UCIEngine {
 
     auto& engine_options() { return engine.get_options(); }
 
+    Engine engine;
+
    private:
-    Engine      engine;
     CommandLine cli;
 
     static void print_info_string(std::string_view str);
