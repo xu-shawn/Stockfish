@@ -20,7 +20,6 @@
 #define HISTORY_H_INCLUDED
 
 #include <algorithm>
-#include <array>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -163,8 +162,9 @@ struct CorrHistTypedef<NonPawn> {
 template<CorrHistType T>
 using CorrectionHistory = typename Detail::CorrHistTypedef<T>::type;
 
-using TTMoveHistory         = StatsEntry<std::int16_t, 8192>;
-using CorrectionMetaHistory = StatsEntry<std::int16_t, 8192>;
+using TTMoveHistory = StatsEntry<std::int16_t, 8192>;
+
+using CorrectionMetaHistory = Stats<std::int16_t, 8192, COLOR_NB>;
 
 }  // namespace Stockfish
 
