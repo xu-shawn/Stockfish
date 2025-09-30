@@ -335,8 +335,10 @@ void Position::set_check_info() const {
 // The function is only used when a new position is set up
 void Position::set_state() const {
 
-    st->key = st->materialKey = 0;
-    st->minorPieceKey         = 0;
+    st->key               = 0;
+    st->materialKey       = 0;
+    st->stochasticKey     = 0;
+    st->minorPieceKey     = 0;
     st->nonPawnKey[WHITE] = st->nonPawnKey[BLACK] = 0;
     st->pawnKey                                   = Zobrist::noPawns;
     st->nonPawnMaterial[WHITE] = st->nonPawnMaterial[BLACK] = VALUE_ZERO;
@@ -787,22 +789,27 @@ DirtyPiece Position::do_move(Move                      m,
         dp.remove_sq = SQ_NONE;
 
     // Update hash key
-    k ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
+    Key diff = Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
 
     // Reset en passant square
     if (st->epSquare != SQ_NONE)
     {
-        k ^= Zobrist::enpassant[file_of(st->epSquare)];
+        diff ^= Zobrist::enpassant[file_of(st->epSquare)];
         st->epSquare = SQ_NONE;
     }
 
     // Update castling rights if needed
     if (st->castlingRights && (castlingRightsMask[from] | castlingRightsMask[to]))
     {
-        k ^= Zobrist::castling[st->castlingRights];
+        diff ^= Zobrist::castling[st->castlingRights];
         st->castlingRights &= ~(castlingRightsMask[from] | castlingRightsMask[to]);
-        k ^= Zobrist::castling[st->castlingRights];
+        diff ^= Zobrist::castling[st->castlingRights];
     }
+
+    k ^= diff;
+
+    if (k % 8 == 0)
+        st->stochasticKey ^= diff;
 
     // Move the piece. The tricky Chess960 castling is handled earlier
     if (m.type_of() != CASTLING)
