@@ -99,7 +99,7 @@ struct AccumulatorCaches {
     template<typename Networks>
     void clear(const Networks& networks) {
         big.clear(networks.big);
-        small.clear(networks.small);
+        // small.clear(networks.small);
     }
 
     Cache<TransformedFeatureDimensionsBig>   big;
@@ -144,9 +144,11 @@ class AccumulatorStack {
    public:
     AccumulatorStack() :
         accumulators(MAX_PLY + 1),
+        threat_accumulators(MAX_PLY + 1),
         size{1} {}
 
     [[nodiscard]] const AccumulatorState& latest() const noexcept;
+    [[nodiscard]] const AccumulatorState& latest_threat() const noexcept;
 
     void reset() noexcept;
     void push(const DirtyPiece& dirtyPiece) noexcept;
@@ -159,6 +161,7 @@ class AccumulatorStack {
 
    private:
     [[nodiscard]] AccumulatorState& mut_latest() noexcept;
+    [[nodiscard]] AccumulatorState& mut_latest_threat() noexcept;
 
     template<Color Perspective, IndexType Dimensions>
     void evaluate_side(const Position&                       pos,
@@ -179,6 +182,7 @@ class AccumulatorStack {
                                      const std::size_t                     end) noexcept;
 
     std::vector<AccumulatorState> accumulators;
+    std::vector<AccumulatorState> threat_accumulators;
     std::size_t                   size;
 };
 
