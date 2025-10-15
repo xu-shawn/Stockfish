@@ -301,9 +301,15 @@ struct DirtyThreat {
 
 using DirtyThreatList = ValueList<DirtyThreat, 64>;  // 32 is not enough, find better upper bound?
 
+struct DirtyThreats {
+    DirtyThreatList list;
+    Color           us;
+    Square          prevKsq, ksq;
+};
+
 struct DirtyBoardData {
-    DirtyPiece      dp;
-    DirtyThreatList dts;
+    DirtyPiece   dp;
+    DirtyThreats dts;
 };
 
     #define ENABLE_INCR_OPERATORS_ON(T) \
@@ -312,14 +318,12 @@ struct DirtyBoardData {
 
 ENABLE_INCR_OPERATORS_ON(PieceType)
 ENABLE_INCR_OPERATORS_ON(Square)
-ENABLE_INCR_OPERATORS_ON(File) ENABLE_INCR_OPERATORS_ON(Rank)
+ENABLE_INCR_OPERATORS_ON(File)
+ENABLE_INCR_OPERATORS_ON(Rank)
 
     #undef ENABLE_INCR_OPERATORS_ON
 
-  constexpr Direction
-  operator+(Direction d1, Direction d2) {
-    return Direction(int(d1) + int(d2));
-}
+constexpr Direction operator+(Direction d1, Direction d2) { return Direction(int(d1) + int(d2)); }
 constexpr Direction operator*(int i, Direction d) { return Direction(i * int(d)); }
 
 // Additional operators to add a Direction to a Square

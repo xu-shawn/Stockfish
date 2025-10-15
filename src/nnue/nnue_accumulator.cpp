@@ -226,7 +226,7 @@ void AccumulatorStack::backward_update_incremental(
 
     assert(end < accumulators<FeatureSet>().size());
     assert(end < size);
-    assert((latest<PSQFeatureSet>().acc<Dimensions>()).computed[Perspective]);
+    assert((latest<FeatureSet>().template acc<Dimensions>()).computed[Perspective]);
 
     const Square ksq = pos.square<KING>(Perspective);
 
@@ -235,7 +235,7 @@ void AccumulatorStack::backward_update_incremental(
                                                            mut_accumulators<FeatureSet>()[next],
                                                            accumulators<FeatureSet>()[next + 1]);
 
-    assert((psq_accumulators[end].acc<Dimensions>()).computed[Perspective]);
+    assert((accumulators<FeatureSet>()[end].template acc<Dimensions>()).computed[Perspective]);
 }
 
 // Explicit template instantiations

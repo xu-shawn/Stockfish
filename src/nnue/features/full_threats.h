@@ -75,7 +75,7 @@ class FullThreats {
 
     // clang-format off
     // Orient a square according to perspective (rotates by 180 for black)
-    static constexpr int OrientTBLT[COLOR_NB][SQUARE_NB] = {
+    static constexpr int OrientTBL[COLOR_NB][SQUARE_NB] = {
       { SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
         SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
         SQ_A1, SQ_A1, SQ_A1, SQ_A1, SQ_H1, SQ_H1, SQ_H1, SQ_H1,
@@ -107,7 +107,7 @@ class FullThreats {
     // Maximum number of simultaneously active features.
     static constexpr IndexType MaxActiveDimensions = 128;
     using IndexList                                = ValueList<IndexType, MaxActiveDimensions>;
-    using DiffType                                 = DirtyThreatList;
+    using DiffType                                 = DirtyThreats;
 
     FullThreats() { init_threat_offsets(); };
 
