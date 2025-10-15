@@ -245,10 +245,10 @@ enum Square : int8_t {
 
 enum Direction : int8_t {
     NOWHERE = 0,
-    NORTH = 8,
-    EAST  = 1,
-    SOUTH = -NORTH,
-    WEST  = -EAST,
+    NORTH   = 8,
+    EAST    = 1,
+    SOUTH   = -NORTH,
+    WEST    = -EAST,
 
     NORTH_EAST = NORTH + EAST,
     SOUTH_EAST = SOUTH + EAST,
@@ -294,13 +294,17 @@ struct DirtyPiece {
 
 // Keep track of what threats change on the board (used by NNUE)
 struct DirtyThreat {
-  Piece pc, threatened_pc;
-  Square pc_sq, threatened_sq;
-  bool add;
+    Piece  pc, threatened_pc;
+    Square pc_sq, threatened_sq;
+    bool   add;
 };
 
-using DirtyThreatList = ValueList<DirtyThreat, 64>; // 32 is not enough, find better upper bound?
-using DirtyBoardData = std::pair<DirtyPiece, DirtyThreatList>;
+using DirtyThreatList = ValueList<DirtyThreat, 64>;  // 32 is not enough, find better upper bound?
+
+struct DirtyBoardData {
+    DirtyPiece      dp;
+    DirtyThreatList dts;
+};
 
     #define ENABLE_INCR_OPERATORS_ON(T) \
         constexpr T& operator++(T& d) { return d = T(int(d) + 1); } \
@@ -308,12 +312,14 @@ using DirtyBoardData = std::pair<DirtyPiece, DirtyThreatList>;
 
 ENABLE_INCR_OPERATORS_ON(PieceType)
 ENABLE_INCR_OPERATORS_ON(Square)
-ENABLE_INCR_OPERATORS_ON(File)
-ENABLE_INCR_OPERATORS_ON(Rank)
+ENABLE_INCR_OPERATORS_ON(File) ENABLE_INCR_OPERATORS_ON(Rank)
 
     #undef ENABLE_INCR_OPERATORS_ON
 
-constexpr Direction operator+(Direction d1, Direction d2) { return Direction(int(d1) + int(d2)); }
+  constexpr Direction
+  operator+(Direction d1, Direction d2) {
+    return Direction(int(d1) + int(d2));
+}
 constexpr Direction operator*(int i, Direction d) { return Direction(i * int(d)); }
 
 // Additional operators to add a Direction to a Square

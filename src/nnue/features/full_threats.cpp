@@ -187,21 +187,32 @@ FullThreats::make_index<BLACK>(Piece attkr, Square from, Square to, Piece attkd,
 
 // Get a list of indices for recently changed features
 template<Color Perspective>
-void FullThreats::append_changed_indices(Square            ksq,
-                                         const DirtyPiece& dp,
-                                         IndexList&        removed,
-                                         IndexList&        added) {}
+void FullThreats::append_changed_indices(Square          ksq,
+                                         const DiffType& diff,
+                                         IndexList&      removed,
+                                         IndexList&      added) {
+    for (const auto [attacker, attacked, from, to, add] : diff)
+    {
+        if (add)
+            added.push_back(make_index<Perspective>(attacker, from, to, attacked, ksq));
+        else
+            removed.push_back(make_index<Perspective>(attacker, from, to, attacked, ksq));
+    }
+}
 
 // Explicit template instantiations
-template void FullThreats::append_changed_indices<WHITE>(Square            ksq,
-                                                         const DirtyPiece& dp,
-                                                         IndexList&        removed,
-                                                         IndexList&        added);
-template void FullThreats::append_changed_indices<BLACK>(Square            ksq,
-                                                         const DirtyPiece& dp,
-                                                         IndexList&        removed,
-                                                         IndexList&        added);
+template void FullThreats::append_changed_indices<WHITE>(Square          ksq,
+                                                         const DiffType& diff,
+                                                         IndexList&      removed,
+                                                         IndexList&      added);
+template void FullThreats::append_changed_indices<BLACK>(Square          ksq,
+                                                         const DiffType& diff,
+                                                         IndexList&      removed,
+                                                         IndexList&      added);
 
-bool FullThreats::requires_refresh(const DirtyPiece& dirtyPiece, Color perspective) { return true; }
+bool FullThreats::requires_refresh([[maybe_unused]] const DiffType& diff,
+                                   [[maybe_unused]] Color           perspective) {
+    return false;
+}
 
 }  // namespace Stockfish::Eval::NNUE::Features
