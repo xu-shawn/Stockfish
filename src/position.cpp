@@ -1039,67 +1039,67 @@ void Position::undo_move(Move m) {
     assert(pos_is_ok());
 }
 
-template<bool put_piece>
+template<bool PutPiece>
 void Position::update_piece_threats(Piece pc, Square s, DirtyThreats* const dts) {
     // Add newly threatened pieces
     Bitboard occupied   = pieces();
     Bitboard threatened = attacks_bb(pc, s, occupied);
     while (threatened)
     {
-        Square threatened_sq = pop_lsb(threatened);
-        Piece  threatened_pc = piece_on(threatened_sq);
+        Square threatenedSq = pop_lsb(threatened);
+        Piece  threatenedPc = piece_on(threatenedSq);
 
-        assert(threatened_sq != s);
+        assert(threatenedSq != s);
 
-        if (threatened_pc)
-            dts->list.push_back({pc, threatened_pc, s, threatened_sq, put_piece});
+        if (threatenedPc)
+            dts->list.push_back({pc, threatenedPc, s, threatenedSq, PutPiece});
 
-        if (put_piece)
-            st->threatsToSquare[threatened_sq] |= square_bb(s);
+        if constexpr (PutPiece)
+            st->threatsToSquare[threatenedSq] |= square_bb(s);
         else
-            st->threatsToSquare[threatened_sq] &= ~square_bb(s);
+            st->threatsToSquare[threatenedSq] &= ~square_bb(s);
     }
 
     // Remove threats of sliders that are now blocked by pc
     Bitboard sliders = pieces(BISHOP, ROOK, QUEEN) & ~square_bb(s) & st->threatsToSquare[s];
     while (sliders)
     {
-        Square slider_sq = pop_lsb(sliders);
-        Piece  slider    = piece_on(slider_sq);
+        Square sliderSq = pop_lsb(sliders);
+        Piece  slider   = piece_on(sliderSq);
 
-        Bitboard ray = RayPassBB[slider_sq][s] & ~BetweenBB[slider_sq][s];
-        Bitboard threatened = ray & attacks_bb<QUEEN>(s, occupied) & occupied;
+        Bitboard ray = RayPassBB[sliderSq][s] & ~BetweenBB[sliderSq][s];
+        Bitboard threat = ray & occupied;
 
-        assert(!more_than_one(threatened));
-        if (threatened)
+        if (threat)
         {
-            Square threatened_sq = lsb(threatened);
-            ray &= BetweenBB[s][threatened_sq];
+            Square threatenedSq = sliderSq > s ? msb(threat) : lsb(threat);
+            ray &= BetweenBB[s][threatenedSq];
 
-            Piece threatened_pc = piece_on(threatened_sq);
-            dts->list.push_back({slider, threatened_pc, slider_sq, threatened_sq, !put_piece});
+            Piece threatenedPc = piece_on(threatenedSq);
+            dts->list.push_back({slider, threatenedPc, sliderSq, threatenedSq, !PutPiece});
         }
 
-        while (ray) {
-            Square ray_sq = pop_lsb(ray);
-            if (put_piece)
-                st->threatsToSquare[ray_sq] &= ~square_bb(slider_sq);
+        while (ray)
+        {
+            Square raySq = pop_lsb(ray);
+            if constexpr (PutPiece)
+                st->threatsToSquare[raySq] &= ~square_bb(sliderSq);
             else
-                st->threatsToSquare[ray_sq] |= square_bb(slider_sq);
+                st->threatsToSquare[raySq] |= square_bb(sliderSq);
         }
     }
 
     // Add threats of sliders that were already threatening s
-    Bitboard incoming_threats = st->threatsToSquare[s];
-    while (incoming_threats)
+    Bitboard incomingThreats = st->threatsToSquare[s];
+    while (incomingThreats)
     {
-        Square src_sq = pop_lsb(incoming_threats);
-        Piece  src_pc = piece_on(src_sq);
+        Square srcSq = pop_lsb(incomingThreats);
+        Piece  srcPc = piece_on(srcSq);
 
-        assert(src_sq != s);
-        assert(src_pc != NO_PIECE);
+        assert(srcSq != s);
+        assert(srcPc != NO_PIECE);
 
-        dts->list.push_back({src_pc, pc, src_sq, s, put_piece});
+        dts->list.push_back({srcPc, pc, srcSq, s, PutPiece});
     }
 }
 
