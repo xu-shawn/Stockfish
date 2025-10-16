@@ -794,7 +794,10 @@ DirtyBoardData Position::do_move(Move                      m,
         dp.remove_sq = capsq;
 
         // Update board and piece lists
-        remove_piece(capsq, &dts);
+        if (captured && m.type_of() != EN_PASSANT)
+            remove_piece<true>(capsq, &dts);
+        else
+            remove_piece(capsq, &dts);
 
         k ^= Zobrist::psq[captured][capsq];
         st->materialKey ^= Zobrist::psq[captured][8 + pieceCount[captured]];
@@ -825,7 +828,15 @@ DirtyBoardData Position::do_move(Move                      m,
 
     // Move the piece. The tricky Chess960 castling is handled earlier
     if (m.type_of() != CASTLING)
-        move_piece(from, to, &dts);
+    {
+        if (captured && m.type_of() != EN_PASSANT)
+        {
+            put_piece<true>(pc, to, &dts);
+            remove_piece(from, &dts);
+        }
+        else
+            move_piece(from, to, &dts);
+    }
 
     // If the moving piece is a pawn do some special extra work
     if (type_of(pc) == PAWN)
