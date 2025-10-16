@@ -171,9 +171,7 @@ class Position {
 
     StateInfo* state() const;
 
-    template<bool WasRemoved = false>
     void put_piece(Piece pc, Square s, DirtyThreats* const dts = nullptr);
-    template<bool WillBeReAdded = false>
     void remove_piece(Square s, DirtyThreats* const dts = nullptr);
 
    private:
@@ -183,7 +181,7 @@ class Position {
     void set_check_info() const;
 
     // Other helpers
-    template<bool WasRemoved = false>
+    void change_piece(Piece pc, Square s, DirtyThreats* const dts = nullptr);
     void move_piece(Square from, Square to, DirtyThreats* const dts = nullptr);
     template<bool PutPiece, bool TempChangeToSquare>
     void update_piece_threats(Piece pc, Square s, DirtyThreats* const dts);
@@ -339,7 +337,26 @@ inline bool Position::capture_stage(Move m) const {
 
 inline Piece Position::captured_piece() const { return st->capturedPiece; }
 
-template<bool WasRemoved>
+inline void Position::change_piece(Piece pc, Square s, DirtyThreats* const dts) {
+    Piece orig = board[s];
+
+    if (dts)
+        update_piece_threats<false, true>(orig, s, dts);
+
+    board[s] = pc;
+    byTypeBB[type_of(orig)] ^= s;
+    byColorBB[color_of(orig)] ^= s;
+    pieceCount[orig]--;
+    pieceCount[make_piece(color_of(orig), ALL_PIECES)]--;
+    byTypeBB[type_of(pc)] |= s;
+    byColorBB[color_of(pc)] |= s;
+    pieceCount[pc]++;
+    pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
+
+    if (dts)
+        update_piece_threats<true, true>(pc, s, dts);
+}
+
 inline void Position::put_piece(Piece pc, Square s, DirtyThreats* const dts) {
     board[s] = pc;
     byTypeBB[ALL_PIECES] |= byTypeBB[type_of(pc)] |= s;
@@ -348,15 +365,14 @@ inline void Position::put_piece(Piece pc, Square s, DirtyThreats* const dts) {
     pieceCount[make_piece(color_of(pc), ALL_PIECES)]++;
 
     if (dts)
-        update_piece_threats<true, WasRemoved>(pc, s, dts);
+        update_piece_threats<true, false>(pc, s, dts);
 }
 
-template<bool WillBeReAdded>
 inline void Position::remove_piece(Square s, DirtyThreats* const dts) {
     Piece pc = board[s];
 
     if (dts)
-        update_piece_threats<false, WillBeReAdded>(pc, s, dts);
+        update_piece_threats<false, false>(pc, s, dts);
 
     byTypeBB[ALL_PIECES] ^= s;
     byTypeBB[type_of(pc)] ^= s;
@@ -366,7 +382,6 @@ inline void Position::remove_piece(Square s, DirtyThreats* const dts) {
     pieceCount[make_piece(color_of(pc), ALL_PIECES)]--;
 }
 
-template<bool WasRemoved>
 inline void Position::move_piece(Square from, Square to, DirtyThreats* const dts) {
     Piece    pc     = board[from];
     Bitboard fromTo = from | to;
@@ -381,7 +396,7 @@ inline void Position::move_piece(Square from, Square to, DirtyThreats* const dts
     board[to]   = pc;
 
     if (dts)
-        update_piece_threats<true, WasRemoved>(pc, to, dts);
+        update_piece_threats<true, false>(pc, to, dts);
 }
 
 inline void Position::do_move(Move m, StateInfo& newSt, const TranspositionTable* tt = nullptr) {

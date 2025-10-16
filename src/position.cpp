@@ -783,8 +783,7 @@ DirtyBoardData Position::do_move(Move                      m,
             }
             else
             {
-                remove_piece<true>(to, &dts);
-                put_piece<true>(pc, to, &dts);
+                change_piece(pc, to, &dts);
                 remove_piece(from, &dts);
             }
 
@@ -798,8 +797,7 @@ DirtyBoardData Position::do_move(Move                      m,
             if (type_of(captured) <= BISHOP)
                 st->minorPieceKey ^= Zobrist::psq[captured][capsq];
 
-            remove_piece<true>(to, &dts);
-            put_piece<true>(pc, to, &dts);
+            change_piece(pc, to, &dts);
             remove_piece(from, &dts);
         }
 
@@ -851,8 +849,7 @@ DirtyBoardData Position::do_move(Move                      m,
             assert(relative_rank(us, to) == RANK_8);
             assert(type_of(promotion) >= KNIGHT && type_of(promotion) <= QUEEN);
 
-            remove_piece<true>(to, &dts);
-            put_piece<true>(promotion, to, &dts);
+            change_piece(promotion, to, &dts);
 
             dp.add_pc = promotion;
             dp.add_sq = to;
@@ -1156,13 +1153,8 @@ void Position::do_castling(Color               us,
     }
     else
     {
-        remove_piece<true>(Do ? from : to, dts);
-        remove_piece<true>(Do ? rfrom : rto, dts);
-        board[Do ? from : to] = board[Do ? rfrom : rto] =
-          NO_PIECE;  // remove_piece does not do this for us
-
-        put_piece<true>(make_piece(us, KING), Do ? to : from, dts);
-        put_piece<true>(make_piece(us, ROOK), Do ? rto : rfrom, dts);
+        change_piece(make_piece(us, KING), Do ? to : from, dts);
+        change_piece(make_piece(us, ROOK), Do ? rto : rfrom, dts);
     }
 }
 
