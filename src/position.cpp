@@ -777,6 +777,15 @@ DirtyBoardData Position::do_move(Move                      m,
                 assert(relative_rank(us, to) == RANK_6);
                 assert(piece_on(to) == NO_PIECE);
                 assert(piece_on(capsq) == make_piece(them, PAWN));
+
+                remove_piece(capsq, &dts);
+                move_piece(from, to, &dts);
+            }
+            else
+            {
+                remove_piece<true>(to, &dts);
+                put_piece<true>(pc, to, &dts);
+                remove_piece(from, &dts);
             }
 
             st->pawnKey ^= Zobrist::psq[captured][capsq];
@@ -788,16 +797,14 @@ DirtyBoardData Position::do_move(Move                      m,
 
             if (type_of(captured) <= BISHOP)
                 st->minorPieceKey ^= Zobrist::psq[captured][capsq];
+
+            remove_piece<true>(to, &dts);
+            put_piece<true>(pc, to, &dts);
+            remove_piece(from, &dts);
         }
 
         dp.remove_pc = captured;
         dp.remove_sq = capsq;
-
-        // Update board and piece lists
-        if (captured && m.type_of() != EN_PASSANT)
-            remove_piece<true>(capsq, &dts);
-        else
-            remove_piece(capsq, &dts);
 
         k ^= Zobrist::psq[captured][capsq];
         st->materialKey ^= Zobrist::psq[captured][8 + pieceCount[captured]];
@@ -806,7 +813,10 @@ DirtyBoardData Position::do_move(Move                      m,
         st->rule50 = 0;
     }
     else
+    {
         dp.remove_sq = SQ_NONE;
+        move_piece(from, to, &dts);
+    }
 
     // Update hash key
     k ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
@@ -824,18 +834,6 @@ DirtyBoardData Position::do_move(Move                      m,
         k ^= Zobrist::castling[st->castlingRights];
         st->castlingRights &= ~(castlingRightsMask[from] | castlingRightsMask[to]);
         k ^= Zobrist::castling[st->castlingRights];
-    }
-
-    // Move the piece. The tricky Chess960 castling is handled earlier
-    if (m.type_of() != CASTLING)
-    {
-        if (captured && m.type_of() != EN_PASSANT)
-        {
-            put_piece<true>(pc, to, &dts);
-            remove_piece(from, &dts);
-        }
-        else
-            move_piece(from, to, &dts);
     }
 
     // If the moving piece is a pawn do some special extra work
