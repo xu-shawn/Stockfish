@@ -842,8 +842,8 @@ DirtyBoardData Position::do_move(Move                      m,
             assert(relative_rank(us, to) == RANK_8);
             assert(type_of(promotion) >= KNIGHT && type_of(promotion) <= QUEEN);
 
-            remove_piece(to, &dts);
-            put_piece(promotion, to, &dts);
+            remove_piece<true>(to, &dts);
+            put_piece<true>(promotion, to, &dts);
 
             dp.add_pc = promotion;
             dp.add_sq = to;
@@ -1039,7 +1039,7 @@ void Position::undo_move(Move m) {
     assert(pos_is_ok());
 }
 
-template<bool PutPiece>
+template<bool PutPiece, bool TempChangeToSquare>
 void Position::update_piece_threats(Piece pc, Square s, DirtyThreats* const dts) {
     // Add newly threatened pieces
     Bitboard occupied   = pieces();
@@ -1060,32 +1060,35 @@ void Position::update_piece_threats(Piece pc, Square s, DirtyThreats* const dts)
             st->threatsToSquare[threatenedSq] &= ~square_bb(s);
     }
 
-    // Remove threats of sliders that are now blocked by pc
-    Bitboard sliders = pieces(BISHOP, ROOK, QUEEN) & ~square_bb(s) & st->threatsToSquare[s];
-    while (sliders)
+    if constexpr (!TempChangeToSquare)
     {
-        Square sliderSq = pop_lsb(sliders);
-        Piece  slider   = piece_on(sliderSq);
-
-        Bitboard ray = RayPassBB[sliderSq][s] & ~BetweenBB[sliderSq][s];
-        Bitboard threat = ray & occupied;
-
-        if (threat)
+        // Remove threats of sliders that are now blocked by pc
+        Bitboard sliders = pieces(BISHOP, ROOK, QUEEN) & ~square_bb(s) & st->threatsToSquare[s];
+        while (sliders)
         {
-            Square threatenedSq = sliderSq > s ? msb(threat) : lsb(threat);
-            ray &= BetweenBB[s][threatenedSq];
+            Square sliderSq = pop_lsb(sliders);
+            Piece  slider   = piece_on(sliderSq);
 
-            Piece threatenedPc = piece_on(threatenedSq);
-            dts->list.push_back({slider, threatenedPc, sliderSq, threatenedSq, !PutPiece});
-        }
+            Bitboard ray = RayPassBB[sliderSq][s] & ~BetweenBB[sliderSq][s];
+            Bitboard threat = ray & occupied;
 
-        while (ray)
-        {
-            Square raySq = pop_lsb(ray);
-            if constexpr (PutPiece)
-                st->threatsToSquare[raySq] &= ~square_bb(sliderSq);
-            else
-                st->threatsToSquare[raySq] |= square_bb(sliderSq);
+            if (threat)
+            {
+                Square threatenedSq = sliderSq > s ? msb(threat) : lsb(threat);
+                ray &= BetweenBB[s][threatenedSq];
+
+                Piece threatenedPc = piece_on(threatenedSq);
+                dts->list.push_back({slider, threatenedPc, sliderSq, threatenedSq, !PutPiece});
+            }
+
+            while (ray)
+            {
+                Square raySq = pop_lsb(ray);
+                if constexpr (PutPiece)
+                    st->threatsToSquare[raySq] &= ~square_bb(sliderSq);
+                else
+                    st->threatsToSquare[raySq] |= square_bb(sliderSq);
+            }
         }
     }
 
@@ -1130,12 +1133,28 @@ void Position::do_castling(Color               us,
     }
 
     // Remove both pieces first since squares could overlap in Chess960
-    remove_piece(Do ? from : to, dts);
-    remove_piece(Do ? rfrom : rto, dts);
-    board[Do ? from : to] = board[Do ? rfrom : rto] =
-      NO_PIECE;  // remove_piece does not do this for us
-    put_piece(make_piece(us, KING), Do ? to : from, dts);
-    put_piece(make_piece(us, ROOK), Do ? rto : rfrom, dts);
+    bool overlap = (from | rfrom) == (to | rto);
+
+    if (!overlap)
+    {
+        remove_piece(Do ? from : to, dts);
+        remove_piece(Do ? rfrom : rto, dts);
+        board[Do ? from : to] = board[Do ? rfrom : rto] =
+          NO_PIECE;  // remove_piece does not do this for us
+
+        put_piece(make_piece(us, KING), Do ? to : from, dts);
+        put_piece(make_piece(us, ROOK), Do ? rto : rfrom, dts);
+    }
+    else
+    {
+        remove_piece<true>(Do ? from : to, dts);
+        remove_piece<true>(Do ? rfrom : rto, dts);
+        board[Do ? from : to] = board[Do ? rfrom : rto] =
+          NO_PIECE;  // remove_piece does not do this for us
+
+        put_piece<true>(make_piece(us, KING), Do ? to : from, dts);
+        put_piece<true>(make_piece(us, ROOK), Do ? rto : rfrom, dts);
+    }
 }
 
 
