@@ -48,6 +48,7 @@ Key psq[PIECE_NB][SQUARE_NB];
 Key enpassant[FILE_NB];
 Key castling[CASTLING_RIGHT_NB];
 Key side, noPawns;
+
 }
 
 namespace {
@@ -380,7 +381,6 @@ void Position::set_state() const {
             st->materialKey ^= Zobrist::psq[pc][8 + cnt];
 }
 
-
 // Overload to initialize the position object with the given endgame code string
 // like "KBPKN". It's mainly a helper to get the material key out of an endgame code.
 Position& Position::set(const string& code, Color c, StateInfo* si) {
@@ -687,10 +687,10 @@ bool Position::gives_check(Move m) const {
 // moves should be filtered out before this function is called.
 // If a pointer to the TT table is passed, the entry for the new position
 // will be prefetched
-DirtyPiece Position::do_move(Move                      m,
-                             StateInfo&                newSt,
-                             bool                      givesCheck,
-                             const TranspositionTable* tt = nullptr) {
+DirtyBoardData Position::do_move(Move                      m,
+                                 StateInfo&                newSt,
+                                 bool                      givesCheck,
+                                 const TranspositionTable* tt = nullptr) {
 
     assert(m.is_ok());
     assert(&newSt != st);
@@ -724,6 +724,9 @@ DirtyPiece Position::do_move(Move                      m,
     dp.from   = from;
     dp.to     = to;
     dp.add_sq = SQ_NONE;
+    DirtyThreats dts;
+    dts.us      = us;
+    dts.prevKsq = square<KING>(us);
 
     assert(color_of(pc) == us);
     assert(captured == NO_PIECE || color_of(captured) == (m.type_of() != CASTLING ? them : us));
@@ -735,7 +738,7 @@ DirtyPiece Position::do_move(Move                      m,
         assert(captured == make_piece(us, ROOK));
 
         Square rfrom, rto;
-        do_castling<true>(us, from, to, rfrom, rto, &dp);
+        do_castling<true>(us, from, to, rfrom, rto, &dts, &dp);
 
         k ^= Zobrist::psq[captured][rfrom] ^ Zobrist::psq[captured][rto];
         st->nonPawnKey[us] ^= Zobrist::psq[captured][rfrom] ^ Zobrist::psq[captured][rto];
@@ -775,7 +778,7 @@ DirtyPiece Position::do_move(Move                      m,
         dp.remove_sq = capsq;
 
         // Update board and piece lists
-        remove_piece(capsq);
+        remove_piece(capsq, &dts);
 
         k ^= Zobrist::psq[captured][capsq];
         st->materialKey ^= Zobrist::psq[captured][8 + pieceCount[captured]];
@@ -806,7 +809,7 @@ DirtyPiece Position::do_move(Move                      m,
 
     // Move the piece. The tricky Chess960 castling is handled earlier
     if (m.type_of() != CASTLING)
-        move_piece(from, to);
+        move_piece(from, to, &dts);
 
     // If the moving piece is a pawn do some special extra work
     if (type_of(pc) == PAWN)
@@ -823,8 +826,8 @@ DirtyPiece Position::do_move(Move                      m,
             assert(relative_rank(us, to) == RANK_8);
             assert(type_of(promotion) >= KNIGHT && type_of(promotion) <= QUEEN);
 
-            remove_piece(to);
-            put_piece(promotion, to);
+            remove_piece(to, &dts);
+            put_piece(promotion, to, &dts);
 
             dp.add_pc = promotion;
             dp.add_sq = to;
@@ -945,13 +948,16 @@ DirtyPiece Position::do_move(Move                      m,
         }
     }
 
+    dts.ksq = square<KING>(us);
+
     assert(pos_is_ok());
 
     assert(dp.pc != NO_PIECE);
     assert(!(bool(captured) || m.type_of() == CASTLING) ^ (dp.remove_sq != SQ_NONE));
     assert(dp.from != SQ_NONE);
     assert(!(dp.add_sq != SQ_NONE) ^ (m.type_of() == PROMOTION || m.type_of() == CASTLING));
-    return dp;
+
+    return {dp, dts};
 }
 
 
@@ -1017,12 +1023,80 @@ void Position::undo_move(Move m) {
     assert(pos_is_ok());
 }
 
+template<bool put_piece>
+void Position::update_piece_threats(Piece pc, Square s, DirtyThreats* const dts) {
+    // Add newly threatened pieces
+    Bitboard occupied   = pieces();
+    Bitboard threatened = attacks_bb(pc, s, occupied) & occupied;
+    while (threatened)
+    {
+        Square threatened_sq = pop_lsb(threatened);
+        Piece  threatened_pc = piece_on(threatened_sq);
+
+        assert(threatened_sq != s);
+        assert(threatened_pc);
+
+        dts->list.push_back({pc, threatened_pc, s, threatened_sq, put_piece});
+    }
+
+    Bitboard rAttacks = attacks_bb<ROOK>(s, pieces());
+    Bitboard bAttacks = attacks_bb<BISHOP>(s, pieces());
+    Bitboard qAttacks = rAttacks | bAttacks;
+
+    Bitboard sliders =   (pieces(ROOK, QUEEN) & rAttacks)
+                       | (pieces(BISHOP, QUEEN) & bAttacks);
+
+    Bitboard incoming_threats =   (attacks_bb<KNIGHT>(s, pieces()) & pieces(KNIGHT))
+                                | (pawn_attacks_bb<WHITE>(square_bb(s)) & pieces(BLACK, PAWN))
+                                | (pawn_attacks_bb<BLACK>(square_bb(s)) & pieces(WHITE, PAWN))
+                                | (attacks_bb<KING>(s, pieces()) & pieces(KING));
+
+    while (sliders)
+    {
+        Square slider_sq = pop_lsb(sliders);
+        Piece  slider    = piece_on(slider_sq);
+
+        Bitboard ray = RayPassBB[slider_sq][s] & ~BetweenBB[slider_sq][s];
+        Bitboard threatened = ray & qAttacks & occupied;
+
+        assert(!more_than_one(threatened));
+        if (threatened)
+        {
+            Square threatened_sq = lsb(threatened);
+            ray &= BetweenBB[s][threatened_sq];
+
+            Piece threatened_pc = piece_on(threatened_sq);
+            dts->list.push_back({slider, threatened_pc, slider_sq, threatened_sq, !put_piece});
+        }
+
+        dts->list.push_back({slider, pc, slider_sq, s, put_piece});
+    }
+
+    // Add threats of sliders that were already threatening s,
+    // sliders are already handled in the loop above
+
+    while (incoming_threats)
+    {
+        Square src_sq = pop_lsb(incoming_threats);
+        Piece  src_pc = piece_on(src_sq);
+
+        assert(src_sq != s);
+        assert(src_pc != NO_PIECE);
+
+        dts->list.push_back({src_pc, pc, src_sq, s, put_piece});
+    }
+}
 
 // Helper used to do/undo a castling move. This is a bit
 // tricky in Chess960 where from/to squares can overlap.
 template<bool Do>
-void Position::do_castling(
-  Color us, Square from, Square& to, Square& rfrom, Square& rto, DirtyPiece* const dp) {
+void Position::do_castling(Color               us,
+                           Square              from,
+                           Square&             to,
+                           Square&             rfrom,
+                           Square&             rto,
+                           DirtyThreats* const dts,
+                           DirtyPiece* const   dp) {
 
     bool kingSide = to > from;
     rfrom         = to;  // Castling is encoded as "king captures friendly rook"
@@ -1040,12 +1114,12 @@ void Position::do_castling(
     }
 
     // Remove both pieces first since squares could overlap in Chess960
-    remove_piece(Do ? from : to);
-    remove_piece(Do ? rfrom : rto);
+    remove_piece(Do ? from : to, dts);
+    remove_piece(Do ? rfrom : rto, dts);
     board[Do ? from : to] = board[Do ? rfrom : rto] =
       NO_PIECE;  // remove_piece does not do this for us
-    put_piece(make_piece(us, KING), Do ? to : from);
-    put_piece(make_piece(us, ROOK), Do ? rto : rfrom);
+    put_piece(make_piece(us, KING), Do ? to : from, dts);
+    put_piece(make_piece(us, ROOK), Do ? rto : rfrom, dts);
 }
 
 
@@ -1345,7 +1419,7 @@ bool Position::pos_is_ok() const {
 
     for (Piece pc : Pieces)
         if (pieceCount[pc] != popcount(pieces(color_of(pc), type_of(pc)))
-            || pieceCount[pc] != std::count(board, board + SQUARE_NB, pc))
+            || pieceCount[pc] != std::count(board.begin(), board.end(), pc))
             assert(0 && "pos_is_ok: Pieces");
 
     for (Color c : {WHITE, BLACK})

@@ -40,6 +40,7 @@
     #include <cstddef>
     #include <cstdint>
     #include <type_traits>
+    #include "misc.h"
 
     #if defined(_MSC_VER)
         // Disable some silly and noisy warnings from MSVC compiler
@@ -243,10 +244,10 @@ enum Square : int8_t {
 // clang-format on
 
 enum Direction : int8_t {
-    NORTH = 8,
-    EAST  = 1,
-    SOUTH = -NORTH,
-    WEST  = -EAST,
+    NORTH   = 8,
+    EAST    = 1,
+    SOUTH   = -NORTH,
+    WEST    = -EAST,
 
     NORTH_EAST = NORTH + EAST,
     SOUTH_EAST = SOUTH + EAST,
@@ -288,6 +289,26 @@ struct DirtyPiece {
     // castling uses add_sq and remove_sq to remove and add the rook
     Square remove_sq, add_sq;
     Piece  remove_pc, add_pc;
+};
+
+// Keep track of what threats change on the board (used by NNUE)
+struct DirtyThreat {
+    Piece  pc, threatened_pc;
+    Square pc_sq, threatened_sq;
+    bool   add;
+};
+
+using DirtyThreatList = ValueList<DirtyThreat, 64>;  // 32 is not enough, find better upper bound?
+
+struct DirtyThreats {
+    DirtyThreatList list;
+    Color           us;
+    Square          prevKsq, ksq;
+};
+
+struct DirtyBoardData {
+    DirtyPiece   dp;
+    DirtyThreats dts;
 };
 
     #define ENABLE_INCR_OPERATORS_ON(T) \
