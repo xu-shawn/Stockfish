@@ -1047,8 +1047,8 @@ void Position::update_piece_threats(Piece pc, Square s, DirtyThreats* const dts)
                        | (pieces(BISHOP, QUEEN) & bAttacks);
 
     Bitboard incoming_threats =   (attacks_bb<KNIGHT>(s, pieces()) & pieces(KNIGHT))
-                                | (pawn_attacks_bb<WHITE>(square_bb(s)) & pieces(BLACK, PAWN))
-                                | (pawn_attacks_bb<BLACK>(square_bb(s)) & pieces(WHITE, PAWN))
+                                | (pawn_attacks_bb<WHITE>(s) & pieces(BLACK, PAWN))
+                                | (pawn_attacks_bb<BLACK>(s) & pieces(WHITE, PAWN))
                                 | (attacks_bb<KING>(s, pieces()) & pieces(KING));
 
     while (sliders)
