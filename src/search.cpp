@@ -1685,19 +1685,10 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
 
 
     Color us = pos.side_to_move();
+
     if (!ss->inCheck && !moveCount && !pos.non_pawn_material(us)
-        && type_of(pos.captured_piece()) >= ROOK)
-    {
-        if (!((us == WHITE ? shift<NORTH>(pos.pieces(us, PAWN))
-                           : shift<SOUTH>(pos.pieces(us, PAWN)))
-              & ~pos.pieces()))  // no pawn pushes available
-        {
-            pos.state()->checkersBB = Rank1BB;  // search for legal king-moves only
-            if (!MoveList<LEGAL>(pos).size())   // stalemate
-                bestValue = VALUE_DRAW;
-            pos.state()->checkersBB = 0;
-        }
-    }
+        && type_of(pos.captured_piece()) >= ROOK && !MoveList<LEGAL>(pos).size())
+        bestValue = VALUE_DRAW;
 
     // Save gathered info in transposition table. The static evaluation
     // is saved as it was before adjustment by correction history.
