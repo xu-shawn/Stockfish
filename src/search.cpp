@@ -249,8 +249,8 @@ void Search::Worker::iterative_deepening() {
     Value lastBestScore     = -VALUE_INFINITE;
     auto  lastBestPV        = std::vector{Move::none()};
 
-    Value  alpha, beta;
-    Value  bestValue     = -VALUE_INFINITE;
+    Value alpha, beta;
+    rootBestValue        = -VALUE_INFINITE;
     Color  us            = rootPos.side_to_move();
     double timeReduction = 1, totBestMoveChanges = 0;
     int    delta, iterIdx                        = 0;
@@ -349,8 +349,8 @@ void Search::Worker::iterative_deepening() {
                 // effective increment for every four searchAgain steps (see issue #2717).
                 Depth adjustedDepth =
                   std::max(1, rootDepth - failedHighCnt - 3 * (searchAgainCounter + 1) / 4);
-                rootDelta = beta - alpha;
-                bestValue = search<Root>(rootPos, ss, alpha, beta, adjustedDepth, false);
+                rootDelta     = beta - alpha;
+                rootBestValue = search<Root>(rootPos, ss, alpha, beta, adjustedDepth, false);
 
                 // Bring the best move to the front. It is critical that sorting
                 // is done with a stable algorithm because all the values but the
@@ -369,25 +369,25 @@ void Search::Worker::iterative_deepening() {
                 // When failing high/low give some update before a re-search. To avoid
                 // excessive output that could hang GUIs like Fritz 19, only start
                 // at nodes > 10M (rather than depth N, which can be reached quickly)
-                if (mainThread && multiPV == 1 && (bestValue <= alpha || bestValue >= beta)
+                if (mainThread && multiPV == 1 && (rootBestValue <= alpha || rootBestValue >= beta)
                     && nodes > 10000000)
                     main_manager()->pv(*this, threads, tt, rootDepth);
 
                 // In case of failing low/high increase aspiration window and re-search,
                 // otherwise exit the loop.
-                if (bestValue <= alpha)
+                if (rootBestValue <= alpha)
                 {
                     beta  = alpha;
-                    alpha = std::max(bestValue - delta, -VALUE_INFINITE);
+                    alpha = std::max(rootBestValue - delta, -VALUE_INFINITE);
 
                     failedHighCnt = 0;
                     if (mainThread)
                         mainThread->stopOnPonderhit = false;
                 }
-                else if (bestValue >= beta)
+                else if (rootBestValue >= beta)
                 {
                     alpha = std::max(beta - delta, alpha);
-                    beta  = std::min(bestValue + delta, VALUE_INFINITE);
+                    beta  = std::min(rootBestValue + delta, VALUE_INFINITE);
                     ++failedHighCnt;
                 }
                 else
@@ -466,8 +466,8 @@ void Search::Worker::iterative_deepening() {
               rootMoves[0].effort * 100000 / std::max(size_t(1), size_t(nodes));
 
             double fallingEval =
-              (11.325 + 2.115 * (mainThread->bestPreviousAverageScore - bestValue)
-               + 0.987 * (mainThread->iterValue[iterIdx] - bestValue))
+              (11.325 + 2.115 * (mainThread->bestPreviousAverageScore - rootBestValue)
+               + 0.987 * (mainThread->iterValue[iterIdx] - rootBestValue))
               / 100.0;
             fallingEval = std::clamp(fallingEval, 0.5688, 1.5698);
 
@@ -506,7 +506,7 @@ void Search::Worker::iterative_deepening() {
                 threads.increaseDepth = mainThread->ponder || elapsedTime <= totalTime * 0.503;
         }
 
-        mainThread->iterValue[iterIdx] = bestValue;
+        mainThread->iterValue[iterIdx] = rootBestValue;
         iterIdx                        = (iterIdx + 1) & 3;
     }
 
@@ -1121,9 +1121,10 @@ moves_loop:  // When in check, search starts here
             {
                 int corrValAdj   = std::abs(correctionValue) / 229958;
                 int doubleMargin = -4 + 198 * PvNode - 212 * !ttCapture - corrValAdj
-                                 - 921 * ttMoveHistory / 127649 - (ss->ply > rootDepth) * 45;
+                                 - 921 * ttMoveHistory / 127649 - (ss->ply > rootDepth) * 45
+                                 - (rootBestValue >= 0) * 50;
                 int tripleMargin = 76 + 308 * PvNode - 250 * !ttCapture + 92 * ss->ttPv - corrValAdj
-                                 - (ss->ply * 2 > rootDepth * 3) * 52;
+                                 - (ss->ply * 2 > rootDepth * 3) * 52 - (rootBestValue >= 0) * 50;
 
                 extension =
                   1 + (value < singularBeta - doubleMargin) + (value < singularBeta - tripleMargin);
