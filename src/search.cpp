@@ -46,6 +46,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "tt.h"
+#include "types.h"
 #include "uci.h"
 #include "ucioption.h"
 
@@ -1258,11 +1259,18 @@ moves_loop:  // When in check, search starts here
             (ss + 1)->pv    = pv;
             (ss + 1)->pv[0] = Move::none();
 
+            Value newAlpha = alpha;
+            Value newBeta  = beta;
+
             // Extend move from transposition table if we are about to dive into qsearch.
             if (move == ttData.move && ttData.depth > 1 && rootDepth > 8)
+            {
+                newAlpha = std::max(alpha - 10, -VALUE_INFINITE);
+                newBeta  = std::min(beta + 10, VALUE_INFINITE);
                 newDepth = std::max(newDepth, 1);
+            }
 
-            value = -search<PV>(pos, ss + 1, -beta, -alpha, newDepth, false);
+            value = -search<PV>(pos, ss + 1, -newBeta, -newAlpha, newDepth, false);
         }
 
         // Step 19. Undo move
