@@ -149,15 +149,6 @@ class FeatureTransformer {
             for (IndexType i = 0; i < HalfDimensions; ++i)
                 w[i] = read ? w[i] * 2 : w[i] / 2;
         }
-        if (use_threats)
-        {
-            for (IndexType j = 0; j < ThreatInputDimensions; ++j)
-            {
-                WeightType* w = &threatWeights[j * HalfDimensions];
-                for (IndexType i = 0; i < HalfDimensions; ++i)
-                    w[i] = read ? w[i] * 2 : w[i] / 2;
-            }
-        }
 
         for (IndexType i = 0; i < HalfDimensions; ++i)
             biases[i] = read ? biases[i] * 2 : biases[i] / 2;
@@ -204,7 +195,7 @@ class FeatureTransformer {
             read_leb_128<PSQTWeightType>(stream, psqtWeights, PSQTBuckets * InputDimensions);
         }
         permute_weights();
-        //scale_weights(true);
+        if (!use_threats) { scale_weights(true); }
 
         return !stream.fail();
     }
@@ -215,7 +206,7 @@ class FeatureTransformer {
         std::unique_ptr<FeatureTransformer> copy = std::make_unique<FeatureTransformer>(*this);
 
         copy->unpermute_weights();
-        //copy->scale_weights(false);
+        if (!use_threats) { copy->scale_weights(false); }
 
         write_leb_128<BiasType>(stream, copy->biases, HalfDimensions);
         write_leb_128<ThreatWeightType>(stream, copy->threatWeights,
@@ -398,8 +389,8 @@ class FeatureTransformer {
                     sum1               = std::clamp<BiasType>(sum1 + sum1t, 0, 255);
                 }
                 else {
-                    sum0               = std::clamp<BiasType>(sum0, 0, 255);
-                    sum1               = std::clamp<BiasType>(sum1, 0, 255);
+                    sum0               = std::clamp<BiasType>(sum0, 0, 127 * 2);
+                    sum1               = std::clamp<BiasType>(sum1, 0, 127 * 2);
                 }
                 output[offset + j] = static_cast<OutputType>(unsigned(sum0 * sum1) / 512);
             }
