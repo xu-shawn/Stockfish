@@ -244,10 +244,10 @@ enum Square : int8_t {
 // clang-format on
 
 enum Direction : int8_t {
-    NORTH   = 8,
-    EAST    = 1,
-    SOUTH   = -NORTH,
-    WEST    = -EAST,
+    NORTH = 8,
+    EAST  = 1,
+    SOUTH = -NORTH,
+    WEST  = -EAST,
 
     NORTH_EAST = NORTH + EAST,
     SOUTH_EAST = SOUTH + EAST,
@@ -308,10 +308,7 @@ struct DirtyThreats {
     Bitboard threatenedSqs, threateningSqs;
 };
 
-struct DirtyBoardData {
-    DirtyPiece   dp;
-    DirtyThreats dts;
-};
+using DirtyBoardData = std::tuple<DirtyPiece, DirtyThreats>;
 
     #define ENABLE_INCR_OPERATORS_ON(T) \
         constexpr T& operator++(T& d) { return d = T(int(d) + 1); } \
@@ -461,6 +458,14 @@ struct is_all_same {
 
 template<typename... Ts>
 constexpr auto is_all_same_v = is_all_same<Ts...>::value;
+
+template<typename T, typename... Ts>
+struct is_one_of {
+    static constexpr bool value = (std::is_same_v<T, Ts> || ...);
+};
+
+template<typename... Ts>
+constexpr auto is_one_of_v = is_one_of<Ts...>::value;
 
 }  // namespace Stockfish
 

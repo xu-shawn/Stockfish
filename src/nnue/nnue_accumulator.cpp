@@ -75,8 +75,9 @@ void update_threats_accumulator_full(const FeatureTransformer<Dimensions>& featu
                                      AccumulatorState<ThreatFeatureSet>&   accumulatorState);
 }
 
+template<typename... Inputs>
 template<typename T>
-const AccumulatorState<T>& AccumulatorStack::latest() const noexcept {
+const AccumulatorState<T>& AccumulatorStack<Inputs...>::latest() const noexcept {
     return accumulators<T>()[size - 1];
 }
 
@@ -84,59 +85,57 @@ const AccumulatorState<T>& AccumulatorStack::latest() const noexcept {
 template const AccumulatorState<PSQFeatureSet>&    AccumulatorStack::latest() const noexcept;
 template const AccumulatorState<ThreatFeatureSet>& AccumulatorStack::latest() const noexcept;
 
+template<typename... Inputs>
 template<typename T>
-AccumulatorState<T>& AccumulatorStack::mut_latest() noexcept {
+AccumulatorState<T>& AccumulatorStack<Inputs...>::mut_latest() noexcept {
     return mut_accumulators<T>()[size - 1];
 }
 
+template<typename... Inputs>
 template<typename T>
-const std::array<AccumulatorState<T>, AccumulatorStack::MaxSize>&
-AccumulatorStack::accumulators() const noexcept {
-    static_assert(std::is_same_v<T, PSQFeatureSet> || std::is_same_v<T, ThreatFeatureSet>,
-                  "Invalid Feature Set Type");
-
-    if constexpr (std::is_same_v<T, PSQFeatureSet>)
-        return psq_accumulators;
-
-    if constexpr (std::is_same_v<T, ThreatFeatureSet>)
-        return threat_accumulators;
+const std::array<AccumulatorState<T>, AccumulatorStack<Inputs...>::MaxSize>&
+AccumulatorStack<Inputs...>::accumulators() const noexcept {
+    static_assert(is_one_of_v<T, Inputs...>, "Invalid Feature Set Type");
+    return std::get<T>(accumulators_stack);
 }
 
+template<typename... Inputs>
 template<typename T>
-std::array<AccumulatorState<T>, AccumulatorStack::MaxSize>&
-AccumulatorStack::mut_accumulators() noexcept {
-    static_assert(std::is_same_v<T, PSQFeatureSet> || std::is_same_v<T, ThreatFeatureSet>,
-                  "Invalid Feature Set Type");
-
-    if constexpr (std::is_same_v<T, PSQFeatureSet>)
-        return psq_accumulators;
-
-    if constexpr (std::is_same_v<T, ThreatFeatureSet>)
-        return threat_accumulators;
+std::array<AccumulatorState<T>, AccumulatorStack<Inputs...>::MaxSize>&
+AccumulatorStack<Inputs...>::mut_accumulators() noexcept {
+    static_assert(is_one_of_v<T, Inputs...>, "Invalid Feature Set Type");
+    return std::get<T>(accumulators_stack);
 }
 
-void AccumulatorStack::reset() noexcept {
-    psq_accumulators[0].reset({});
-    threat_accumulators[0].reset({});
+template<typename... Inputs>
+void AccumulatorStack<Inputs...>::reset() noexcept {
+    std::apply([](Inputs&... accumulators) { (accumulators[0].reset({}), ...); },
+               accumulators_stack);
     size = 1;
 }
 
-void AccumulatorStack::push(const DirtyBoardData& dirtyBoardData) noexcept {
+template<typename... Inputs>
+void AccumulatorStack<Inputs...>::push(const DirtyBoardData& dirtyBoardData) noexcept {
     assert(size < MaxSize);
-    psq_accumulators[size].reset(dirtyBoardData.dp);
-    threat_accumulators[size].reset(dirtyBoardData.dts);
+    std::apply(
+      [&, this](Inputs&... accumulators) {
+          (accumulators[size].reset(std::get<Inputs>(dirtyBoardData)), ...);
+      },
+      accumulators_stack);
     size++;
 }
 
-void AccumulatorStack::pop() noexcept {
+template<typename... Inputs>
+void AccumulatorStack<Inputs...>::pop() noexcept {
     assert(size > 1);
     size--;
 }
 
+template<typename... Inputs>
 template<IndexType Dimensions>
-void AccumulatorStack::evaluate(const Position&                       pos,
-                                const FeatureTransformer<Dimensions>& featureTransformer,
-                                AccumulatorCaches::Cache<Dimensions>& cache) noexcept {
+void AccumulatorStack<Inputs...>::evaluate(const Position&                       pos,
+                                           const FeatureTransformer<Dimensions>& featureTransformer,
+                                           AccumulatorCaches::Cache<Dimensions>& cache) noexcept {
     constexpr bool use_threats = (Dimensions == TransformedFeatureDimensionsBig);
     evaluate_side<WHITE, PSQFeatureSet>(pos, featureTransformer, cache);
     if (use_threats)
@@ -150,10 +149,12 @@ void AccumulatorStack::evaluate(const Position&                       pos,
     }
 }
 
+template<typename... Inputs>
 template<Color Perspective, typename FeatureSet, IndexType Dimensions>
-void AccumulatorStack::evaluate_side(const Position&                       pos,
-                                     const FeatureTransformer<Dimensions>& featureTransformer,
-                                     AccumulatorCaches::Cache<Dimensions>& cache) noexcept {
+void AccumulatorStack<Inputs...>::evaluate_side(
+  const Position&                       pos,
+  const FeatureTransformer<Dimensions>& featureTransformer,
+  AccumulatorCaches::Cache<Dimensions>& cache) noexcept {
 
     const auto last_usable_accum =
       find_last_usable_accumulator<Perspective, FeatureSet, Dimensions>();
@@ -179,8 +180,9 @@ void AccumulatorStack::evaluate_side(const Position&                       pos,
 
 // Find the earliest usable accumulator, this can either be a computed accumulator or the accumulator
 // state just before a change that requires full refresh.
+template<typename... Inputs>
 template<Color Perspective, typename FeatureSet, IndexType Dimensions>
-std::size_t AccumulatorStack::find_last_usable_accumulator() const noexcept {
+std::size_t AccumulatorStack<Inputs...>::find_last_usable_accumulator() const noexcept {
 
     for (std::size_t curr_idx = size - 1; curr_idx > 0; curr_idx--)
     {
@@ -194,8 +196,9 @@ std::size_t AccumulatorStack::find_last_usable_accumulator() const noexcept {
     return 0;
 }
 
+template<typename... Inputs>
 template<Color Perspective, typename FeatureSet, IndexType Dimensions>
-void AccumulatorStack::forward_update_incremental(
+void AccumulatorStack<Inputs...>::forward_update_incremental(
   const Position&                       pos,
   const FeatureTransformer<Dimensions>& featureTransformer,
   const std::size_t                     begin) noexcept {
@@ -209,32 +212,40 @@ void AccumulatorStack::forward_update_incremental(
     {
         if (next + 1 < size)
         {
-            DirtyPiece& dp1 = psq_accumulators[next].diff;
-            DirtyPiece& dp2 = psq_accumulators[next + 1].diff;
+            DirtyPiece& dp1 = accumulators<PSQFeatureSet>()[next].diff;
+            DirtyPiece& dp2 = accumulators<PSQFeatureSet>()[next + 1].diff;
 
-            if (std::is_same_v<FeatureSet, ThreatFeatureSet> && dp2.remove_sq != SQ_NONE
-                && ((threat_accumulators[next].diff.threateningSqs & square_bb(dp2.remove_sq))
-                    || (threat_accumulators[next].diff.threatenedSqs & square_bb(dp2.remove_sq))))
+            if constexpr (std::is_same_v<FeatureSet, ThreatFeatureSet>)
             {
-                double_inc_update<Perspective>(featureTransformer, ksq, threat_accumulators[next],
-                                               threat_accumulators[next + 1],
-                                               threat_accumulators[next - 1], dp2);
-                next++;
-                continue;
+                if (dp2.remove_sq != SQ_NONE
+                    && ((accumulators<FeatureSet>()[next].diff.threateningSqs
+                         & square_bb(dp2.remove_sq))
+                        || (accumulators<FeatureSet>()[next].diff.threatenedSqs
+                            & square_bb(dp2.remove_sq))))
+                {
+                    double_inc_update<Perspective>(featureTransformer, ksq,
+                                                   accumulators<FeatureSet>()[next],
+                                                   accumulators<FeatureSet>()[next + 1],
+                                                   accumulators<FeatureSet>()[next - 1], dp2);
+                    next++;
+                    continue;
+                }
             }
 
-            if (std::is_same_v<FeatureSet, PSQFeatureSet> && dp1.to != SQ_NONE
-                && dp1.to == dp2.remove_sq)
+            else if (std::is_same_v<FeatureSet, PSQFeatureSet>)
             {
-                const Square captureSq = dp1.to;
-                dp1.to = dp2.remove_sq = SQ_NONE;
-                double_inc_update<Perspective>(featureTransformer, ksq, psq_accumulators[next],
-                                               psq_accumulators[next + 1],
-                                               psq_accumulators[next - 1]);
-                dp1.to = dp2.remove_sq = captureSq;
+                if (dp1.to != SQ_NONE && dp1.to == dp2.remove_sq)
+                {
+                    const Square captureSq = dp1.to;
+                    dp1.to = dp2.remove_sq = SQ_NONE;
+                    double_inc_update<Perspective>(
+                      featureTransformer, ksq, accumulators<FeatureSet>()[next],
+                      accumulators<FeatureSet>()[next + 1], accumulators<FeatureSet>()[next - 1]);
+                    dp1.to = dp2.remove_sq = captureSq;
 
-                next++;
-                continue;
+                    next++;
+                    continue;
+                }
             }
         }
 
@@ -243,11 +254,12 @@ void AccumulatorStack::forward_update_incremental(
                                                           accumulators<FeatureSet>()[next - 1]);
     }
 
-    assert((latest<PSQFeatureSet>().acc<Dimensions>()).computed[Perspective]);
+    assert((latest<FeatureSet>().template acc<Dimensions>()).computed[Perspective]);
 }
 
+template<typename... Inputs>
 template<Color Perspective, typename FeatureSet, IndexType Dimensions>
-void AccumulatorStack::backward_update_incremental(
+void AccumulatorStack<Inputs...>::backward_update_incremental(
   const Position&                       pos,
   const FeatureTransformer<Dimensions>& featureTransformer,
   const std::size_t                     end) noexcept {
@@ -495,7 +507,7 @@ void double_inc_update(const FeatureTransformer<TransformedFeatureDimensions>& f
 }
 
 template<Color Perspective, IndexType TransformedFeatureDimensions>
-bool double_inc_update(const FeatureTransformer<TransformedFeatureDimensions>& featureTransformer,
+void double_inc_update(const FeatureTransformer<TransformedFeatureDimensions>& featureTransformer,
                        const Square                                            ksq,
                        AccumulatorState<ThreatFeatureSet>&                     middle_state,
                        AccumulatorState<ThreatFeatureSet>&                     target_state,
@@ -522,8 +534,6 @@ bool double_inc_update(const FeatureTransformer<TransformedFeatureDimensions>& f
     updateContext.apply(added, removed);
 
     target_state.acc<TransformedFeatureDimensions>().computed[Perspective] = true;
-
-    return true;
 }
 
 template<Color Perspective,

@@ -538,9 +538,10 @@ void Search::Worker::do_move(
     {
         ss->currentMove = move;
         ss->continuationHistory =
-          &continuationHistory[ss->inCheck][capture][dirtyBoardData.dp.pc][move.to_sq()];
+          &continuationHistory[ss->inCheck][capture][std::get<DirtyPiece>(dirtyBoardData).pc]
+                              [move.to_sq()];
         ss->continuationCorrectionHistory =
-          &continuationCorrectionHistory[dirtyBoardData.dp.pc][move.to_sq()];
+          &continuationCorrectionHistory[std::get<DirtyPiece>(dirtyBoardData).pc][move.to_sq()];
     }
 }
 

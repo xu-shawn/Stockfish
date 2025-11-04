@@ -145,6 +145,7 @@ struct AccumulatorState {
     }
 };
 
+template<typename... Inputs>
 class AccumulatorStack {
    public:
     static constexpr std::size_t MaxSize = MAX_PLY + 1;
@@ -189,9 +190,8 @@ class AccumulatorStack {
                                      const FeatureTransformer<Dimensions>& featureTransformer,
                                      const std::size_t                     end) noexcept;
 
-    std::array<AccumulatorState<PSQFeatureSet>, MaxSize>    psq_accumulators;
-    std::array<AccumulatorState<ThreatFeatureSet>, MaxSize> threat_accumulators;
-    std::size_t                                             size = 1;
+    std::tuple<std::array<AccumulatorState<Inputs>, MaxSize>...> accumulators_stack;
+    std::size_t                                                  size = 1;
 };
 
 }  // namespace Stockfish::Eval::NNUE
