@@ -41,7 +41,7 @@ namespace Stockfish::Eval::NNUE {
 template<IndexType Size>
 struct alignas(CacheLineSize) Accumulator;
 
-template<IndexType TransformedFeatureDimensions>
+template<IndexType TransformedFeatureDimensions, typename... InputFeatures>
 class FeatureTransformer;
 
 // Class that holds the result of affine transformation of input features
