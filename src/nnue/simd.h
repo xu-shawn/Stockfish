@@ -164,6 +164,7 @@ using vec_uint_t = __m128i;
 
 #elif USE_NEON
 using vec_t      = int16x8_t;
+using vec_i8_t   = int8x16_t;
 using psqt_vec_t = int32x4_t;
 using vec128_t   = uint16x8_t;
 using vec_uint_t = uint32x4_t;
