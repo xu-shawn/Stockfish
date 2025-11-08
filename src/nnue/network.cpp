@@ -17,6 +17,8 @@
 */
 
 #include "network.h"
+#include "features/full_threats.h"
+#include "features/half_ka_v2_hm.h"
 
 #include <cstdlib>
 #include <fstream>
@@ -408,9 +410,12 @@ bool Network<Arch, Transformer>::write_parameters(std::ostream&      stream,
 // Explicit template instantiations
 
 template class Network<NetworkArchitecture<TransformedFeatureDimensionsBig, L2Big, L3Big>,
-                       FeatureTransformer<TransformedFeatureDimensionsBig>>;
+                       FeatureTransformer<TransformedFeatureDimensionsBig,
+                                          Features::HalfKAv2_hm,
+                                          Features::FullThreats>>;
 
-template class Network<NetworkArchitecture<TransformedFeatureDimensionsSmall, L2Small, L3Small>,
-                       FeatureTransformer<TransformedFeatureDimensionsSmall>>;
+template class Network<
+  NetworkArchitecture<TransformedFeatureDimensionsSmall, L2Small, L3Small>,
+  FeatureTransformer<TransformedFeatureDimensionsSmall, Features::HalfKAv2_hm>>;
 
 }  // namespace Stockfish::Eval::NNUE

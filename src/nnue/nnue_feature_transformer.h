@@ -77,27 +77,82 @@ void permute(T (&data)[N], const std::array<std::size_t, OrderSize>& order) {
     }
 }
 
+
+template<typename T>
+struct Aligned {
+    alignas(CacheLineSize) T data;
+
+    constexpr operator T&() { return data; }
+    constexpr operator const T&() const { return data; }
+};
+
+
 // Input feature converter
-template<IndexType TransformedFeatureDimensions>
+template<IndexType TransformedFeatureDimensions, typename... InputFeatures>
 class FeatureTransformer {
-    static constexpr bool use_threats =
-      (TransformedFeatureDimensions == TransformedFeatureDimensionsBig);
+    static constexpr bool use_threats = sizeof...(InputFeatures) == 2;
     // Number of output dimensions for one side
     static constexpr IndexType HalfDimensions = TransformedFeatureDimensions;
+
+    template<typename InputFeature>
+    static constexpr std::size_t WeightsSize = HalfDimensions * InputFeature::Dimensions;
+
+    template<typename InputFeature>
+    using WeightArrayType = std::array<WeightType<InputFeature>, WeightsSize<InputFeature>>;
+
+    template<typename InputFeature>
+    static constexpr std::size_t PSQTWeightsSize = PSQTBuckets * InputFeature::Dimensions;
+
+    template<typename InputFeature>
+    using PSQTWeightArrayType = std::array<WeightType<InputFeature>, WeightsSize<InputFeature>>;
+
+    template<typename InputFeature>
+    WeightArrayType<InputFeature>& weights_mut() {
+        return std::get<Aligned<WeightArrayType<InputFeature>>>(weightsStack);
+    }
+
+    template<typename InputFeature>
+    PSQTWeightArrayType<InputFeature>& psqt_weights_mut() {
+        return std::get<Aligned<PSQTWeightArrayType<InputFeature>>>(psqtWeightsStack);
+    }
+
+    template<typename InputFeature>
+    inline void scale_weights(bool read) {
+        for (IndexType j = 0; j < InputFeature::Dimensions; ++j)
+        {
+            auto* w = &weights<InputFeature>()[j * HalfDimensions];
+            for (IndexType i = 0; i < HalfDimensions; ++i)
+                w[i] = read ? w[i] * 2 : w[i] / 2;
+        }
+    }
+
+    inline void scale_weights(bool read) {
+        (scale_weights<InputFeatures>(read), ...);
+
+        for (IndexType i = 0; i < HalfDimensions; ++i)
+            biases[i] = read ? biases[i] * 2 : biases[i] / 2;
+    }
 
    public:
     // Output type
     using OutputType = TransformedFeatureType;
 
     // Number of input/output dimensions
-    static constexpr IndexType InputDimensions       = PSQFeatureSet::Dimensions;
-    static constexpr IndexType ThreatInputDimensions = ThreatFeatureSet::Dimensions;
-    static constexpr IndexType TotalInputDimensions =
-      InputDimensions + (use_threats ? ThreatInputDimensions : 0);
-    static constexpr IndexType OutputDimensions = HalfDimensions;
+    static constexpr IndexType TotalInputDimensions = (InputFeatures::Dimensions + ...);
+    static constexpr IndexType OutputDimensions     = HalfDimensions;
 
     // Size of forward propagation buffer
     static constexpr std::size_t BufferSize = OutputDimensions * sizeof(OutputType);
+
+    template<typename InputFeature>
+    const WeightArrayType<InputFeature>& weights() const {
+        return std::get<Aligned<WeightArrayType<InputFeature>>>(weightsStack);
+    }
+
+    template<typename InputFeature>
+    const PSQTWeightArrayType<InputFeature>& psqt_weights() const {
+        return std::get<Aligned<PSQTWeightArrayType<InputFeature>>>(psqtWeightsStack);
+    }
 
     // Store the order by which 128-bit blocks of a 1024-bit data must
     // be permuted so that calling packus on adjacent vectors of 16-bit
@@ -131,81 +186,52 @@ class FeatureTransformer {
 
     void permute_weights() {
         permute<16>(biases, PackusEpi16Order);
-        permute<16>(weights, PackusEpi16Order);
-        if (use_threats)
-        {
-            permute<8>(threatWeights, PackusEpi16Order);
-        }
+        (permute<8 * sizeof(WeightType<InputFeatures>)>(weights_mut<InputFeatures>(),
+                                                        PackusEpi16Order),
+         ...);
     }
 
     void unpermute_weights() {
         permute<16>(biases, InversePackusEpi16Order);
-        permute<16>(weights, InversePackusEpi16Order);
-        if (use_threats)
-        {
-            permute<8>(threatWeights, InversePackusEpi16Order);
-        }
-    }
-
-    inline void scale_weights(bool read) {
-        for (IndexType j = 0; j < InputDimensions; ++j)
-        {
-            WeightType* w = &weights[j * HalfDimensions];
-            for (IndexType i = 0; i < HalfDimensions; ++i)
-                w[i] = read ? w[i] * 2 : w[i] / 2;
-        }
-
-        for (IndexType i = 0; i < HalfDimensions; ++i)
-            biases[i] = read ? biases[i] * 2 : biases[i] / 2;
+        (permute<8 * sizeof(WeightType<InputFeatures>)>(weights_mut<InputFeatures>(),
+                                                        InversePackusEpi16Order),
+         ...);
     }
 
     // Read network parameters
     // TODO: This is ugly. Fix
     bool read_parameters(std::istream& stream) {
-        if (use_threats)
-        {
-            read_leb_128<BiasType>(stream, biases, HalfDimensions);
+        read_leb_128<BiasType>(stream, biases, HalfDimensions);
 
-            std::vector<WeightType>     combinedWeights(HalfDimensions
-                                                        * (ThreatInputDimensions + InputDimensions));
-            std::vector<PSQTWeightType> combinedPsqtWeights(
-              (ThreatInputDimensions + InputDimensions) * PSQTBuckets);
+        std::vector<std::int16_t> combinedWeights(HalfDimensions * TotalInputDimensions);
+        std::vector<std::int32_t> combinedPsqtWeights(PSQTBuckets * TotalInputDimensions);
 
-            read_leb_128<WeightType>(stream, combinedWeights.data(),
-                                     HalfDimensions * (ThreatInputDimensions + InputDimensions));
+        read_leb_128(stream, combinedWeights.data(), combinedWeights.size());
 
-            std::copy(combinedWeights.begin(),
-                      combinedWeights.begin() + ThreatInputDimensions * HalfDimensions,
-                      std::begin(threatWeights));
+        std::copy(combinedWeights.begin(),
+                  combinedWeights.begin() + ThreatInputDimensions * HalfDimensions,
+                  std::begin(threatWeights));
 
-            std::copy(combinedWeights.begin() + ThreatInputDimensions * HalfDimensions,
-                      combinedWeights.begin()
-                        + (ThreatInputDimensions + InputDimensions) * HalfDimensions,
-                      std::begin(weights));
+        std::copy(combinedWeights.begin() + ThreatInputDimensions * HalfDimensions,
+                  combinedWeights.begin()
+                    + (ThreatInputDimensions + InputDimensions) * HalfDimensions,
+                  std::begin(weights));
 
-            read_leb_128<PSQTWeightType>(stream, combinedPsqtWeights.data(),
-                                         PSQTBuckets * (ThreatInputDimensions + InputDimensions));
+        read_leb_128(stream, combinedPsqtWeights.data(), combinedPsqtWeights.size());
 
-            std::copy(combinedPsqtWeights.begin(),
-                      combinedPsqtWeights.begin() + ThreatInputDimensions * PSQTBuckets,
-                      std::begin(threatPsqtWeights));
+        std::copy(combinedPsqtWeights.begin(),
+                  combinedPsqtWeights.begin() + ThreatInputDimensions * PSQTBuckets,
+                  std::begin(threatPsqtWeights));
 
-            std::copy(combinedPsqtWeights.begin() + ThreatInputDimensions * PSQTBuckets,
-                      combinedPsqtWeights.begin()
-                        + (ThreatInputDimensions + InputDimensions) * PSQTBuckets,
-                      std::begin(psqtWeights));
-        }
-        else
-        {
-            read_leb_128<BiasType>(stream, biases, HalfDimensions);
-            read_leb_128<WeightType>(stream, weights, HalfDimensions * InputDimensions);
-            read_leb_128<PSQTWeightType>(stream, psqtWeights, PSQTBuckets * InputDimensions);
-        }
+        std::copy(combinedPsqtWeights.begin() + ThreatInputDimensions * PSQTBuckets,
+                  combinedPsqtWeights.begin()
+                    + (ThreatInputDimensions + InputDimensions) * PSQTBuckets,
+                  std::begin(psqtWeights));
+
         permute_weights();
+
         if (!use_threats)
-        {
             scale_weights(true);
-        }
 
         return !stream.fail();
     }
@@ -216,16 +242,17 @@ class FeatureTransformer {
         std::unique_ptr<FeatureTransformer> copy = std::make_unique<FeatureTransformer>(*this);
 
         copy->unpermute_weights();
+
         if (!use_threats)
-        {
             copy->scale_weights(false);
-        }
 
         write_leb_128<BiasType>(stream, copy->biases, HalfDimensions);
-        write_leb_128<ThreatWeightType>(stream, copy->threatWeights,
-                                        HalfDimensions * ThreatInputDimensions);
-        write_leb_128<WeightType>(stream, copy->weights, HalfDimensions * InputDimensions);
-        write_leb_128<PSQTWeightType>(stream, copy->psqtWeights, PSQTBuckets * InputDimensions);
+        (write_leb_128(stream, copy->template weights<InputFeatures>().data(),
+                       copy->template weights<InputFeatures>().size()),
+         ...);
+        (write_leb_128(stream, copy->template psqtWeights<InputFeatures>().data(),
+                       copy->template psqtWeights<InputFeatures>().size()),
+         ...);
 
         return !stream.fail();
     }
@@ -233,8 +260,8 @@ class FeatureTransformer {
     std::size_t get_content_hash() const {
         std::size_t h = 0;
         hash_combine(h, get_raw_data_hash(biases));
-        hash_combine(h, get_raw_data_hash(weights));
-        hash_combine(h, get_raw_data_hash(psqtWeights));
+        (hash_combine(h, get_raw_data_hash(weights<InputFeatures>())), ...);
+        (hash_combine(h, get_raw_data_hash(psqt_weights<InputFeatures>())), ...);
         hash_combine(h, get_hash_value());
         return h;
     }
@@ -422,22 +449,19 @@ class FeatureTransformer {
     }  // end of function transform()
 
     alignas(CacheLineSize) BiasType biases[HalfDimensions];
-    alignas(CacheLineSize) WeightType weights[HalfDimensions * InputDimensions];
-    alignas(CacheLineSize)
-      ThreatWeightType threatWeights[use_threats ? HalfDimensions * ThreatInputDimensions : 64];
-    alignas(CacheLineSize) PSQTWeightType psqtWeights[InputDimensions * PSQTBuckets];
-    alignas(CacheLineSize)
-      PSQTWeightType threatPsqtWeights[use_threats ? ThreatInputDimensions * PSQTBuckets : 1];
+    std::tuple<Aligned<WeightArrayType<InputFeatures>>...>     weightsStack;
+    std::tuple<Aligned<PSQTWeightArrayType<InputFeatures>>...> psqtWeightsStack;
 };
 
 }  // namespace Stockfish::Eval::NNUE
 
 
-template<Stockfish::Eval::NNUE::IndexType TransformedFeatureDimensions>
-struct std::hash<Stockfish::Eval::NNUE::FeatureTransformer<TransformedFeatureDimensions>> {
-    std::size_t
-    operator()(const Stockfish::Eval::NNUE::FeatureTransformer<TransformedFeatureDimensions>& ft)
-      const noexcept {
+template<Stockfish::Eval::NNUE::IndexType TransformedFeatureDimensions, typename... InputFeatures>
+struct std::hash<
+  Stockfish::Eval::NNUE::FeatureTransformer<TransformedFeatureDimensions, InputFeatures...>> {
+    std::size_t operator()(
+      const Stockfish::Eval::NNUE::FeatureTransformer<TransformedFeatureDimensions,
+                                                      InputFeatures...>& ft) const noexcept {
         return ft.get_content_hash();
     }
 };

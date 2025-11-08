@@ -29,6 +29,8 @@
 #include <type_traits>
 
 #include "../misc.h"
+#include "features/full_threats.h"
+#include "features/half_ka_v2_hm.h"
 
 #if defined(USE_AVX2)
     #include <immintrin.h>
@@ -48,11 +50,24 @@
 
 namespace Stockfish::Eval::NNUE {
 
-using BiasType         = std::int16_t;
-using ThreatWeightType = std::int8_t;
-using WeightType       = std::int16_t;
-using PSQTWeightType   = std::int32_t;
-using IndexType        = std::uint32_t;
+template<typename InputFeature>
+struct WeightTypeDef;
+
+template<>
+struct WeightTypeDef<Features::HalfKAv2_hm> {
+    using type = std::int16_t;
+};
+
+template<>
+struct WeightTypeDef<Features::FullThreats> {
+    using type = std::int8_t;
+};
+
+using BiasType = std::int16_t;
+template<typename InputFeature>
+using WeightType     = typename WeightTypeDef<InputFeature>::type;
+using PSQTWeightType = std::int32_t;
+using IndexType      = std::uint32_t;
 
 // Version of the evaluation file
 constexpr std::uint32_t Version = 0x7AF32F20u;
