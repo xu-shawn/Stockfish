@@ -89,11 +89,11 @@ IndexType FullThreats::make_index(Piece attkr, Square from, Square to, Piece att
 
     Bitboard attacks = attacks_bb(attkr, from);
 
-    return IndexType(
-      offsets[attkr][65]
-      + (color_of(attkd) * (numValidTargets[attkr] / 2) + map[type_of(attkr) - 1][type_of(attkd) - 1])
-          * offsets[attkr][64]
-      + offsets[attkr][from] + popcount((square_bb(to) - 1) & attacks));
+    return IndexType(offsets[attkr][65]
+                     + (color_of(attkd) * (numValidTargets[attkr] / 2)
+                        + map[type_of(attkr) - 1][type_of(attkd) - 1])
+                         * offsets[attkr][64]
+                     + offsets[attkr][from] + popcount((square_bb(to) - 1) & attacks));
 }
 
 // Get a list of indices for active features in ascending order
@@ -111,9 +111,9 @@ void FullThreats::append_active_indices(const Position& pos, IndexList& active) 
     {
         for (PieceType pt = PAWN; pt <= KING; ++pt)
         {
-            Color     c     = order[Perspective][color];
-            Piece     attkr = make_piece(c, pt);
-            Bitboard  bb    = colorBB[c] & pieceBB[pt];
+            Color    c     = order[Perspective][color];
+            Piece    attkr = make_piece(c, pt);
+            Bitboard bb    = colorBB[c] & pieceBB[pt];
 
             if (pt == PAWN)
             {
@@ -190,25 +190,36 @@ void FullThreats::append_changed_indices(Square           ksq,
                                          bool             first) {
     for (const auto [attacker, attacked, from, to, add] : diff.list)
     {
-        if (fusedData) {
-            if (from == fusedData->dp2removed) {
-               if (add) {
-                   if (first) {
-                       fusedData->dp2removedOriginBoard |= square_bb(to);
-                       continue;
-                   }
-               } else if (fusedData->dp2removedOriginBoard & square_bb(to)) {
-                   continue;
-               }
+        if (fusedData)
+        {
+            if (from == fusedData->dp2removed)
+            {
+                if (add)
+                {
+                    if (first)
+                    {
+                        fusedData->dp2removedOriginBoard |= square_bb(to);
+                        continue;
+                    }
+                }
+                else if (fusedData->dp2removedOriginBoard & square_bb(to))
+                {
+                    continue;
+                }
             }
 
-            if (to != SQ_NONE && to == fusedData->dp2removed) {
-                if (add) {
-                    if (first) {
+            if (to != SQ_NONE && to == fusedData->dp2removed)
+            {
+                if (add)
+                {
+                    if (first)
+                    {
                         fusedData->dp2removedTargetBoard |= square_bb(from);
-                    continue;
+                        continue;
                     }
-                } else if (fusedData->dp2removedTargetBoard & square_bb(from)) {
+                }
+                else if (fusedData->dp2removedTargetBoard & square_bb(from))
+                {
                     continue;
                 }
             }

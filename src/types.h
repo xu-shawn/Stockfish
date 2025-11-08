@@ -244,10 +244,10 @@ enum Square : int8_t {
 // clang-format on
 
 enum Direction : int8_t {
-    NORTH   = 8,
-    EAST    = 1,
-    SOUTH   = -NORTH,
-    WEST    = -EAST,
+    NORTH = 8,
+    EAST  = 1,
+    SOUTH = -NORTH,
+    WEST  = -EAST,
 
     NORTH_EAST = NORTH + EAST,
     SOUTH_EAST = SOUTH + EAST,
