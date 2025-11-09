@@ -49,7 +49,7 @@ struct PiecePairData {
 static_assert(sizeof(PiecePairData) == 4);
 
 PiecePairData index_lut1[PIECE_NB][PIECE_NB]; // [attkr][attkd]
-IndexType index_lut2[PIECE_NB][SQUARE_NB][SQUARE_NB]; // [attkr][from][to]
+uint8_t index_lut2[PIECE_NB][SQUARE_NB][SQUARE_NB]; // [attkr][from][to]
 static void init() {
     for (int attkr = 0; attkr < PIECE_NB; attkr++) {
         for (int attkd = 0; attkd < PIECE_NB; ++attkd) {
@@ -68,7 +68,7 @@ static void init() {
         for (int from = 0; from < SQUARE_NB; ++from) {
             for (int to = 0; to < SQUARE_NB; ++to) {
                 Bitboard attacks = attacks_bb(Piece(attkr), Square(from));
-                index_lut2[attkr][from][to] = offsets[attkr][from] + popcount((square_bb(Square(to)) - 1) & attacks);
+                index_lut2[attkr][from][to] = popcount((square_bb(Square(to)) - 1) & attacks);
             }
         }
     }
@@ -135,7 +135,7 @@ IndexType FullThreats::make_index(Piece attkr, Square from, Square to, Piece att
         return Dimensions;
     }
 
-    IndexType index = piece_pair_data.feature_index_base() + index_lut2[attkr][from][to];
+    IndexType index = piece_pair_data.feature_index_base() + offsets[attkr][from] + index_lut2[attkr][from][to];
     sf_assume(index != Dimensions);
     return index;
 }
