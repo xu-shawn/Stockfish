@@ -28,15 +28,39 @@ namespace Stockfish::Eval::NNUE::Features {
 // Lookup array for indexing threats
 IndexType offsets[PIECE_NB][SQUARE_NB + 2];
 
-IndexType index_lut1[PIECE_NB][PIECE_NB]; // [attkr][attkd]
+struct PiecePairData {
+    uint32_t data;
+    PiecePairData() {}
+    PiecePairData(uint8_t shamt, bool semi_excluded_pair, IndexType feature_index_base) {
+        assert(shamt <= 63);
+        data = (shamt | semi_excluded_pair << 7) | feature_index_base << 8;
+    }
+    uint8_t shamt() const {
+        return data & ((1 << 6) - 1);
+    }
+    bool semi_excluded_pair() const {
+        return (data >> 7) & 1;
+    }
+    IndexType feature_index_base() const {
+        return data >> 8;
+    }
+};
+
+static_assert(sizeof(PiecePairData) == 4);
+
+PiecePairData index_lut1[PIECE_NB][PIECE_NB]; // [attkr][attkd]
 IndexType index_lut2[PIECE_NB][SQUARE_NB][SQUARE_NB]; // [attkr][from][to]
 static void init() {
     for (int attkr = 0; attkr < PIECE_NB; attkr++) {
         for (int attkd = 0; attkd < PIECE_NB; ++attkd) {
-            index_lut1[attkr][attkd] = offsets[attkr][65]
+            bool enemy = (attkr ^ attkd) == 8;
+            bool semi_excluded = type_of(Piece(attkr)) == type_of(Piece(attkd)) && (enemy || type_of(Piece(attkr)) != PAWN);
+            int shamt = type_of(Piece(attkr)) * 8 + type_of(Piece(attkd));
+            IndexType feature = offsets[attkr][65]
                 + (color_of(Piece(attkd)) * (numValidTargets[attkr] / 2) +
                     FullThreats::map[type_of(Piece(attkr)) - 1][type_of(Piece(attkd)) - 1])
                 * offsets[attkr][64];
+            index_lut1[attkr][attkd] = PiecePairData(shamt, semi_excluded, feature);
         }
     }
 
@@ -93,7 +117,6 @@ void init_threat_offsets() {
 // Index of a feature for a given king position and another piece on some square
 template<Color Perspective>
 IndexType FullThreats::make_index(Piece attkr, Square from, Square to, Piece attkd, Square ksq) {
-    bool enemy = (attkr ^ attkd) == 8;
     from       = (Square) (int(from) ^ OrientTBL[Perspective][ksq]);
     to         = (Square) (int(to) ^ OrientTBL[Perspective][ksq]);
 
@@ -103,14 +126,16 @@ IndexType FullThreats::make_index(Piece attkr, Square from, Square to, Piece att
         attkd = ~attkd;
     }
 
+    auto piece_pair_data = index_lut1[attkr][attkd];
+
     // Some threats imply the existence of the corresponding ones in the opposite
     // direction. We filter them here to ensure only one such threat is active.
-    if ((map_mask & 1ULL << (type_of(attkr) * 8 + type_of(attkd))) || (type_of(attkr) == type_of(attkd) && (enemy || type_of(attkr) != PAWN) && from < to))
+    if ((map_mask & 1ULL << piece_pair_data.shamt()) || (piece_pair_data.semi_excluded_pair() && from < to))
     {
         return Dimensions;
     }
 
-    IndexType index = index_lut1[attkr][attkd] + index_lut2[attkr][from][to];
+    IndexType index = piece_pair_data.feature_index_base() + index_lut2[attkr][from][to];
     sf_assume(index != Dimensions);
     return index;
 }
