@@ -28,6 +28,28 @@ namespace Stockfish::Eval::NNUE::Features {
 // Lookup array for indexing threats
 IndexType offsets[PIECE_NB][SQUARE_NB + 2];
 
+IndexType index_lut1[PIECE_NB][PIECE_NB]; // [attkr][attkd]
+IndexType index_lut2[PIECE_NB][SQUARE_NB][SQUARE_NB]; // [attkr][from][to]
+static void init() {
+    for (int attkr = 0; attkr < PIECE_NB; attkr++) {
+        for (int attkd = 0; attkd < PIECE_NB; ++attkd) {
+            index_lut1[attkr][attkd] = offsets[attkr][65]
+                + (color_of(Piece(attkd)) * (numValidTargets[attkr] / 2) +
+                    FullThreats::map[type_of(Piece(attkr)) - 1][type_of(Piece(attkd)) - 1])
+                * offsets[attkr][64];
+        }
+    }
+
+    for (int attkr = 0; attkr < PIECE_NB; attkr++) {
+        for (int from = 0; from < SQUARE_NB; ++from) {
+            for (int to = 0; to < SQUARE_NB; ++to) {
+                Bitboard attacks = attacks_bb(Piece(attkr), Square(from));
+                index_lut2[attkr][from][to] = offsets[attkr][from] + popcount((square_bb(Square(to)) - 1) & attacks);
+            }
+        }
+    }
+}
+
 void init_threat_offsets() {
     int       cumulativeOffset     = 0;
     PieceType idxToPiece[PIECE_NB] = {
@@ -64,6 +86,8 @@ void init_threat_offsets() {
 
         cumulativeOffset += numValidTargets[pieceIdx] * cumulativePieceOffset;
     }
+
+    init();
 }
 
 // Index of a feature for a given king position and another piece on some square
@@ -81,19 +105,14 @@ IndexType FullThreats::make_index(Piece attkr, Square from, Square to, Piece att
 
     // Some threats imply the existence of the corresponding ones in the opposite
     // direction. We filter them here to ensure only one such threat is active.
-    if ((map[type_of(attkr) - 1][type_of(attkd) - 1] < 0)
-        || (type_of(attkr) == type_of(attkd) && (enemy || type_of(attkr) != PAWN) && from < to))
+    if ((map_mask & 1ULL << (type_of(attkr) * 8 + type_of(attkd))) || (type_of(attkr) == type_of(attkd) && (enemy || type_of(attkr) != PAWN) && from < to))
     {
         return Dimensions;
     }
 
-    Bitboard attacks = attacks_bb(attkr, from);
-
-    return IndexType(
-      offsets[attkr][65]
-      + (color_of(attkd) * (numValidTargets[attkr] / 2) + map[type_of(attkr) - 1][type_of(attkd) - 1])
-          * offsets[attkr][64]
-      + offsets[attkr][from] + popcount((square_bb(to) - 1) & attacks));
+    IndexType index = index_lut1[attkr][attkd] + index_lut2[attkr][from][to];
+    sf_assume(index != Dimensions);
+    return index;
 }
 
 // Get a list of indices for active features in ascending order
