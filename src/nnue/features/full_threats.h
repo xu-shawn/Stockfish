@@ -102,16 +102,6 @@ class FullThreats {
       {0,  1,  2,  3,  4,  5},
       {0,  1,  2,  3, -1, -1}
     };
-
-    static constexpr uint64_t map_mask = ([] () constexpr {
-        uint64_t mask = 0;
-        for (int i = 1; i <= KING; ++i) {
-            for (int j = 1; j <= KING; ++j) {
-                mask |= (uint64_t(map[i - 1][j - 1] < 0) << (8 * i + j));
-            }
-        }
-        return mask;
-    }) ();
     // clang-format on
 
     struct FusedUpdateData {

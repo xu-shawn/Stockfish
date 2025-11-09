@@ -31,15 +31,13 @@ IndexType offsets[PIECE_NB][SQUARE_NB + 2];
 struct PiecePairData {
     uint32_t data;
     PiecePairData() {}
-    PiecePairData(uint8_t shamt, bool semi_excluded_pair, IndexType feature_index_base) {
+    PiecePairData(bool excluded_pair, bool semi_excluded_pair, IndexType feature_index_base) {
         assert(shamt <= 63);
-        data = (shamt | semi_excluded_pair << 7) | feature_index_base << 8;
+        data = (excluded_pair << 1 | (semi_excluded_pair && !excluded_pair)) | feature_index_base << 8;
     }
-    uint8_t shamt() const {
-        return data & ((1 << 6) - 1);
-    }
-    bool semi_excluded_pair() const {
-        return (data >> 7) & 1;
+    // lsb: sometimes excluded, 2nd lsb: always excluded
+    uint8_t excluded_pair_info() const {
+        return (uint8_t)data;
     }
     IndexType feature_index_base() const {
         return data >> 8;
@@ -54,13 +52,13 @@ static void init() {
     for (int attkr = 0; attkr < PIECE_NB; attkr++) {
         for (int attkd = 0; attkd < PIECE_NB; ++attkd) {
             bool enemy = (attkr ^ attkd) == 8;
+            auto map = FullThreats::map[type_of(Piece(attkr)) - 1][type_of(Piece(attkd)) - 1];
             bool semi_excluded = type_of(Piece(attkr)) == type_of(Piece(attkd)) && (enemy || type_of(Piece(attkr)) != PAWN);
-            int shamt = type_of(Piece(attkr)) * 8 + type_of(Piece(attkd));
             IndexType feature = offsets[attkr][65]
                 + (color_of(Piece(attkd)) * (numValidTargets[attkr] / 2) +
-                    FullThreats::map[type_of(Piece(attkr)) - 1][type_of(Piece(attkd)) - 1])
+                    map)
                 * offsets[attkr][64];
-            index_lut1[attkr][attkd] = PiecePairData(shamt, semi_excluded, feature);
+            index_lut1[attkr][attkd] = PiecePairData(map < 0, semi_excluded, feature);
         }
     }
 
@@ -130,7 +128,7 @@ IndexType FullThreats::make_index(Piece attkr, Square from, Square to, Piece att
 
     // Some threats imply the existence of the corresponding ones in the opposite
     // direction. We filter them here to ensure only one such threat is active.
-    if ((map_mask & 1ULL << piece_pair_data.shamt()) || (piece_pair_data.semi_excluded_pair() && from < to))
+    if ((piece_pair_data.excluded_pair_info() + (int(from) < int(to))) & 2)
     {
         return Dimensions;
     }
