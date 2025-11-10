@@ -59,7 +59,7 @@ static void init_index_luts() {
         {
             bool      enemy      = (attkr ^ attkd) == 8;
             PieceType attkr_type = type_of(attkr);
-            PieceType attkd_type = type_of(Piece(attkd));
+            PieceType attkd_type = type_of(attkd);
 
             int       map           = FullThreats::map[attkr_type - 1][attkd_type - 1];
             bool      semi_excluded = attkr_type == attkd_type && (enemy || attkr_type != PAWN);
