@@ -577,21 +577,6 @@ void update_accumulator_incremental(
         FeatureSet::template append_changed_indices<Perspective>(ksq, computed.diff, added,
                                                                  removed);
 
-    if (!added.size() && !removed.size())
-    {
-        auto&       targetAcc = target_state.template acc<TransformedFeatureDimensions>();
-        const auto& sourceAcc = computed.template acc<TransformedFeatureDimensions>();
-
-        std::memcpy(targetAcc.accumulation[Perspective], sourceAcc.accumulation[Perspective],
-                    sizeof(targetAcc.accumulation[Perspective]));
-        std::memcpy(targetAcc.psqtAccumulation[Perspective],
-                    sourceAcc.psqtAccumulation[Perspective],
-                    sizeof(targetAcc.psqtAccumulation[Perspective]));
-
-        targetAcc.computed[Perspective] = true;
-        return;
-    }
-
     auto updateContext =
       make_accumulator_update_context<Perspective>(featureTransformer, computed, target_state);
 
