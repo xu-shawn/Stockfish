@@ -78,7 +78,7 @@ Value Eval::evaluate(const Eval::NNUE::Networks&    networks,
     optimism += optimism * nnueComplexity / 476;
     nnue -= nnue * nnueComplexity / 18236;
 
-    constexpr std::array<int, 8> materialDecay = {1024, 980, 940, 900, 860, 820, 780, 740};
+    constexpr std::array<int, 8> materialDecay = {1024, 1024, 980, 1060, 940, 1100, 900, 1140};
 
     int material = 534 * pos.count<PAWN>() + pos.non_pawn_material();
     material     = material * materialDecay[threadIdx % 8] / 1024;
