@@ -145,19 +145,25 @@ ExtMove* MovePicker::score(MoveList<Type>& ml) {
         ExtMove& m = *it++;
         m          = move;
 
-        const Square    from             = m.from_sq();
-        const Square    to               = m.to_sq();
-        const Piece     pc               = pos.moved_piece(m);
-        const PieceType pt               = type_of(pc);
-        const Piece     capturedPiece    = pos.piece_on(to);
-        const bool      givesSimpleCheck = pos.check_squares(pt) & to;
+        const Square    from          = m.from_sq();
+        const Square    to            = m.to_sq();
+        const Piece     pc            = pos.moved_piece(m);
+        const PieceType pt            = type_of(pc);
+        const Piece     capturedPiece = pos.piece_on(to);
 
         if constexpr (Type == CAPTURES)
+        {
+            const bool givesCheck       = pos.gives_check(m);
+            const bool givesSimpleCheck = pos.check_squares(pt) & to;
+
             m.value = (*captureHistory)[pc][to][type_of(capturedPiece)]
-                    + 7 * int(PieceValue[capturedPiece]) + givesSimpleCheck * 1024;
+                    + 7 * int(PieceValue[capturedPiece]) + (givesCheck && !givesSimpleCheck) * 1024;
+        }
 
         else if constexpr (Type == QUIETS)
         {
+            const bool givesSimpleCheck = pos.check_squares(pt) & to;
+
             // histories
             m.value = 2 * (*mainHistory)[us][m.raw()];
             m.value += 2 * sharedHistory->pawn_entry(pos)[pc][to];
