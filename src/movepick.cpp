@@ -145,17 +145,15 @@ ExtMove* MovePicker::score(MoveList<Type>& ml) {
         ExtMove& m = *it++;
         m          = move;
 
-        const Square    from             = m.from_sq();
-        const Square    to               = m.to_sq();
-        const Piece     pc               = pos.moved_piece(m);
-        const PieceType pt               = type_of(pc);
-        const Piece     capturedPiece    = pos.piece_on(to);
-        const bool      givesCheck       = pos.gives_check(m);
-        const bool      givesSimpleCheck = pos.check_squares(pt) & to;
+        const Square    from          = m.from_sq();
+        const Square    to            = m.to_sq();
+        const Piece     pc            = pos.moved_piece(m);
+        const PieceType pt            = type_of(pc);
+        const Piece     capturedPiece = pos.piece_on(to);
 
         if constexpr (Type == CAPTURES)
             m.value = (*captureHistory)[pc][to][type_of(capturedPiece)]
-                    + 7 * int(PieceValue[capturedPiece]) + (givesCheck && !givesSimpleCheck) * 1024;
+                    + 7 * int(PieceValue[capturedPiece]);
 
         else if constexpr (Type == QUIETS)
         {
@@ -168,8 +166,13 @@ ExtMove* MovePicker::score(MoveList<Type>& ml) {
             m.value += (*continuationHistory[3])[pc][to];
             m.value += (*continuationHistory[5])[pc][to];
 
+            const bool givesCheck       = pos.gives_check(m);
+            const bool givesSimpleCheck = pos.check_squares(pt) & to;
+
             // bonus for checks
-            m.value += (givesSimpleCheck && pos.see_ge(m, -75)) * 16384;
+            m.value +=
+              ((givesSimpleCheck && pos.see_ge(m, -75)) && (!givesSimpleCheck && givesCheck))
+              * 16384;
 
             // penalty for moving to a square threatened by a lesser piece
             // or bonus for escaping an attack by a lesser piece.
