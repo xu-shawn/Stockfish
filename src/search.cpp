@@ -697,6 +697,7 @@ Value Search::Worker::search(
     (ss - 1)->reduction = 0;
     ss->statScore       = 0;
     (ss + 2)->cutoffCnt = 0;
+    (ss + 1)->ttHit     = false;
 
     // Step 4. Transposition table lookup
     excludedMove                   = ss->excludedMove;
@@ -787,10 +788,12 @@ Value Search::Worker::search(
                 auto [ttHitNext, ttDataNext, ttWriterNext] = tt.probe(nextPosKey);
                 pos.undo_move(ttData.move);
 
-                // Check that the ttValue after the tt move would also trigger a cutoff
+                (ss + 1)->ttHit = ttHitNext;
+
                 if (!is_valid(ttDataNext.value))
                     return ttData.value;
 
+                // Check that the ttValue after the tt move would also trigger a cutoff
                 if ((ttData.value >= beta) == (-ttDataNext.value >= beta))
                     return ttData.value;
             }
@@ -1210,7 +1213,7 @@ moves_loop:  // When in check, search starts here
 
         // For first picked move (ttMove) reduce reduction
         if (move == ttData.move)
-            r -= 2069;
+            r -= 1969 + 1000 * (ss + 1)->ttHit;
 
         if (capture)
             ss->statScore = 892 * int(PieceValue[pos.captured_piece()]) / 128
