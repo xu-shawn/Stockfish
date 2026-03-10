@@ -363,6 +363,7 @@ void Search::Worker::iterative_deepening() {
             // high/low, re-search with a bigger window until we don't fail
             // high/low anymore.
             int failedHighCnt = 0;
+            wideningCount     = 0;
             while (true)
             {
                 // Adjust the effective depth searched, but ensure at least one
@@ -414,6 +415,7 @@ void Search::Worker::iterative_deepening() {
                     break;
 
                 delta += delta / 3;
+                wideningCount++;
 
                 assert(alpha >= -VALUE_INFINITE && beta <= VALUE_INFINITE);
             }
@@ -1361,6 +1363,9 @@ moves_loop:  // When in check, search starts here
         {
             bestValue = value;
 
+            if (rootNode && value <= alpha && wideningCount == 0)
+                break;
+
             if (value + inc > alpha)
             {
                 bestMove = move;
@@ -1376,7 +1381,8 @@ moves_loop:  // When in check, search starts here
                     break;
                 }
 
-                // Reduce other moves if we have found at least one score improvement
+                // Reduce other moves if we have found at least one score
+                // improvement
                 if (depth > 2 && depth < 14 && !is_decisive(value))
                     depth -= 2;
 

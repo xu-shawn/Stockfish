@@ -335,6 +335,7 @@ class Worker {
     int                   selDepth, nmpMinPly;
 
     Value optimism[COLOR_NB];
+    int   wideningCount;
 
     Position  rootPos;
     StateInfo rootState;
