@@ -129,6 +129,7 @@ ExtMove* MovePicker::score(MoveList<Type>& ml) {
     Color us = pos.side_to_move();
 
     [[maybe_unused]] Bitboard threatByLesser[KING + 1];
+    [[maybe_unused]] Bitboard threatByKing;
     if constexpr (Type == QUIETS)
     {
         threatByLesser[PAWN]   = 0;
@@ -137,6 +138,8 @@ ExtMove* MovePicker::score(MoveList<Type>& ml) {
           pos.attacks_by<KNIGHT>(~us) | pos.attacks_by<BISHOP>(~us) | threatByLesser[KNIGHT];
         threatByLesser[QUEEN] = pos.attacks_by<ROOK>(~us) | threatByLesser[ROOK];
         threatByLesser[KING]  = 0;
+
+        threatByKing = pos.attacks_by<KING>(~us);
     }
 
     ExtMove* it = cur;
@@ -174,6 +177,7 @@ ExtMove* MovePicker::score(MoveList<Type>& ml) {
             int v = 20 * (bool(threatByLesser[pt] & from) - bool(threatByLesser[pt] & to));
             m.value += PieceValue[pt] * v;
 
+            m.value += bool(threatByKing & to) * 1000;
 
             if (ply < LOW_PLY_HISTORY_SIZE)
                 m.value += 8 * (*lowPlyHistory)[ply][m.raw()] / (1 + ply);
