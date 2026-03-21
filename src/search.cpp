@@ -438,6 +438,30 @@ void Search::Worker::iterative_deepening() {
                 break;
         }
 
+        auto& previousPV = lastIterationPV;
+        auto& currentPV  = rootMoves[0].pv;
+
+        size_t to_search_pv   = std::min<size_t>(previousPV.size(), currentPV.size());
+        size_t matching_moves = 0;
+
+        // for (auto i = 0ULL; i < previousPV.size(); i++)
+        //     std::cout << (int) previousPV[i].raw() << " " << i << "\n";
+
+        // std::cout << "_________________________________________" << "\n";
+
+        // for (auto i = 0ULL; i < currentPV.size(); i++)
+        //     std::cout << (int) currentPV[i].raw() << " " << i << "\n";
+
+        for (auto i = 0ULL; i < to_search_pv; ++i)
+        {
+            matching_moves += previousPV[i] == currentPV[i];
+            // std::cout << (int) previousPV[i].raw() << " " << (int) currentPV[i].raw() << "\n";
+        }
+
+        double pv_match = (static_cast<double>(matching_moves))
+                        / std::max<double>(1.0, static_cast<double>(to_search_pv));
+
+
         if (!threads.stop)
         {
             completedDepth  = rootDepth;
@@ -518,10 +542,12 @@ void Search::Worker::iterative_deepening() {
 
             double bestMoveInstability = 1.088 + 2.315 * totBestMoveChanges / threads.size();
 
+            double PVMatch = 0.8 + 0.4 * (1 - pv_match);
+
             double highBestMoveEffort = nodesEffort > 86000 ? 0.74 : 0.96;
 
             double totalTime = mainThread->tm.optimum() * fallingEval * reduction
-                             * bestMoveInstability * highBestMoveEffort;
+                             * bestMoveInstability * highBestMoveEffort * PVMatch;
 
             // Cap used time in case of a single legal move for a better viewer experience
             if (rootMoves.size() == 1)
