@@ -542,7 +542,7 @@ void Search::Worker::iterative_deepening() {
 
             double bestMoveInstability = 1.088 + 2.315 * totBestMoveChanges / threads.size();
 
-            double PVMatch = 0.8 + 0.4 * (1 - pv_match);
+            double PVMatch = completedDepth > 4 ? 0.8 + 0.4 * (1 - pv_match) : 1.0;
 
             double highBestMoveEffort = nodesEffort > 86000 ? 0.74 : 0.96;
 
