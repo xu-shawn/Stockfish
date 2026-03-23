@@ -454,15 +454,18 @@ void Search::Worker::iterative_deepening() {
 
         for (auto i = 0ULL; i < to_search_pv; ++i)
         {
-            matching_moves += (previousPV[i] == currentPV[i]) ? (to_search_pv - i) : 0;
+            matching_moves +=
+              (previousPV[i] == currentPV[i]) ? (to_search_pv - i) * (to_search_pv - i) : 0;
             // std::cout << (int) previousPV[i].raw() << " " << (int) currentPV[i].raw() << "\n";
         }
 
         double pv_match =
           (static_cast<double>(matching_moves))
-          / std::max<double>(1.0, static_cast<double>((to_search_pv * (to_search_pv + 1)) / 2));
+          / std::max<double>(
+            1.0,
+            static_cast<double>((to_search_pv * (to_search_pv + 1) * (2 * to_search_pv + 1)) / 6));
 
-        std::cout << "weighted PV Match:" << pv_match << "\n";
+        // std::cout << "weighted PV Match:" << pv_match << "\n";
 
 
         if (!threads.stop)
