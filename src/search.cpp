@@ -454,12 +454,15 @@ void Search::Worker::iterative_deepening() {
 
         for (auto i = 0ULL; i < to_search_pv; ++i)
         {
-            matching_moves += previousPV[i] == currentPV[i];
+            matching_moves += (previousPV[i] == currentPV[i]) ? (to_search_pv - i) : 0;
             // std::cout << (int) previousPV[i].raw() << " " << (int) currentPV[i].raw() << "\n";
         }
 
-        double pv_match = (static_cast<double>(matching_moves))
-                        / std::max<double>(1.0, static_cast<double>(to_search_pv));
+        double pv_match =
+          (static_cast<double>(matching_moves))
+          / std::max<double>(1.0, static_cast<double>((to_search_pv * (to_search_pv + 1)) / 2));
+
+        std::cout << "weighted PV Match:" << pv_match << "\n";
 
 
         if (!threads.stop)
@@ -542,7 +545,7 @@ void Search::Worker::iterative_deepening() {
 
             double bestMoveInstability = 1.088 + 2.315 * totBestMoveChanges / threads.size();
 
-            double PVMatch = completedDepth > 4 ? 0.8 + 0.4 * (1 - pv_match) : 1.0;
+            double PVMatch = completedDepth > 8 ? 0.8 + 0.4 * (1 - pv_match) : 1.0;
 
             double highBestMoveEffort = nodesEffort > 86000 ? 0.74 : 0.96;
 
