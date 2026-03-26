@@ -52,6 +52,12 @@
 
 namespace Stockfish {
 
+int pvMatchCdepthThreshold = 8;
+int pvMatchBase            = 8000;
+int pvMatchMult            = 4000;
+
+TUNE(pvMatchCdepthThreshold, pvMatchBase, pvMatchMult);
+
 namespace TB = Tablebases;
 
 void syzygy_extend_pv(const OptionsMap&            options,
@@ -548,7 +554,9 @@ void Search::Worker::iterative_deepening() {
 
             double bestMoveInstability = 1.088 + 2.315 * totBestMoveChanges / threads.size();
 
-            double PVMatch = completedDepth > 8 ? 0.8 + 0.4 * (1 - pv_match) : 1.0;
+            double PVMatch = completedDepth > pvMatchCdepthThreshold
+                             ? pvMatchBase / 10000.0 + pvMatchMult / 10000.0 * (1 - pv_match)
+                             : 1.0;
 
             double highBestMoveEffort = nodesEffort > 86000 ? 0.74 : 0.96;
 
