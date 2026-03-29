@@ -23,7 +23,9 @@
 #include <utility>
 
 #include "bitboard.h"
+#include "memory.h"
 #include "misc.h"
+#include "movegen.h"
 #include "position.h"
 
 namespace Stockfish {
@@ -129,6 +131,8 @@ ExtMove* MovePicker::score(const MoveList<Type>& ml) {
     Color us = pos.side_to_move();
 
     [[maybe_unused]] Bitboard threatByLesser[KING + 1];
+    [[maybe_unused]] Bitboard safeThreats[KING + 1];
+
     if constexpr (Type == QUIETS)
     {
         threatByLesser[PAWN]   = 0;
@@ -137,6 +141,34 @@ ExtMove* MovePicker::score(const MoveList<Type>& ml) {
           pos.attacks_by<KNIGHT>(~us) | pos.attacks_by<BISHOP>(~us) | threatByLesser[KNIGHT];
         threatByLesser[QUEEN] = pos.attacks_by<ROOK>(~us) | threatByLesser[ROOK];
         threatByLesser[KING]  = 0;
+
+        Bitboard allThreats = threatByLesser[QUEEN];
+
+        safeThreats[PAWN]   = pawn_attacks_bb(~us, pos.pieces(~us)) & ~allThreats;
+        safeThreats[KNIGHT] = 0;
+        safeThreats[BISHOP] = 0;
+        safeThreats[ROOK]   = 0;
+        safeThreats[QUEEN]  = 0;
+        safeThreats[KING]   = 0;
+
+        Bitboard themRooks  = pos.pieces(~us, ROOK);
+        Bitboard themQueens = pos.pieces(~us, QUEEN);
+
+        while (themRooks)
+        {
+            Square rook = pop_lsb(themRooks);
+            safeThreats[KNIGHT] |= attacks_bb<KNIGHT>(rook);
+            safeThreats[BISHOP] |= attacks_bb<BISHOP>(rook, pos.pieces());
+        }
+
+        while (themQueens)
+        {
+            Square queen = pop_lsb(themQueens);
+            safeThreats[KNIGHT] |= attacks_bb<KNIGHT>(queen);
+        }
+
+        safeThreats[KNIGHT] &= ~allThreats;
+        safeThreats[BISHOP] &= ~allThreats;
     }
 
     ExtMove* it = cur;
@@ -174,6 +206,7 @@ ExtMove* MovePicker::score(const MoveList<Type>& ml) {
             int v = 20 * (bool(threatByLesser[pt] & from) - bool(threatByLesser[pt] & to));
             m.value += PieceValue[pt] * v;
 
+            m.value += 6000 * bool(safeThreats[pt] & to);
 
             if (ply < LOW_PLY_HISTORY_SIZE)
                 m.value += 8 * (*lowPlyHistory)[ply][m.raw()] / (1 + ply);
