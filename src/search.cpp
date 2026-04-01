@@ -1072,7 +1072,7 @@ moves_loop:  // When in check, search starts here
         if (!rootNode && pos.non_pawn_material(us) && !is_loss(bestValue))
         {
             // Skip quiet moves if movecount exceeds our FutilityMoveCount threshold
-            if (moveCount >= (3 + depth * depth) / (2 - improving))
+            if ((ss - 1)->extension < 2 && moveCount >= (3 + depth * depth) / (2 - improving))
                 mp.skip_quiet_moves();
 
             // Reduced depth of the next LMR search
@@ -1232,8 +1232,6 @@ moves_loop:  // When in check, search starts here
         // For first picked move (ttMove) reduce reduction
         if (move == ttData.move)
             r -= 2239;
-        else if ((ss - 1)->extension >= 2)
-            r -= 1024;
 
         if (capture)
             ss->statScore = 863 * int(PieceValue[pos.captured_piece()]) / 128
