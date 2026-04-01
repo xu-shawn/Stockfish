@@ -887,11 +887,10 @@ Value Search::Worker::search(
             sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq] << evalDiff * 12;
     }
 
-
     // Step 7. Razoring
     // If eval is really low, skip search entirely and return the qsearch value.
     // For PvNodes, we must have a guard against mates being returned.
-    if (!PvNode && eval < alpha - 502 - 306 * depth * depth)
+    if (!PvNode && (ss - 1)->extension < 2 && eval < alpha - 502 - 306 * depth * depth)
         return qsearch<NonPV>(pos, ss, alpha, beta);
 
     // Step 8. Futility pruning: child node
@@ -905,13 +904,15 @@ Value Search::Worker::search(
                  + std::abs(correctionValue) / 180600;
         };
 
-        if (!ss->ttPv && depth < 15 && eval - futility_margin(depth) >= beta && eval >= beta
-            && (!ttData.move || ttCapture) && !is_loss(beta) && !is_win(eval))
+        if (!ss->ttPv && depth < 15 && (ss - 1)->extension < 2
+            && eval - futility_margin(depth) >= beta && eval >= beta && (!ttData.move || ttCapture)
+            && !is_loss(beta) && !is_win(eval))
             return (2 * beta + eval) / 3;
     }
 
     // Step 9. Null move search with verification search
-    if (cutNode && ss->staticEval >= beta - 16 * depth - 53 * improving + 378 && !excludedMove
+    if (cutNode && (ss - 1)->extension < 2
+        && ss->staticEval >= beta - 16 * depth - 53 * improving + 378 && !excludedMove
         && pos.non_pawn_material(us) && ss->ply >= nmpMinPly && !is_loss(beta))
     {
         assert((ss - 1)->currentMove != Move::null());
@@ -957,8 +958,8 @@ Value Search::Worker::search(
     // If we have a good enough capture (or queen promotion) and a reduced search
     // returns a value much above beta, we can (almost) safely prune the previous move.
     probCutBeta = beta + 224 - 61 * improving;
-    if (depth >= 3
-        && !is_decisive(beta)
+    if (depth >= 3 && !is_decisive(beta)
+        && (ss - 1)->extension < 2
         // If value from transposition table is lower than probCutBeta, don't attempt
         // probCut there
         && !(is_valid(ttData.value) && ttData.value < probCutBeta))
@@ -1005,8 +1006,9 @@ moves_loop:  // When in check, search starts here
 
     // Step 12. A small Probcut idea
     probCutBeta = beta + 416;
-    if ((ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 4 && ttData.value >= probCutBeta
-        && !is_decisive(beta) && is_valid(ttData.value) && !is_decisive(ttData.value))
+    if ((ss - 1)->extension < 2 && (ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 4
+        && ttData.value >= probCutBeta && !is_decisive(beta) && is_valid(ttData.value)
+        && !is_decisive(ttData.value))
         return probCutBeta;
 
     const PieceToHistory* contHist[] = {
@@ -1232,8 +1234,6 @@ moves_loop:  // When in check, search starts here
         // For first picked move (ttMove) reduce reduction
         if (move == ttData.move)
             r -= 2239;
-        else if ((ss - 1)->extension >= 2)
-            r -= 1024;
 
         if (capture)
             ss->statScore = 863 * int(PieceValue[pos.captured_piece()]) / 128
