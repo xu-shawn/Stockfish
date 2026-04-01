@@ -77,6 +77,7 @@ struct Stack {
     bool                        followPV;
     int                         cutoffCnt;
     int                         reduction;
+    Depth                       extension;
 };
 
 
