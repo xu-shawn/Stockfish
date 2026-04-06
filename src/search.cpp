@@ -1394,7 +1394,7 @@ moves_loop:  // When in check, search starts here
                 }
 
                 if (bestMove != ttData.move && !excludedMove && !(rootNode && pvIdx))
-                    ttWriter.write(posKey, value_to_tt(bestValue, ss->ply), ss->ttPv, BOUND_EXACT,
+                    ttWriter.write(posKey, value_to_tt(bestValue, ss->ply), ss->ttPv, BOUND_LOWER,
                                    depth, bestMove, unadjustedStaticEval, tt.generation());
 
                 // Reduce other moves if we have found at least one score improvement
