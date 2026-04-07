@@ -138,12 +138,10 @@ void AccumulatorStack::pop() noexcept {
     size--;
 }
 
-template<IndexType Dimensions>
+template<IndexType Dimensions, bool UseThreats>
 void AccumulatorStack::evaluate(const Position&                       pos,
                                 const FeatureTransformer<Dimensions>& featureTransformer,
                                 AccumulatorCaches::Cache<Dimensions>& cache) noexcept {
-    constexpr bool UseThreats = (Dimensions == TransformedFeatureDimensionsBig);
-
     evaluate_side<PSQFeatureSet>(WHITE, pos, featureTransformer, cache);
     evaluate_side<PSQFeatureSet>(BLACK, pos, featureTransformer, cache);
 
@@ -278,11 +276,19 @@ void AccumulatorStack::backward_update_incremental(
 }
 
 // Explicit template instantiations
-template void AccumulatorStack::evaluate<TransformedFeatureDimensionsBig>(
+template void AccumulatorStack::evaluate<TransformedFeatureDimensionsBig, true>(
   const Position&                                            pos,
   const FeatureTransformer<TransformedFeatureDimensionsBig>& featureTransformer,
   AccumulatorCaches::Cache<TransformedFeatureDimensionsBig>& cache) noexcept;
-template void AccumulatorStack::evaluate<TransformedFeatureDimensionsSmall>(
+template void AccumulatorStack::evaluate<TransformedFeatureDimensionsSmall, true>(
+  const Position&                                              pos,
+  const FeatureTransformer<TransformedFeatureDimensionsSmall>& featureTransformer,
+  AccumulatorCaches::Cache<TransformedFeatureDimensionsSmall>& cache) noexcept;
+template void AccumulatorStack::evaluate<TransformedFeatureDimensionsBig, false>(
+  const Position&                                            pos,
+  const FeatureTransformer<TransformedFeatureDimensionsBig>& featureTransformer,
+  AccumulatorCaches::Cache<TransformedFeatureDimensionsBig>& cache) noexcept;
+template void AccumulatorStack::evaluate<TransformedFeatureDimensionsSmall, false>(
   const Position&                                              pos,
   const FeatureTransformer<TransformedFeatureDimensionsSmall>& featureTransformer,
   AccumulatorCaches::Cache<TransformedFeatureDimensionsSmall>& cache) noexcept;

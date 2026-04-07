@@ -188,6 +188,26 @@ Network<Arch, Transformer>::evaluate(const Position&                         pos
     return {static_cast<Value>(psqt / OutputScale), static_cast<Value>(positional / OutputScale)};
 }
 
+template<typename Arch, typename Transformer>
+NetworkOutput Network<Arch, Transformer>::evaluate_no_threats(
+  const Position&                         pos,
+  AccumulatorStack&                       accumulatorStack,
+  AccumulatorCaches::Cache<FTDimensions>& cache) const {
+
+    constexpr uint64_t alignment = CacheLineSize;
+
+    alignas(alignment)
+      TransformedFeatureType transformedFeatures[FeatureTransformer<FTDimensions>::BufferSize];
+
+    ASSERT_ALIGNED(transformedFeatures, alignment);
+
+    const int  bucket = (pos.count<ALL_PIECES>() - 1) / 4;
+    const auto psqt   = featureTransformer.template transform<true>(pos, accumulatorStack, cache,
+                                                                    transformedFeatures, bucket);
+    const auto positional = network[bucket].propagate(transformedFeatures);
+    return {static_cast<Value>(psqt / OutputScale), static_cast<Value>(positional / OutputScale)};
+}
+
 
 template<typename Arch, typename Transformer>
 void Network<Arch, Transformer>::verify(std::string                                  evalfilePath,

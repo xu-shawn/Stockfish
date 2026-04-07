@@ -160,7 +160,8 @@ class AccumulatorStack {
     std::pair<DirtyPiece&, DirtyThreats&> push() noexcept;
     void                                  pop() noexcept;
 
-    template<IndexType Dimensions>
+    template<IndexType Dimensions,
+             bool      UseThreats = (Dimensions == TransformedFeatureDimensionsBig)>
     void evaluate(const Position&                       pos,
                   const FeatureTransformer<Dimensions>& featureTransformer,
                   AccumulatorCaches::Cache<Dimensions>& cache) noexcept;

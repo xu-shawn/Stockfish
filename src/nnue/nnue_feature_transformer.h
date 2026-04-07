@@ -233,6 +233,7 @@ class FeatureTransformer {
     }
 
     // Convert input features
+    template<bool NoThreats = false>
     std::int32_t transform(const Position&                           pos,
                            AccumulatorStack&                         accumulatorStack,
                            AccumulatorCaches::Cache<HalfDimensions>& cache,
@@ -240,7 +241,7 @@ class FeatureTransformer {
                            int                                       bucket) const {
 
         using namespace SIMD;
-        accumulatorStack.evaluate(pos, *this, cache);
+        accumulatorStack.evaluate<HalfDimensions, !NoThreats && UseThreats>(pos, *this, cache);
         const auto& accumulatorState       = accumulatorStack.latest<PSQFeatureSet>();
         const auto& threatAccumulatorState = accumulatorStack.latest<ThreatFeatureSet>();
 
@@ -249,7 +250,7 @@ class FeatureTransformer {
         auto        psqt =
           (psqtAccumulation[perspectives[0]][bucket] - psqtAccumulation[perspectives[1]][bucket]);
 
-        if constexpr (UseThreats)
+        if constexpr (!NoThreats && UseThreats)
         {
             const auto& threatPsqtAccumulation =
               (threatAccumulatorState.acc<HalfDimensions>()).psqtAccumulation;
@@ -341,7 +342,7 @@ class FeatureTransformer {
     #else
               6;
     #endif
-            if constexpr (UseThreats)
+            if constexpr (!NoThreats && UseThreats)
             {
                 const vec_t* tin0 =
                   reinterpret_cast<const vec_t*>(&(threatAccumulation[perspectives[p]][0]));
@@ -393,7 +394,7 @@ class FeatureTransformer {
                 BiasType sum1 =
                   accumulation[static_cast<int>(perspectives[p])][j + HalfDimensions / 2];
 
-                if constexpr (UseThreats)
+                if constexpr (!NoThreats && UseThreats)
                 {
                     sum0 += threatAccumulation[static_cast<int>(perspectives[p])][j + 0];
                     sum1 +=
