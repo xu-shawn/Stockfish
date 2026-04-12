@@ -1160,11 +1160,12 @@ moves_loop:  // When in check, search starts here
                 int tripleMargin = 73 + 320 * PvNode - 218 * !ttCapture + 92 * ss->ttPv - corrValAdj
                                  - (ss->ply > rootDepth) * 45;
 
-                extension = 1
-                          + (value < singularBeta - doubleMargin
-                             || (!ttCapture && ttData.value >= ss->staticEval + 100))
-                          + (value < singularBeta - tripleMargin
-                             || (!ttCapture && ttData.value >= ss->staticEval + 150));
+                extension =
+                  1 + (value < singularBeta - doubleMargin) + (value < singularBeta - tripleMargin);
+
+                if (!PvNode && !ttCapture)
+                    extension =
+                      std::max(extension, std::min((ttData.value - ss->staticEval) / 50, 4));
 
                 depth++;
             }
