@@ -1166,6 +1166,12 @@ moves_loop:  // When in check, search starts here
                 depth++;
             }
 
+            else if (value > ttData.value && !is_decisive(value))
+            {
+                ttMoveHistory << std::max(-424 - 107 * depth, -3375);
+                ttData.move = Move::none();
+            }
+
             // Multi-cut pruning
             // Our ttMove is assumed to fail high based on the bound of the TT entry,
             // and if after excluding the ttMove with a reduced search we fail high
