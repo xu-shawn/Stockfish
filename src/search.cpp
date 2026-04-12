@@ -1162,9 +1162,9 @@ moves_loop:  // When in check, search starts here
 
                 extension = 1
                           + (value < singularBeta - doubleMargin
-                             || (!PvNode && !ttCapture && ttData.value >= ss->staticEval + 100))
+                             || (!ttCapture && ttData.value >= ss->staticEval + 100))
                           + (value < singularBeta - tripleMargin
-                             || (!PvNode && !ttCapture && ttData.value >= ss->staticEval + 150));
+                             || (!ttCapture && ttData.value >= ss->staticEval + 150));
 
                 depth++;
             }
