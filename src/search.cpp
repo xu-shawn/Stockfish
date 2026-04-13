@@ -1195,6 +1195,11 @@ moves_loop:  // When in check, search starts here
                 extension = -2;
         }
 
+        else if (!rootNode && move == ttData.move && !excludedMove && depth < 6
+                 && is_valid(ttData.value) && !is_decisive(ttData.value)
+                 && (ttData.bound & BOUND_LOWER) && eval < alpha - 50 && ttData.eval >= eval + 50)
+            extension = 1;
+
         // Step 16. Make the move
         do_move(pos, move, st, givesCheck, ss);
 
