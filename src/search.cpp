@@ -1165,7 +1165,7 @@ moves_loop:  // When in check, search starts here
 
                 if (!PvNode && !ttCapture)
                     extension =
-                      std::max(extension, std::min((ttData.value - ss->staticEval) / 50, 4));
+                      std::max(extension, std::min((ttData.value - ss->staticEval) / 40, 3));
 
                 depth++;
             }
