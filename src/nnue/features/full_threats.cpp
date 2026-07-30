@@ -271,7 +271,7 @@ void FullThreats::append_changed_indices(Color                   perspective,
                                          const DiffType&         diff,
                                          IndexList&              removed,
                                          IndexList&              added,
-                                         const ThreatWeightType* prefetchBase,
+                                         const WeightType* prefetchBase,
                                          IndexType               prefetchStride) {
 
     for (const auto& dirty : diff.list)
@@ -299,8 +299,8 @@ void FullThreats::append_changed_indices_both(Square                  white_ksq,
                                               IndexList&              white_added,
                                               IndexList&              black_removed,
                                               IndexList&              black_added,
-                                              const ThreatWeightType* prefetchBase,
-                                              IndexType               prefetchStride) {
+                                              const WeightType* prefetchBase,
+                                              IndexType         prefetchStride) {
 
     for (const auto& dirty : diff.list)
     {

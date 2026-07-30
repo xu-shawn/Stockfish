@@ -41,12 +41,15 @@ template<bool Forward>
 void update_accumulator_incremental(Color                     perspective,
                                     const FeatureTransformer& featureTransformer,
                                     const Square              ksq,
+                                    bool                      opponent_has_queen,
                                     AccumulatorState&         target_state,
                                     const AccumulatorState&   computed);
 
 void update_accumulator_incremental_both(const FeatureTransformer& featureTransformer,
                                          Square                    white_ksq,
                                          Square                    black_ksq,
+                                         bool                      white_opponent_has_queen,
+                                         bool                      black_opponent_has_queen,
                                          AccumulatorState&         target_state,
                                          const AccumulatorState&   computed);
 
@@ -122,7 +125,11 @@ void AccumulatorStack::evaluate_side(Color                     perspective,
     {
         const auto& dirtyPiece = latest().dirtyPiece;
 
+        const bool opponent_has_queen = pos.count<QUEEN>(~perspective) > 0;
+        const bool previous_opponent_has_queen = opponent_has_queen || (dirtyPiece.remove_pc == make_piece(~perspective, QUEEN));
+
         if (dirtyPiece.pc == make_piece(perspective, KING)
+            && previous_opponent_has_queen == opponent_has_queen
             && accumulators[size - 2].computed[perspective]
             && pos.count<ALL_PIECES>() >= MIN_PC_COUNT_HYBRID
             && ((int(dirtyPiece.from) & 0b100) == (int(dirtyPiece.to) & 0b100))
@@ -166,9 +173,10 @@ void AccumulatorStack::forward_update_incremental(Color                     pers
     assert(accumulators[begin].computed[perspective]);
 
     const Square ksq = pos.square<KING>(perspective);
+    const bool opponent_has_queen = pos.count<QUEEN>(~perspective) > 0;
 
     for (usize next = begin + 1; next < size; next++)
-        update_accumulator_incremental<true>(perspective, featureTransformer, ksq,
+        update_accumulator_incremental<true>(perspective, featureTransformer, ksq, opponent_has_queen,
                                              accumulators[next], accumulators[next - 1]);
 
     assert(latest().computed[perspective]);
@@ -184,9 +192,10 @@ void AccumulatorStack::backward_update_incremental(Color                     per
     assert(latest().computed[perspective]);
 
     const Square ksq = pos.square<KING>(perspective);
+    const bool opponent_has_queen = pos.count<QUEEN>(~perspective) > 0;
 
     for (i64 next = i64(size) - 2; next >= i64(end); next--)
-        update_accumulator_incremental<false>(perspective, featureTransformer, ksq,
+        update_accumulator_incremental<false>(perspective, featureTransformer, ksq, opponent_has_queen,
                                               accumulators[next], accumulators[next + 1]);
 
     assert(accumulators[end].computed[perspective]);
@@ -202,21 +211,26 @@ void AccumulatorStack::forward_update_incremental_both(const Position&          
     assert(accumulators[white_begin].computed[WHITE]);
     assert(accumulators[black_begin].computed[BLACK]);
 
-    const Square white_ksq    = pos.square<KING>(WHITE);
-    const Square black_ksq    = pos.square<KING>(BLACK);
-    const usize  shared_begin = std::max(white_begin, black_begin);
+    const Square white_ksq               = pos.square<KING>(WHITE);
+    const Square black_ksq               = pos.square<KING>(BLACK);
+    const bool   white_opponent_has_queen = pos.count<QUEEN>(BLACK) > 0;
+    const bool   black_opponent_has_queen = pos.count<QUEEN>(WHITE) > 0;
+    const usize  shared_begin            = std::max(white_begin, black_begin);
 
     // Catch up the lagging perspective, then traverse the common suffix once.
     for (usize next = white_begin + 1; next <= shared_begin; ++next)
         update_accumulator_incremental<true>(WHITE, featureTransformer, white_ksq,
-                                             accumulators[next], accumulators[next - 1]);
+                                             white_opponent_has_queen, accumulators[next],
+                                             accumulators[next - 1]);
     for (usize next = black_begin + 1; next <= shared_begin; ++next)
         update_accumulator_incremental<true>(BLACK, featureTransformer, black_ksq,
-                                             accumulators[next], accumulators[next - 1]);
+                                             black_opponent_has_queen, accumulators[next],
+                                             accumulators[next - 1]);
 
     for (usize next = shared_begin + 1; next < size; ++next)
-        update_accumulator_incremental_both(featureTransformer, white_ksq, black_ksq,
-                                            accumulators[next], accumulators[next - 1]);
+        update_accumulator_incremental_both(
+          featureTransformer, white_ksq, black_ksq, white_opponent_has_queen,
+          black_opponent_has_queen, accumulators[next], accumulators[next - 1]);
 
     assert(latest().computed[WHITE]);
     assert(latest().computed[BLACK]);
@@ -246,8 +260,8 @@ void apply_combined(Color                              perspective,
     vec_t      acc[Tiling::NumRegs];
     psqt_vec_t psqt[Tiling::NumPsqtRegs];
 
-    const auto* psqWeights         = &featureTransformer.weights[0];
-    const auto* threatAndPpWeights = &featureTransformer.threatAndPpWeights[0];
+    const auto* psqWeights = &featureTransformer.weights[0];
+    const auto* auxWeights  = &featureTransformer.auxWeights[0];
 
     for (IndexType j = 0; j < Dimensions / Tiling::TileHeight; ++j)
     {
@@ -258,69 +272,61 @@ void apply_combined(Color                              perspective,
         for (IndexType k = 0; k < Tiling::NumRegs; ++k)
             acc[k] = fromTile[k];
 
-        for (int i = 0; i < psqRemoved.ssize(); ++i)
-        {
-            auto* row =
-              reinterpret_cast<const vec_t*>(&psqWeights[psqRemoved[i] * Dimensions + tileOff]);
-            for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-                acc[k] = vec_sub_16(acc[k], row[k]);
-        }
-
-        for (int i = 0; i < psqAdded.ssize(); ++i)
-        {
-            auto* row =
-              reinterpret_cast<const vec_t*>(&psqWeights[psqAdded[i] * Dimensions + tileOff]);
-            for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-                acc[k] = vec_add_16(acc[k], row[k]);
-        }
-
-        for (int i = 0; i < thrRemoved.ssize(); ++i)
-        {
-            auto* column = reinterpret_cast<const vec_i8_t*>(
-              &threatAndPpWeights[thrRemoved[i] * Dimensions + tileOff]);
-
+        // Lambdas capturing acc[] by reference; each applies a list of i8 weight columns
+        // to the accumulator registers for the current tile.
+        auto apply_sub = [&](const WeightType* base, const auto& indices) {
+            for (int i = 0; i < indices.ssize(); ++i)
+            {
+                const auto* col = reinterpret_cast<const vec_i8_t*>(
+                  &base[indices[i] * Dimensions + tileOff]);
     #ifdef USE_NEON
-            for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
-            {
-                acc[k]     = vsubw_s8(acc[k], vget_low_s8(column[k / 2]));
-                acc[k + 1] = vsubw_high_s8(acc[k + 1], column[k / 2]);
-            }
+                for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+                {
+                    acc[k]     = vsubw_s8(acc[k], vget_low_s8(col[k / 2]));
+                    acc[k + 1] = vsubw_high_s8(acc[k + 1], col[k / 2]);
+                }
     #elif defined(USE_LSX) && !defined(USE_LASX)
-            for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
-            {
-                const __m128i weight = __lsx_vld(reinterpret_cast<const void*>(&column[k]), 0);
-                acc[k]               = vec_sub_16(acc[k], __lsx_vsllwil_h_b(weight, 0));
-                acc[k + 1]           = vec_sub_16(acc[k + 1], __lsx_vexth_h_b(weight));
-            }
+                for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+                {
+                    const __m128i weight = __lsx_vld(reinterpret_cast<const void*>(&col[k]), 0);
+                    acc[k]               = vec_sub_16(acc[k], __lsx_vsllwil_h_b(weight, 0));
+                    acc[k + 1]           = vec_sub_16(acc[k + 1], __lsx_vexth_h_b(weight));
+                }
     #else
-            for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-                acc[k] = vec_sub_16(acc[k], vec_convert_8_16(column[k]));
+                for (IndexType k = 0; k < Tiling::NumRegs; ++k)
+                    acc[k] = vec_sub_16(acc[k], vec_convert_8_16(col[k]));
     #endif
-        }
-
-        for (int i = 0; i < thrAdded.ssize(); ++i)
-        {
-            auto* column = reinterpret_cast<const vec_i8_t*>(
-              &threatAndPpWeights[thrAdded[i] * Dimensions + tileOff]);
-
+            }
+        };
+        auto apply_add = [&](const WeightType* base, const auto& indices) {
+            for (int i = 0; i < indices.ssize(); ++i)
+            {
+                const auto* col = reinterpret_cast<const vec_i8_t*>(
+                  &base[indices[i] * Dimensions + tileOff]);
     #ifdef USE_NEON
-            for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
-            {
-                acc[k]     = vaddw_s8(acc[k], vget_low_s8(column[k / 2]));
-                acc[k + 1] = vaddw_high_s8(acc[k + 1], column[k / 2]);
-            }
+                for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+                {
+                    acc[k]     = vaddw_s8(acc[k], vget_low_s8(col[k / 2]));
+                    acc[k + 1] = vaddw_high_s8(acc[k + 1], col[k / 2]);
+                }
     #elif defined(USE_LSX) && !defined(USE_LASX)
-            for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
-            {
-                const __m128i weight = __lsx_vld(reinterpret_cast<const void*>(&column[k]), 0);
-                acc[k]               = vec_add_16(acc[k], __lsx_vsllwil_h_b(weight, 0));
-                acc[k + 1]           = vec_add_16(acc[k + 1], __lsx_vexth_h_b(weight));
-            }
+                for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+                {
+                    const __m128i weight = __lsx_vld(reinterpret_cast<const void*>(&col[k]), 0);
+                    acc[k]               = vec_add_16(acc[k], __lsx_vsllwil_h_b(weight, 0));
+                    acc[k + 1]           = vec_add_16(acc[k + 1], __lsx_vexth_h_b(weight));
+                }
     #else
-            for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-                acc[k] = vec_add_16(acc[k], vec_convert_8_16(column[k]));
+                for (IndexType k = 0; k < Tiling::NumRegs; ++k)
+                    acc[k] = vec_add_16(acc[k], vec_convert_8_16(col[k]));
     #endif
-        }
+            }
+        };
+
+        apply_sub(psqWeights, psqRemoved);
+        apply_add(psqWeights, psqAdded);
+        apply_sub(auxWeights,  thrRemoved);
+        apply_add(auxWeights,  thrAdded);
 
         for (IndexType k = 0; k < Tiling::NumRegs; k++)
             vec_store(&toTile[k], acc[k]);
@@ -354,8 +360,7 @@ void apply_combined(Color                              perspective,
         for (int i = 0; i < thrRemoved.ssize(); ++i)
         {
             auto* columnPsqt = reinterpret_cast<const psqt_vec_t*>(
-              &featureTransformer
-                 .threatAndPpPsqtWeights[thrRemoved[i] * PSQTBuckets + psqtTileOff]);
+              &featureTransformer.auxPsqtWeights[thrRemoved[i] * PSQTBuckets + psqtTileOff]);
             for (usize k = 0; k < Tiling::NumPsqtRegs; ++k)
                 psqt[k] = vec_sub_psqt_32(psqt[k], columnPsqt[k]);
         }
@@ -363,7 +368,7 @@ void apply_combined(Color                              perspective,
         for (int i = 0; i < thrAdded.ssize(); ++i)
         {
             auto* columnPsqt = reinterpret_cast<const psqt_vec_t*>(
-              &featureTransformer.threatAndPpPsqtWeights[thrAdded[i] * PSQTBuckets + psqtTileOff]);
+              &featureTransformer.auxPsqtWeights[thrAdded[i] * PSQTBuckets + psqtTileOff]);
             for (usize k = 0; k < Tiling::NumPsqtRegs; ++k)
                 psqt[k] = vec_add_psqt_32(psqt[k], columnPsqt[k]);
         }
@@ -376,10 +381,10 @@ void apply_combined(Color                              perspective,
 
     usize tileOffset = 0;
 
-    const auto* psqWeights        = &featureTransformer.weights[0];
-    const auto* threatWeights     = &featureTransformer.threatAndPpWeights[0];
+    const auto* psqWeights       = &featureTransformer.weights[0];
+    const auto* auxWeights        = &featureTransformer.auxWeights[0];
     const auto* psqtWeights       = &featureTransformer.psqtWeights[0];
-    const auto* threatPsqtWeights = &featureTransformer.threatAndPpPsqtWeights[0];
+    const auto* auxPsqtWeights    = &featureTransformer.auxPsqtWeights[0];
 
     while (tileOffset < Dimensions)
     {
@@ -387,17 +392,17 @@ void apply_combined(Color                              perspective,
 
         vint16m8_t accum = __riscv_vle16_v_i16m8(&fromAcc[tileOffset], vl);
         for (int i : psqRemoved)
-            accum = __riscv_vsub_vv_i16m8(
-              accum, __riscv_vle16_v_i16m8(&psqWeights[i * Dimensions + tileOffset], vl), vl);
+            accum = __riscv_vwsub_wv_i16m8(
+              accum, __riscv_vle8_v_i8m4(&psqWeights[i * Dimensions + tileOffset], vl), vl);
         for (int i : psqAdded)
-            accum = __riscv_vadd_vv_i16m8(
-              accum, __riscv_vle16_v_i16m8(&psqWeights[i * Dimensions + tileOffset], vl), vl);
+            accum = __riscv_vwadd_wv_i16m8(
+              accum, __riscv_vle8_v_i8m4(&psqWeights[i * Dimensions + tileOffset], vl), vl);
         for (int i : thrRemoved)
             accum = __riscv_vwsub_wv_i16m8(
-              accum, __riscv_vle8_v_i8m4(&threatWeights[i * Dimensions + tileOffset], vl), vl);
+              accum, __riscv_vle8_v_i8m4(&auxWeights[i * Dimensions + tileOffset], vl), vl);
         for (int i : thrAdded)
             accum = __riscv_vwadd_wv_i16m8(
-              accum, __riscv_vle8_v_i8m4(&threatWeights[i * Dimensions + tileOffset], vl), vl);
+              accum, __riscv_vle8_v_i8m4(&auxWeights[i * Dimensions + tileOffset], vl), vl);
         __riscv_vse16_v_i16m8(&toAcc[tileOffset], accum, vl);
 
         tileOffset += vl;
@@ -418,12 +423,10 @@ void apply_combined(Color                              perspective,
               accum, __riscv_vle32_v_i32m1(&psqtWeights[i * PSQTBuckets + tileOffset], vl), vl);
         for (int i : thrRemoved)
             accum = __riscv_vsub_vv_i32m1(
-              accum, __riscv_vle32_v_i32m1(&threatPsqtWeights[i * PSQTBuckets + tileOffset], vl),
-              vl);
+              accum, __riscv_vle32_v_i32m1(&auxPsqtWeights[i * PSQTBuckets + tileOffset], vl), vl);
         for (int i : thrAdded)
             accum = __riscv_vadd_vv_i32m1(
-              accum, __riscv_vle32_v_i32m1(&threatPsqtWeights[i * PSQTBuckets + tileOffset], vl),
-              vl);
+              accum, __riscv_vle32_v_i32m1(&auxPsqtWeights[i * PSQTBuckets + tileOffset], vl), vl);
 
         __riscv_vse32_v_i32m1(&toPsqtAcc[tileOffset], accum, vl);
 
@@ -457,18 +460,18 @@ void apply_combined(Color                              perspective,
     {
         const IndexType offset = Dimensions * index;
         for (IndexType j = 0; j < Dimensions; ++j)
-            toAcc[j] -= featureTransformer.threatAndPpWeights[offset + j];
+            toAcc[j] -= featureTransformer.auxWeights[offset + j];
         for (usize k = 0; k < PSQTBuckets; ++k)
-            toPsqtAcc[k] -= featureTransformer.threatAndPpPsqtWeights[index * PSQTBuckets + k];
+            toPsqtAcc[k] -= featureTransformer.auxPsqtWeights[index * PSQTBuckets + k];
     }
 
     for (const auto index : thrAdded)
     {
         const IndexType offset = Dimensions * index;
         for (IndexType j = 0; j < Dimensions; ++j)
-            toAcc[j] += featureTransformer.threatAndPpWeights[offset + j];
+            toAcc[j] += featureTransformer.auxWeights[offset + j];
         for (usize k = 0; k < PSQTBuckets; ++k)
-            toPsqtAcc[k] += featureTransformer.threatAndPpPsqtWeights[index * PSQTBuckets + k];
+            toPsqtAcc[k] += featureTransformer.auxPsqtWeights[index * PSQTBuckets + k];
     }
 
 #endif
@@ -478,6 +481,7 @@ template<bool Forward>
 void update_accumulator_incremental(Color                     perspective,
                                     const FeatureTransformer& featureTransformer,
                                     const Square              ksq,
+                                    bool                      opponent_has_queen,
                                     AccumulatorState&         target_state,
                                     const AccumulatorState&   computed) {
 
@@ -496,7 +500,7 @@ void update_accumulator_incremental(Color                     perspective,
     const auto& dirtyPawnPairs = Forward ? target_state.dirtyPawnPairs : computed.dirtyPawnPairs;
 
     // Used solely for prefetching
-    const auto* threatPpBase = &featureTransformer.threatAndPpWeights[0];
+    const auto* threatPpBase = &featureTransformer.auxWeights[0];
     IndexType   pfStride     = FeatureTransformer::OutputDimensions;
 
     if constexpr (Forward)
@@ -505,7 +509,7 @@ void update_accumulator_incremental(Color                     perspective,
                                                  thrAdded, threatPpBase, pfStride);
         PairFeatureSet::append_changed_indices(perspective, ksq, dirtyPawnPairs, thrRemoved,
                                                thrAdded, threatPpBase, pfStride);
-        PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, psqRemoved, psqAdded);
+        PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, opponent_has_queen, psqRemoved, psqAdded);
     }
     else
     {
@@ -513,18 +517,21 @@ void update_accumulator_incremental(Color                     perspective,
                                                  thrRemoved, threatPpBase, pfStride);
         PairFeatureSet::append_changed_indices(perspective, ksq, dirtyPawnPairs, thrAdded,
                                                thrRemoved, threatPpBase, pfStride);
-        PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, psqAdded, psqRemoved);
+        PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, opponent_has_queen, psqAdded, psqRemoved);
     }
 
     apply_combined(perspective, featureTransformer, computed, target_state, psqAdded, psqRemoved,
                    thrAdded, thrRemoved);
 
+    target_state.opponentQueens[perspective] = computed.opponentQueens[perspective];
     target_state.computed[perspective] = true;
 }
 
 void update_accumulator_incremental_both(const FeatureTransformer& featureTransformer,
                                          Square                    white_ksq,
                                          Square                    black_ksq,
+                                         bool                      white_opponent_has_queen,
+                                         bool                      black_opponent_has_queen,
                                          AccumulatorState&         target_state,
                                          const AccumulatorState&   computed) {
 
@@ -536,7 +543,7 @@ void update_accumulator_incremental_both(const FeatureTransformer& featureTransf
     PSQFeatureSet::IndexList    psq_removed[COLOR_NB], psq_added[COLOR_NB];
     ThreatFeatureSet::IndexList thr_removed[COLOR_NB], thr_added[COLOR_NB];
 
-    const auto* threat_pp_base = &featureTransformer.threatAndPpWeights[0];
+    const auto* threat_pp_base = &featureTransformer.auxWeights[0];
     const auto  pf_stride      = FeatureTransformer::OutputDimensions;
 
     ThreatFeatureSet::append_changed_indices_both(
@@ -546,15 +553,18 @@ void update_accumulator_incremental_both(const FeatureTransformer& featureTransf
       white_ksq, black_ksq, target_state.dirtyPawnPairs, thr_removed[WHITE], thr_added[WHITE],
       thr_removed[BLACK], thr_added[BLACK], threat_pp_base, pf_stride);
     PSQFeatureSet::append_changed_indices(WHITE, white_ksq, target_state.dirtyPiece,
-                                          psq_removed[WHITE], psq_added[WHITE]);
+                                          white_opponent_has_queen, psq_removed[WHITE],
+                                          psq_added[WHITE]);
     PSQFeatureSet::append_changed_indices(BLACK, black_ksq, target_state.dirtyPiece,
-                                          psq_removed[BLACK], psq_added[BLACK]);
+                                          black_opponent_has_queen, psq_removed[BLACK],
+                                          psq_added[BLACK]);
 
     apply_combined(WHITE, featureTransformer, computed, target_state, psq_added[WHITE],
                    psq_removed[WHITE], thr_added[WHITE], thr_removed[WHITE]);
     apply_combined(BLACK, featureTransformer, computed, target_state, psq_added[BLACK],
                    psq_removed[BLACK], thr_added[BLACK], thr_removed[BLACK]);
 
+    target_state.opponentQueens = computed.opponentQueens;
     target_state.computed[WHITE] = true;
     target_state.computed[BLACK] = true;
 }
@@ -704,8 +714,11 @@ void update_accumulator_hybrid(Color                     perspective,
     previousPieces[oldKsq] = make_piece(perspective, KING);
     previousPieceBB |= square_bb(oldKsq);
 
-    const auto& oldEntry = cache[oldKsq][perspective];
-    auto&       newEntry = cache[newKsq][perspective];
+    const bool opponent_has_queen = pos.count<QUEEN>(~perspective) > 0;
+    const bool previous_opponent_has_queen = opponent_has_queen || (dirtyPiece.remove_pc == make_piece(~perspective, QUEEN));
+
+    const auto& oldEntry = cache[previous_opponent_has_queen][oldKsq][perspective];
+    auto&       newEntry = cache[opponent_has_queen][newKsq][perspective];
 
     // "Remove" means we need to remove them from the cache entry,
     // "Add" means add them to the entry to get the accumulator we want
@@ -721,36 +734,36 @@ void update_accumulator_hybrid(Color                     perspective,
 
 #if defined(USE_AVX512ICL)
     PSQFeatureSet::write_indices(oldEntry.pieces, previousPieces, oldRemovedBB, oldAddedBB,
-                                 perspective, oldKsq, oldRemove, oldAdd);
+                                 perspective, oldKsq, previous_opponent_has_queen, oldRemove, oldAdd);
     PSQFeatureSet::write_indices(newEntry.pieces, currentPieces, newRemovedBB, newAddedBB,
-                                 perspective, newKsq, newRemove, newAdd);
+                                 perspective, newKsq, opponent_has_queen, newRemove, newAdd);
 #else
     while (oldRemovedBB)
     {
         Square sq = pop_lsb(oldRemovedBB);
         oldRemove.push_back(
-          PSQFeatureSet::make_index(perspective, sq, oldEntry.pieces[sq], oldKsq));
+          PSQFeatureSet::make_index(perspective, sq, oldEntry.pieces[sq], oldKsq, previous_opponent_has_queen));
     }
     while (oldAddedBB)
     {
         Square sq = pop_lsb(oldAddedBB);
-        oldAdd.push_back(PSQFeatureSet::make_index(perspective, sq, previousPieces[sq], oldKsq));
+        oldAdd.push_back(PSQFeatureSet::make_index(perspective, sq, previousPieces[sq], oldKsq, previous_opponent_has_queen));
     }
     while (newRemovedBB)
     {
         Square sq = pop_lsb(newRemovedBB);
         newRemove.push_back(
-          PSQFeatureSet::make_index(perspective, sq, newEntry.pieces[sq], newKsq));
+          PSQFeatureSet::make_index(perspective, sq, newEntry.pieces[sq], newKsq, opponent_has_queen));
     }
     while (newAddedBB)
     {
         Square sq = pop_lsb(newAddedBB);
-        newAdd.push_back(PSQFeatureSet::make_index(perspective, sq, currentPieces[sq], newKsq));
+        newAdd.push_back(PSQFeatureSet::make_index(perspective, sq, currentPieces[sq], newKsq, opponent_has_queen));
     }
 #endif
 
     ThreatFeatureSet::IndexList thrRemoved, thrAdded;  // also contain pp indices
-    const auto*                 threatPpBase = &featureTransformer.threatAndPpWeights[0];
+    const auto*                 threatPpBase = &featureTransformer.auxWeights[0];
     IndexType                   pfStride     = FeatureTransformer::OutputDimensions;
     ThreatFeatureSet::append_changed_indices(perspective, newKsq, target.dirtyThreats, thrRemoved,
                                              thrAdded, threatPpBase, pfStride);
@@ -772,7 +785,7 @@ void update_accumulator_hybrid(Color                     perspective,
     psqt_vec_t psqt[Tiling::NumPsqtRegs];
 
     const auto* weights            = &featureTransformer.weights[0];
-    const auto* threatAndPpWeights = &featureTransformer.threatAndPpWeights[0];
+    const auto* threatAndPpWeights = &featureTransformer.auxWeights[0];
 
     for (IndexType j = 0; j < Dimensions / Tiling::TileHeight; ++j)
     {
@@ -787,17 +800,17 @@ void update_accumulator_hybrid(Color                     perspective,
 
         for (int i = 0; i < newRemove.ssize(); ++i)
         {
-            auto* column =
-              reinterpret_cast<const vec_t*>(&weights[newRemove[i] * Dimensions + tileOff]);
+            auto* column = reinterpret_cast<const vec_i8_t*>(
+              &weights[newRemove[i] * Dimensions + tileOff]);
             for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-                acc[k] = vec_sub_16(acc[k], column[k]);
+                acc[k] = vec_sub_16(acc[k], vec_convert_8_16(column[k]));
         }
         for (int i = 0; i < newAdd.ssize(); ++i)
         {
-            auto* column =
-              reinterpret_cast<const vec_t*>(&weights[newAdd[i] * Dimensions + tileOff]);
+            auto* column = reinterpret_cast<const vec_i8_t*>(
+              &weights[newAdd[i] * Dimensions + tileOff]);
             for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-                acc[k] = vec_add_16(acc[k], column[k]);
+                acc[k] = vec_add_16(acc[k], vec_convert_8_16(column[k]));
         }
 
         for (IndexType k = 0; k < Tiling::NumRegs; ++k)
@@ -814,17 +827,17 @@ void update_accumulator_hybrid(Color                     perspective,
         // ... then we adjust
         for (int i = 0; i < oldRemove.ssize(); ++i)
         {
-            auto* column =
-              reinterpret_cast<const vec_t*>(&weights[oldRemove[i] * Dimensions + tileOff]);
+            auto* column = reinterpret_cast<const vec_i8_t*>(
+              &weights[oldRemove[i] * Dimensions + tileOff]);
             for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-                acc[k] = vec_add_16(acc[k], column[k]);
+                acc[k] = vec_add_16(acc[k], vec_convert_8_16(column[k]));
         }
         for (int i = 0; i < oldAdd.ssize(); ++i)
         {
-            auto* column =
-              reinterpret_cast<const vec_t*>(&weights[oldAdd[i] * Dimensions + tileOff]);
+            auto* column = reinterpret_cast<const vec_i8_t*>(
+              &weights[oldAdd[i] * Dimensions + tileOff]);
             for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-                acc[k] = vec_sub_16(acc[k], column[k]);
+                acc[k] = vec_sub_16(acc[k], vec_convert_8_16(column[k]));
         }
 
         for (int i = 0; i < thrRemoved.ssize(); ++i)
@@ -933,7 +946,7 @@ void update_accumulator_hybrid(Color                     perspective,
         {
             auto* columnPsqt = reinterpret_cast<const psqt_vec_t*>(
               &featureTransformer
-                 .threatAndPpPsqtWeights[thrRemoved[i] * PSQTBuckets + psqtTileOff]);
+                 .auxPsqtWeights[thrRemoved[i] * PSQTBuckets + psqtTileOff]);
             for (usize k = 0; k < Tiling::NumPsqtRegs; ++k)
                 psqt[k] = vec_sub_psqt_32(psqt[k], columnPsqt[k]);
         }
@@ -941,7 +954,7 @@ void update_accumulator_hybrid(Color                     perspective,
         for (int i = 0; i < thrAdded.ssize(); ++i)
         {
             auto* columnPsqt = reinterpret_cast<const psqt_vec_t*>(
-              &featureTransformer.threatAndPpPsqtWeights[thrAdded[i] * PSQTBuckets + psqtTileOff]);
+              &featureTransformer.auxPsqtWeights[thrAdded[i] * PSQTBuckets + psqtTileOff]);
             for (usize k = 0; k < Tiling::NumPsqtRegs; ++k)
                 psqt[k] = vec_add_psqt_32(psqt[k], columnPsqt[k]);
         }
@@ -1007,17 +1020,17 @@ void update_accumulator_hybrid(Color                     perspective,
     {
         const IndexType offset = Dimensions * index;
         for (IndexType j = 0; j < Dimensions; ++j)
-            toAcc[j] -= featureTransformer.threatAndPpWeights[offset + j];
+            toAcc[j] -= featureTransformer.auxWeights[offset + j];
         for (usize k = 0; k < PSQTBuckets; ++k)
-            toPsqtAcc[k] -= featureTransformer.threatAndPpPsqtWeights[index * PSQTBuckets + k];
+            toPsqtAcc[k] -= featureTransformer.auxPsqtWeights[index * PSQTBuckets + k];
     }
     for (const auto index : thrAdded)
     {
         const IndexType offset = Dimensions * index;
         for (IndexType j = 0; j < Dimensions; ++j)
-            toAcc[j] += featureTransformer.threatAndPpWeights[offset + j];
+            toAcc[j] += featureTransformer.auxWeights[offset + j];
         for (usize k = 0; k < PSQTBuckets; ++k)
-            toPsqtAcc[k] += featureTransformer.threatAndPpPsqtWeights[index * PSQTBuckets + k];
+            toPsqtAcc[k] += featureTransformer.auxPsqtWeights[index * PSQTBuckets + k];
     }
 
 #endif
@@ -1040,7 +1053,8 @@ void update_accumulator_refresh_cache(Color                     perspective,
     using Tiling [[maybe_unused]] = SIMDTiling<Dimensions, Dimensions, PSQTBuckets>;
 
     const Square             ksq   = pos.square<KING>(perspective);
-    auto&                    entry = cache[ksq][perspective];
+    const bool opponent_has_queen = pos.count<QUEEN>(~perspective) > 0;
+    auto&                    entry = cache[opponent_has_queen][ksq][perspective];
     PSQFeatureSet::IndexList removed, added;
 
     const Bitboard changedBB = get_changed_pieces(entry.pieces, pos.piece_array());
@@ -1049,17 +1063,17 @@ void update_accumulator_refresh_cache(Color                     perspective,
 
 #if defined(USE_AVX512ICL)
     PSQFeatureSet::write_indices(entry.pieces, pos.piece_array(), removedBB, addedBB, perspective,
-                                 ksq, removed, added);
+                                 ksq, opponent_has_queen, removed, added);
 #else
     while (removedBB)
     {
         Square sq = pop_lsb(removedBB);
-        removed.push_back(PSQFeatureSet::make_index(perspective, sq, entry.pieces[sq], ksq));
+        removed.push_back(PSQFeatureSet::make_index(perspective, sq, entry.pieces[sq], ksq, opponent_has_queen));
     }
     while (addedBB)
     {
         Square sq = pop_lsb(addedBB);
-        added.push_back(PSQFeatureSet::make_index(perspective, sq, pos.piece_on(sq), ksq));
+        added.push_back(PSQFeatureSet::make_index(perspective, sq, pos.piece_on(sq), ksq, opponent_has_queen));
     }
 #endif
 
@@ -1070,6 +1084,7 @@ void update_accumulator_refresh_cache(Color                     perspective,
     ThreatFeatureSet::append_active_indices(perspective, pos, active);
     PairFeatureSet::append_active_indices(perspective, pos, active);
 
+    accumulator.opponentQueens[perspective] = pos.pieces(~perspective, QUEEN);
     accumulator.computed[perspective] = true;
 
 #ifdef VECTOR
@@ -1077,7 +1092,7 @@ void update_accumulator_refresh_cache(Color                     perspective,
     psqt_vec_t psqt[Tiling::NumPsqtRegs];
 
     const auto* weights            = &featureTransformer.weights[0];
-    const auto* threatAndPpWeights = &featureTransformer.threatAndPpWeights[0];
+    const auto* threatAndPpWeights = &featureTransformer.auxWeights[0];
 
     for (IndexType j = 0; j < Dimensions / Tiling::TileHeight; ++j)
     {
@@ -1090,17 +1105,35 @@ void update_accumulator_refresh_cache(Color                     perspective,
 
         for (int i = 0; i < removed.ssize(); ++i)
         {
-            auto* column =
-              reinterpret_cast<const vec_t*>(&weights[removed[i] * Dimensions + tileOff]);
+            auto* column = reinterpret_cast<const vec_i8_t*>(
+              &weights[removed[i] * Dimensions + tileOff]);
+
+    #ifdef USE_NEON
+            for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+            {
+                acc[k]     = vsubw_s8(acc[k], vget_low_s8(column[k / 2]));
+                acc[k + 1] = vsubw_high_s8(acc[k + 1], column[k / 2]);
+            }
+    #else
             for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-                acc[k] = vec_sub_16(acc[k], column[k]);
+                acc[k] = vec_sub_16(acc[k], vec_convert_8_16(column[k]));
+    #endif
         }
         for (int i = 0; i < added.ssize(); ++i)
         {
-            auto* column =
-              reinterpret_cast<const vec_t*>(&weights[added[i] * Dimensions + tileOff]);
+            auto* column = reinterpret_cast<const vec_i8_t*>(
+              &weights[added[i] * Dimensions + tileOff]);
+
+    #ifdef USE_NEON
+            for (IndexType k = 0; k < Tiling::NumRegs; k += 2)
+            {
+                acc[k]     = vaddw_s8(acc[k], vget_low_s8(column[k / 2]));
+                acc[k + 1] = vaddw_high_s8(acc[k + 1], column[k / 2]);
+            }
+    #else
             for (IndexType k = 0; k < Tiling::NumRegs; ++k)
-                acc[k] = vec_add_16(acc[k], column[k]);
+                acc[k] = vec_add_16(acc[k], vec_convert_8_16(column[k]));
+    #endif
         }
 
         for (IndexType k = 0; k < Tiling::NumRegs; k++)
@@ -1165,7 +1198,7 @@ void update_accumulator_refresh_cache(Color                     perspective,
         for (int i = 0; i < active.ssize(); ++i)
         {
             auto* columnPsqt = reinterpret_cast<const psqt_vec_t*>(
-              &featureTransformer.threatAndPpPsqtWeights[active[i] * PSQTBuckets + psqtTileOff]);
+              &featureTransformer.auxPsqtWeights[active[i] * PSQTBuckets + psqtTileOff]);
             for (usize k = 0; k < Tiling::NumPsqtRegs; ++k)
                 psqt[k] = vec_add_psqt_32(psqt[k], columnPsqt[k]);
         }
@@ -1177,9 +1210,9 @@ void update_accumulator_refresh_cache(Color                     perspective,
 #elif defined(USE_RVV)
 
     const auto* weights           = &featureTransformer.weights[0];
-    const auto* threatWeights     = &featureTransformer.threatAndPpWeights[0];
-    const auto* psqtWeights       = &featureTransformer.psqtWeights[0];
-    const auto* threatPsqtWeights = &featureTransformer.threatAndPpPsqtWeights[0];
+    const auto* auxWeights       = &featureTransformer.auxWeights[0];
+    const auto* psqtWeights      = &featureTransformer.psqtWeights[0];
+    const auto* auxPsqtWeights   = &featureTransformer.auxPsqtWeights[0];
 
     usize tileOffset = 0;
 
@@ -1189,17 +1222,17 @@ void update_accumulator_refresh_cache(Color                     perspective,
 
         vint16m8_t accum = __riscv_vle16_v_i16m8(&entry.accumulation[tileOffset], vl);
         for (int i : removed)
-            accum = __riscv_vsub_vv_i16m8(
-              accum, __riscv_vle16_v_i16m8(&weights[i * Dimensions + tileOffset], vl), vl);
+            accum = __riscv_vwsub_wv_i16m8(
+              accum, __riscv_vle8_v_i8m4(&weights[i * Dimensions + tileOffset], vl), vl);
         for (int i : added)
-            accum = __riscv_vadd_vv_i16m8(
-              accum, __riscv_vle16_v_i16m8(&weights[i * Dimensions + tileOffset], vl), vl);
+            accum = __riscv_vwadd_wv_i16m8(
+              accum, __riscv_vle8_v_i8m4(&weights[i * Dimensions + tileOffset], vl), vl);
 
         __riscv_vse16_v_i16m8(&entry.accumulation[tileOffset], accum, vl);
 
         for (int i : active)
             accum = __riscv_vwadd_wv_i16m8(
-              accum, __riscv_vle8_v_i8m4(&threatWeights[i * Dimensions + tileOffset], vl), vl);
+              accum, __riscv_vle8_v_i8m4(&auxWeights[i * Dimensions + tileOffset], vl), vl);
 
         __riscv_vse16_v_i16m8(&accumulator.accumulation[perspective][tileOffset], accum, vl);
 
@@ -1224,7 +1257,7 @@ void update_accumulator_refresh_cache(Color                     perspective,
 
         for (int i : active)
             accum = __riscv_vadd_vv_i32m1(
-              accum, __riscv_vle32_v_i32m1(&threatPsqtWeights[i * PSQTBuckets + tileOffset], vl),
+              accum, __riscv_vle32_v_i32m1(&auxPsqtWeights[i * PSQTBuckets + tileOffset], vl),
               vl);
 
         __riscv_vse32_v_i32m1(&accumulator.psqtAccumulation[perspective][tileOffset], accum, vl);
@@ -1264,11 +1297,11 @@ void update_accumulator_refresh_cache(Color                     perspective,
 
         for (IndexType j = 0; j < Dimensions; ++j)
             accumulator.accumulation[perspective][j] +=
-              featureTransformer.threatAndPpWeights[offset + j];
+              featureTransformer.auxWeights[offset + j];
 
         for (usize k = 0; k < PSQTBuckets; ++k)
             accumulator.psqtAccumulation[perspective][k] +=
-              featureTransformer.threatAndPpPsqtWeights[index * PSQTBuckets + k];
+              featureTransformer.auxPsqtWeights[index * PSQTBuckets + k];
     }
 
 #endif
