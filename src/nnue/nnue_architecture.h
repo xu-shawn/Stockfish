@@ -25,7 +25,6 @@
 #include <iosfwd>
 
 #include "features/k32q2.h"
-#include "features/qk4.h"
 #include "features/full_threats.h"
 #include "features/pp_3wide.h"
 #include "layers/affine_transform.h"
@@ -40,7 +39,6 @@ namespace Stockfish::Eval::NNUE {
 // Input features used in evaluation function
 using ThreatFeatureSet   = Features::FullThreats;
 using PairFeatureSet     = Features::PP_3Wide;
-using QKThreatFeatureSet = Features::QK4;
 using PSQFeatureSet      = Features::K32Q2;
 
 // Number of input feature dimensions after conversion

@@ -86,11 +86,10 @@ class FeatureTransformer {
     using OutputType = TransformedFeatureType;
 
     // Number of input/output dimensions
-    static constexpr IndexType ThreatInputDimensions   = ThreatFeatureSet::Dimensions;
-    static constexpr IndexType PairInputDimensions     = PairFeatureSet::Dimensions;
-    static constexpr IndexType QKThreatInputDimensions = QKThreatFeatureSet::Dimensions;
+    static constexpr IndexType ThreatInputDimensions = ThreatFeatureSet::Dimensions;
+    static constexpr IndexType PairInputDimensions   = PairFeatureSet::Dimensions;
     static constexpr IndexType InputDimensions =
-      PSQFeatureSet::Dimensions + ThreatInputDimensions + PairInputDimensions + QKThreatInputDimensions;
+      PSQFeatureSet::Dimensions + ThreatInputDimensions + PairInputDimensions;
     static constexpr IndexType OutputDimensions = HalfDimensions;
 
     // Size of forward propagation buffer
@@ -132,7 +131,7 @@ class FeatureTransformer {
     // Hash value embedded in the evaluation file
     static constexpr u32 get_hash_value() {
         return combine_hash(
-                 {ThreatFeatureSet::HashValue, PairFeatureSet::HashValue, QKThreatFeatureSet::HashValue, PSQFeatureSet::HashValue})
+                 {ThreatFeatureSet::HashValue, PairFeatureSet::HashValue, PSQFeatureSet::HashValue})
              ^ (OutputDimensions * 2);
     }
 
@@ -155,12 +154,6 @@ class FeatureTransformer {
     auto ppWeights() const {
         return &auxWeights[ThreatFeatureSet::Dimensions * HalfDimensions];
     }
-    auto qk4Weights() {
-        return &auxWeights[(ThreatFeatureSet::Dimensions + PairFeatureSet::Dimensions) * HalfDimensions];
-    }
-    auto qk4Weights() const {
-        return &auxWeights[(ThreatFeatureSet::Dimensions + PairFeatureSet::Dimensions) * HalfDimensions];
-    }
 
     auto threatPsqtWeights() { return auxPsqtWeights.data(); }
     auto threatPsqtWeights() const { return auxPsqtWeights.data(); }
@@ -170,13 +163,6 @@ class FeatureTransformer {
     auto ppPsqtWeights() const {
         return &auxPsqtWeights[ThreatFeatureSet::Dimensions * PSQTBuckets];
     }
-    auto qk4PsqtWeights() {
-        return &auxPsqtWeights[(ThreatFeatureSet::Dimensions + PairFeatureSet::Dimensions) * PSQTBuckets];
-    }
-    auto qk4PsqtWeights() const {
-        return &auxPsqtWeights[(ThreatFeatureSet::Dimensions + PairFeatureSet::Dimensions) * PSQTBuckets];
-    }
-
 
     // Read network parameters
     bool read_parameters(std::istream& stream) {
@@ -188,9 +174,6 @@ class FeatureTransformer {
         read_little_endian<WeightType>(stream, ppWeights(),
                                              PairInputDimensions * HalfDimensions);
         read_leb_128(stream, ppPsqtWeights(), PairFeatureSet::Dimensions * PSQTBuckets);
-        read_little_endian<WeightType>(stream, qk4Weights(),
-                                             QKThreatInputDimensions * HalfDimensions);
-        read_leb_128(stream, qk4PsqtWeights(), QKThreatFeatureSet::Dimensions * PSQTBuckets);
 
         read_little_endian<WeightType>(stream, weights.data(), HalfDimensions * PSQFeatureSet::Dimensions);
         read_leb_128(stream, psqtWeights);
@@ -217,10 +200,6 @@ class FeatureTransformer {
                                               PairInputDimensions * HalfDimensions);
         write_leb_128<PSQTWeightType>(stream, copy->ppPsqtWeights(),
                                       PairFeatureSet::Dimensions * PSQTBuckets);
-        write_little_endian<WeightType>(stream, copy->qk4Weights(),
-                                              QKThreatInputDimensions * HalfDimensions);
-        write_leb_128<PSQTWeightType>(stream, copy->qk4PsqtWeights(),
-                                      QKThreatFeatureSet::Dimensions * PSQTBuckets);
 
         write_little_endian<WeightType>(stream, copy->weights.data(), HalfDimensions * PSQFeatureSet::Dimensions);
         write_leb_128<PSQTWeightType>(stream, copy->psqtWeights);
@@ -256,18 +235,9 @@ class FeatureTransformer {
 
         const Color perspectives[2]  = {pos.side_to_move(), ~pos.side_to_move()};
 
-        QKThreatFeatureSet::IndexList qkActive[COLOR_NB];
-        QKThreatFeatureSet::append_active_indices(perspectives[0], pos, qkActive[0]);
-        QKThreatFeatureSet::append_active_indices(perspectives[1], pos, qkActive[1]);
-
         const auto& latest = accumulatorStack.latest();
         int psqt =
           (latest.psqtAccumulation[perspectives[0]][bucket] - latest.psqtAccumulation[perspectives[1]][bucket]);
-
-        for (IndexType i0 : qkActive[0])
-            psqt += auxPsqtWeights[i0 * PSQTBuckets + bucket];
-        for (IndexType i1 : qkActive[1])
-            psqt -= auxPsqtWeights[i1 * PSQTBuckets + bucket];
 
         psqt /= 2;
 
@@ -354,16 +324,6 @@ class FeatureTransformer {
                     vec_t acc0b = in0[i + 1];
                     vec_t acc1a = in1[i + 0];
                     vec_t acc1b = in1[i + 1];
-
-                    for (IndexType qk4i : qkActive[p]) {
-                        const vec_i8_t* qw0 = reinterpret_cast<const vec_i8_t*>(&auxWeights[qk4i * L1]);
-                        acc0a = vec_add_16(acc0a, vec_convert_8_16(qw0[i + 0]));
-                        acc0b = vec_add_16(acc0b, vec_convert_8_16(qw0[i + 1]));
-
-                        const vec_i8_t* qw1 = reinterpret_cast<const vec_i8_t*>(&auxWeights[qk4i * L1 + L1 / 2]);
-                        acc1a = vec_add_16(acc1a, vec_convert_8_16(qw1[i + 0]));
-                        acc1b = vec_add_16(acc1b, vec_convert_8_16(qw1[i + 1]));
-                    }
 
                     static_assert(FtMaxVal == 255);
 
@@ -481,19 +441,19 @@ class FeatureTransformer {
     alignas(
       CacheLineSize) std::array<WeightType, HalfDimensions * PSQFeatureSet::Dimensions> weights;
 
-    // FullThreats, PP_3Wide and QK4 feature weights are packed into one array
+    // FullThreats and PP_3Wide feature weights are packed into one array
     // so that a single index (with IndexBase offset already applied) can address any of them.
-    // Layout: [FullThreats | PP_3Wide | QK4]  (each segment: Dimensions * HalfDimensions bytes)
+    // Layout: [FullThreats | PP_3Wide]  (each segment: Dimensions * HalfDimensions bytes)
     static_assert(PairFeatureSet::IndexBase == ThreatFeatureSet::Dimensions);
 
     alignas(CacheLineSize) std::array<WeightType,
-                                      (ThreatFeatureSet::Dimensions + PairFeatureSet::Dimensions + QKThreatFeatureSet::Dimensions)
+                                      (ThreatFeatureSet::Dimensions + PairFeatureSet::Dimensions)
                                         * HalfDimensions> auxWeights;
     alignas(CacheLineSize)
       std::array<PSQTWeightType, PSQTBuckets * PSQFeatureSet::Dimensions> psqtWeights;
-    // Same layout as auxWeights but for PSQT: [FullThreats | PP_3Wide | QK4] * PSQTBuckets
+    // Same layout as auxWeights but for PSQT: [FullThreats | PP_3Wide] * PSQTBuckets
     alignas(CacheLineSize) std::array<PSQTWeightType,
-                                      (ThreatFeatureSet::Dimensions + PairFeatureSet::Dimensions + QKThreatFeatureSet::Dimensions)
+                                      (ThreatFeatureSet::Dimensions + PairFeatureSet::Dimensions)
                                         * PSQTBuckets> auxPsqtWeights;
 };
 
