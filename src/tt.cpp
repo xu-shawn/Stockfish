@@ -129,7 +129,7 @@ void TTEntry::save(
         auto v16 = value16;
 
         // Guard against racy underflows, default to "unoccupied"
-        if (std::abs(v16) < VALUE_INFINITE && is_decisive(v16))
+        if (std::abs(v16) < VALUE_INFINITE && std::abs(v16) >= 5000)
             depth8 = std::max(int(depth8) - 1, 0);
     }
 }
