@@ -37,10 +37,27 @@
 #include <type_traits>
 #include <vector>
 
+#if !defined(NO_PREFETCH) && (defined(_MSC_VER) || defined(__INTEL_COMPILER))
+    #include <immintrin.h>
+#endif
+
 #define stringify2(x) #x
 #define stringify(x) stringify2(x)
 
 namespace Stockfish {
+
+using u64 = std::uint64_t;
+using u32 = std::uint32_t;
+using u16 = std::uint16_t;
+using u8  = std::uint8_t;
+
+using i64 = std::int64_t;
+using i32 = std::int32_t;
+using i16 = std::int16_t;
+using i8  = std::int8_t;
+
+using usize = std::size_t;
+using isize = std::ptrdiff_t;
 
 std::string engine_version_info();
 std::string engine_info(bool to_uci = false);
@@ -50,6 +67,59 @@ std::string compiler_info();
 // function that doesn't stall the CPU waiting for data to be loaded from memory,
 // which can be quite slow.
 void prefetch(const void* addr);
+
+// Prefetch with explicit rw/locality hints, as used by the Stockfish 19 NNUE code.
+enum class PrefetchRw {
+    READ,
+    WRITE
+};
+
+enum class PrefetchLoc {
+    NONE,
+    LOW,
+    MODERATE,
+    HIGH
+};
+
+#ifdef NO_PREFETCH
+template<PrefetchRw RW, PrefetchLoc LOC>
+void prefetch(const void*) {}
+#elif defined(_MSC_VER) || defined(__INTEL_COMPILER)
+
+constexpr int get_intel_hint(PrefetchRw rw, PrefetchLoc loc) {
+    if (rw == PrefetchRw::WRITE)
+    {
+    #ifdef _MM_HINT_ET0
+        return _MM_HINT_ET0;
+    #else
+        return _MM_HINT_T0;
+    #endif
+    }
+    switch (loc)
+    {
+    case PrefetchLoc::NONE :
+        return _MM_HINT_NTA;
+    case PrefetchLoc::LOW :
+        return _MM_HINT_T2;
+    case PrefetchLoc::MODERATE :
+        return _MM_HINT_T1;
+    case PrefetchLoc::HIGH :
+        return _MM_HINT_T0;
+    default :
+        return _MM_HINT_T0;
+    }
+}
+
+template<PrefetchRw RW, PrefetchLoc LOC>
+void prefetch(const void* addr) {
+    _mm_prefetch(static_cast<const char*>(addr), get_intel_hint(RW, LOC));
+}
+#else
+template<PrefetchRw RW, PrefetchLoc LOC>
+void prefetch(const void* addr) {
+    __builtin_prefetch(addr, static_cast<int>(RW), static_cast<int>(LOC));
+}
+#endif
 
 void start_logger(const std::string& fname);
 
@@ -139,6 +209,12 @@ class ValueList {
     void        push_back(const T& value) {
         assert(size_ < MaxSize);
         values_[size_++] = value;
+    }
+    // pushes back value if value < max
+    void push_back_if_lt(const T& value, const T& max) {
+        assert(size_ < MaxSize);
+        values_[size_] = value;
+        size_ += (value < max);
     }
     const T* begin() const { return values_; }
     const T* end() const { return values_ + size_; }
@@ -436,12 +512,11 @@ void move_to_front(std::vector<T>& vec, Predicate pred) {
 }
 
 #if defined(__GNUC__)
-    #define sf_always_inline __attribute__((always_inline))
+    #define sf_always_inline inline __attribute__((always_inline))
 #elif defined(_MSC_VER)
     #define sf_always_inline __forceinline
 #else
-    // do nothing for other compilers
-    #define sf_always_inline
+    #define sf_always_inline inline
 #endif
 
 #if defined(__GNUC__) && !defined(__clang__)

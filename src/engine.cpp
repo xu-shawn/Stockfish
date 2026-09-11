@@ -63,10 +63,10 @@ Engine::Engine(std::optional<std::string> path) :
     numaContext(NumaConfig::from_system(DefaultNumaPolicy)),
     states(new std::deque<StateInfo>(1)),
     threads(),
+    networkFile{std::nullopt, ""},
     networks(numaContext,
-             // Heap-allocate because sizeof(NN::Networks) is large
-             std::make_unique<NN::Networks>(NN::EvalFile{EvalFileDefaultNameBig, "None", ""},
-                                            NN::EvalFile{EvalFileDefaultNameSmall, "None", ""})) {
+             // Heap-allocate because sizeof(NN::Network) is large
+             std::make_unique<NN::Network>()) {
 
     pos.set(StartFEN, false, &states->back());
 
@@ -136,18 +136,12 @@ Engine::Engine(std::optional<std::string> path) :
     options.add("SyzygyProbeLimit", Option(7, 0, 7));
 
     options.add(  //
-      "EvalFile", Option(EvalFileDefaultNameBig, [this](const Option& o) {
-          load_big_network(o);
+      "EvalFile", Option(EvalFileDefaultName, [this](const Option& o) {
+          load_network(o);
           return std::nullopt;
       }));
 
-    options.add(  //
-      "EvalFileSmall", Option(EvalFileDefaultNameSmall, [this](const Option& o) {
-          load_small_network(o);
-          return std::nullopt;
-      }));
-
-    load_networks();
+    load_network(options["EvalFile"]);
     resize_threads();
 }
 
@@ -260,8 +254,7 @@ void Engine::set_ponderhit(bool b) { threads.main_manager()->ponder = b; }
 // network related
 
 void Engine::verify_networks() const {
-    networks->big.verify(options["EvalFile"], onVerifyNetworks);
-    networks->small.verify(options["EvalFileSmall"], onVerifyNetworks);
+    networks->verify(onVerifyNetworks, networkFile, std::string(options["EvalFile"]));
 
     auto statuses = networks.get_status_and_errors();
     for (size_t i = 0; i < statuses.size(); ++i)
@@ -294,34 +287,20 @@ void Engine::verify_networks() const {
     }
 }
 
-void Engine::load_networks() {
-    networks.modify_and_replicate([this](NN::Networks& networks_) {
-        networks_.big.load(binaryDirectory, options["EvalFile"]);
-        networks_.small.load(binaryDirectory, options["EvalFileSmall"]);
-    });
-    threads.clear();
-    threads.ensure_network_replicated();
-}
-
-void Engine::load_big_network(const std::string& file) {
+void Engine::load_network(const std::string& file) {
     networks.modify_and_replicate(
-      [this, &file](NN::Networks& networks_) { networks_.big.load(binaryDirectory, file); });
+      [this, &file](NN::Network& network_) { network_.load(binaryDirectory, file, networkFile); });
     threads.clear();
     threads.ensure_network_replicated();
 }
 
-void Engine::load_small_network(const std::string& file) {
+void Engine::save_network(const std::optional<std::string>& file) {
+    std::optional<std::filesystem::path> path;
+    if (file)
+        path = *file;
+
     networks.modify_and_replicate(
-      [this, &file](NN::Networks& networks_) { networks_.small.load(binaryDirectory, file); });
-    threads.clear();
-    threads.ensure_network_replicated();
-}
-
-void Engine::save_network(const std::pair<std::optional<std::string>, std::string> files[2]) {
-    networks.modify_and_replicate([&files](NN::Networks& networks_) {
-        networks_.big.save(files[0].first);
-        networks_.small.save(files[1].first);
-    });
+      [&path, this](NN::Network& network_) { network_.save(networkFile, path); });
 }
 
 // utility functions

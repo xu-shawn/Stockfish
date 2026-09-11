@@ -328,10 +328,17 @@ using DirtyThreatList = ValueList<DirtyThreat, 96>;
 
 struct DirtyThreats {
     DirtyThreatList list;
-    Color           us;
-    Square          prevKsq, ksq;
+};
 
-    Bitboard threatenedSqs, threateningSqs;
+struct DirtyPawnPairs {
+    Bitboard before[COLOR_NB];
+    Bitboard after[COLOR_NB];
+};
+
+struct Dirties {
+    DirtyPiece     dirtyPiece;
+    DirtyThreats   dirtyThreats;
+    DirtyPawnPairs dirtyPawnPairs;
 };
 
     #define ENABLE_INCR_OPERATORS_ON(T) \

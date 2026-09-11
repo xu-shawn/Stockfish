@@ -554,12 +554,13 @@ void Search::Worker::do_move(
     // Preferable over fetch_add to avoid locking instructions
     nodes.store(nodes.load(std::memory_order_relaxed) + 1, std::memory_order_relaxed);
 
-    auto [dirtyPiece, dirtyThreats] = accumulatorStack.push();
-    pos.do_move(move, st, givesCheck, dirtyPiece, dirtyThreats, &tt, &sharedHistory);
+    Dirties& dirties = accumulatorStack.push();
+    pos.do_move(move, st, givesCheck, dirties, &tt, &sharedHistory);
 
     if (ss != nullptr)
     {
-        ss->currentMove = move;
+        auto& dirtyPiece = dirties.dirtyPiece;
+        ss->currentMove  = move;
         ss->continuationHistory =
           &continuationHistory[ss->inCheck][capture][dirtyPiece.pc][move.to_sq()];
         ss->continuationCorrectionHistory =

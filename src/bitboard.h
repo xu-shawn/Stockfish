@@ -40,6 +40,15 @@ std::string pretty(Bitboard b);
 
 }  // namespace Stockfish::Bitboards
 
+#ifdef USE_AVX512
+// clang-format off
+inline const __m512i AllSquares = _mm512_set_epi8(
+    63, 62, 61, 60, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41,
+    40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18,
+    17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+// clang-format on
+#endif
+
 constexpr Bitboard FileABB = 0x0101010101010101ULL;
 constexpr Bitboard FileBBB = FileABB << 1;
 constexpr Bitboard FileCBB = FileABB << 2;
@@ -146,6 +155,21 @@ constexpr Bitboard shift(Bitboard b) {
                               : 0;
 }
 
+// Same as above, with the direction given at runtime (used by the Stockfish 19 NNUE code)
+constexpr Bitboard shift(Bitboard b, Direction dir) {
+    return dir == NORTH         ? b << 8
+         : dir == SOUTH         ? b >> 8
+         : dir == NORTH + NORTH ? b << 16
+         : dir == SOUTH + SOUTH ? b >> 16
+         : dir == EAST          ? (b & ~FileHBB) << 1
+         : dir == WEST          ? (b & ~FileABB) >> 1
+         : dir == NORTH_EAST    ? (b & ~FileHBB) << 9
+         : dir == NORTH_WEST    ? (b & ~FileABB) << 7
+         : dir == SOUTH_EAST    ? (b & ~FileHBB) >> 7
+         : dir == SOUTH_WEST    ? (b & ~FileABB) >> 9
+                                : 0;
+}
+
 
 // Returns the squares attacked by pawns of the given color
 // from the squares in the given bitboard.
@@ -154,6 +178,22 @@ constexpr Bitboard pawn_attacks_bb(Bitboard b) {
     return C == WHITE ? shift<NORTH_WEST>(b) | shift<NORTH_EAST>(b)
                       : shift<SOUTH_WEST>(b) | shift<SOUTH_EAST>(b);
 }
+
+inline constexpr auto PawnPairBB = []() {
+    std::array<Bitboard, SQUARE_NB> result{};
+    for (Square s = SQ_A1; s <= SQ_H8; ++s)
+    {
+        Bitboard file  = file_bb(s);
+        Bitboard files = file | shift(file, EAST) | shift(file, WEST);
+        result[s]      = files & ~(Rank1BB | Rank8BB) & ~square_bb(s);
+    }
+    return result;
+}();
+
+// Returns the squares that can host a pawn forming a "pawn pair" with a pawn
+// on s: own file plus adjacent files, restricted to ranks 2-7, excluding s.
+// The geometry is color-independent.
+constexpr Bitboard pawn_pair_bb(Square s) { return PawnPairBB[s]; }
 
 
 // Returns a bitboard representing an entire line (from board edge
