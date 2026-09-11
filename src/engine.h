@@ -94,10 +94,11 @@ class Engine {
 
     // network related
 
-    void                                 verify_network() const;
-    std::unique_ptr<Eval::NNUE::Network> get_default_network();
-    void                                 load_network(const std::filesystem::path& file);
-    void save_network(const std::optional<std::filesystem::path>& file);
+    void verify_network() const;
+    void load_networks();
+    void load_big_network(const std::string& file);
+    void load_small_network(const std::string& file);
+    void save_network(const std::pair<std::optional<std::string>, std::string> files[2]);
 
     // utility functions
 
@@ -125,11 +126,10 @@ class Engine {
     Position     pos;
     StateListPtr states;
 
-    OptionsMap                                        options;
-    ThreadPool                                        threads;
-    TranspositionTable                                tt;
-    Eval::NNUE::EvalFile                              networkFile;
-    LazyNumaReplicatedSystemWide<Eval::NNUE::Network> network;
+    OptionsMap                                         options;
+    ThreadPool                                         threads;
+    TranspositionTable                                 tt;
+    LazyNumaReplicatedSystemWide<Eval::NNUE::Networks> network;
 
     Search::SearchManager::UpdateContext  updateContext;
     std::function<void(std::string_view)> onVerifyNetwork;

@@ -61,8 +61,10 @@ Engine::Engine(std::optional<std::filesystem::path> path) :
     numaContext(NumaConfig::from_system(DefaultNumaPolicy)),
     states(new std::deque<StateInfo>(1)),
     threads(),
-    networkFile{std::nullopt, ""},
-    network(numaContext, get_default_network()) {
+    network(numaContext,
+            // Heap-allocate because sizeof(NN::Networks) is large
+            std::make_unique<NN::Networks>(NN::EvalFile{EvalFileDefaultNameBig, "None", ""},
+                                           NN::EvalFile{EvalFileDefaultNameSmall, "None", ""})) {
 
     pos.set(StartFEN, false, &states->back());
 
@@ -133,13 +135,18 @@ Engine::Engine(std::optional<std::filesystem::path> path) :
     options.add("SyzygyProbeLimit", Option(7, 0, 7));
 
     options.add(  //
-      "EvalFile", Option(EvalFileDefaultName, [this](const Option& o) {
-          load_network(path_from_utf8(std::string(o)));
+      "EvalFile", Option(EvalFileDefaultNameBig, [this](const Option& o) {
+          load_big_network(std::string(o));
           return std::nullopt;
       }));
 
-    threads.clear();
-    threads.ensure_network_replicated();
+    options.add(  //
+      "EvalFileSmall", Option(EvalFileDefaultNameSmall, [this](const Option& o) {
+          load_small_network(std::string(o));
+          return std::nullopt;
+      }));
+
+    load_networks();
     resize_threads();
 }
 
@@ -264,8 +271,8 @@ void Engine::set_ponderhit(bool b) { threads.main_manager()->ponder = b; }
 // network related
 
 void Engine::verify_network() const {
-    const auto file = path_from_utf8(std::string(options["EvalFile"]));
-    network->verify(onVerifyNetwork, networkFile, file);
+    network->big.verify(options["EvalFile"], onVerifyNetwork);
+    network->small.verify(options["EvalFileSmall"], onVerifyNetwork);
 
     auto statuses = network.get_status_and_errors();
     for (usize i = 0; i < statuses.size(); ++i)
@@ -298,25 +305,41 @@ void Engine::verify_network() const {
     }
 }
 
-std::unique_ptr<Eval::NNUE::Network> Engine::get_default_network() {
-
-    auto network_ = std::make_unique<NN::Network>();
-
-    network_->load(binaryDirectory, std::filesystem::path{}, networkFile);
-
-    return network_;
+// The Stockfish 18 network loader expects the directory with a trailing separator
+static std::string net_directory(const std::filesystem::path& binaryDirectory) {
+    return (binaryDirectory / "").string();
 }
 
-void Engine::load_network(const std::filesystem::path& file) {
-    network.modify_and_replicate(
-      [this, &file](NN::Network& network_) { network_.load(binaryDirectory, file, networkFile); });
+void Engine::load_networks() {
+    network.modify_and_replicate([this](NN::Networks& networks_) {
+        networks_.big.load(net_directory(binaryDirectory), options["EvalFile"]);
+        networks_.small.load(net_directory(binaryDirectory), options["EvalFileSmall"]);
+    });
     threads.clear();
     threads.ensure_network_replicated();
 }
 
-void Engine::save_network(const std::optional<std::filesystem::path>& file) {
-    network.modify_and_replicate(
-      [&file, this](NN::Network& network_) { network_.save(networkFile, file); });
+void Engine::load_big_network(const std::string& file) {
+    network.modify_and_replicate([this, &file](NN::Networks& networks_) {
+        networks_.big.load(net_directory(binaryDirectory), file);
+    });
+    threads.clear();
+    threads.ensure_network_replicated();
+}
+
+void Engine::load_small_network(const std::string& file) {
+    network.modify_and_replicate([this, &file](NN::Networks& networks_) {
+        networks_.small.load(net_directory(binaryDirectory), file);
+    });
+    threads.clear();
+    threads.ensure_network_replicated();
+}
+
+void Engine::save_network(const std::pair<std::optional<std::string>, std::string> files[2]) {
+    network.modify_and_replicate([&files](NN::Networks& networks_) {
+        networks_.big.save(files[0].first);
+        networks_.small.save(files[1].first);
+    });
 }
 
 // utility functions

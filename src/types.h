@@ -342,17 +342,10 @@ using DirtyThreatList = ValueList<DirtyThreat, 96>;
 
 struct DirtyThreats {
     DirtyThreatList list;
-};
+    Color           us;
+    Square          prevKsq, ksq;
 
-struct DirtyPawnPairs {
-    Bitboard before[COLOR_NB];
-    Bitboard after[COLOR_NB];
-};
-
-struct Dirties {
-    DirtyPiece     dirtyPiece;
-    DirtyThreats   dirtyThreats;
-    DirtyPawnPairs dirtyPawnPairs;
+    Bitboard threatenedSqs, threateningSqs;
 };
 
     #define ENABLE_INCR_OPERATORS_ON(T) \
@@ -490,6 +483,14 @@ class Move {
    protected:
     u16 data;
 };
+
+template<typename T, typename... Ts>
+struct is_all_same {
+    static constexpr bool value = (std::is_same_v<T, Ts> && ...);
+};
+
+template<typename... Ts>
+constexpr auto is_all_same_v = is_all_same<Ts...>::value;
 
 }  // namespace Stockfish
 
