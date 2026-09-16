@@ -347,6 +347,7 @@ bool Search::Worker::iterative_deepening() {
         // all the move scores except the (new) PV are set to -VALUE_INFINITE.
         for (usize i = 0; i < rootMoves.size(); ++i)
         {
+            rootMoves[i].scoreDifference    = rootMoves[i].score - rootMoves[i].previousScore;
             rootMoves[i].previousScore      = rootMoves[i].score;
             rootMoves[i].previousPV         = rootMoves[i].pv;
             rootMoves[i].previousScoreExact = i < multiPV;
@@ -379,10 +380,10 @@ bool Search::Worker::iterative_deepening() {
             alpha     = std::max(avg - delta, -VALUE_INFINITE);
             beta      = std::min(avg + delta, VALUE_INFINITE);
 
-            Value swing = std::abs(rootMoves[pvIdx].score - rootMoves[pvIdx].previousScore);
+            Value swing = std::abs(rootMoves[pvIdx].scoreDifference);
 
             // Adjust optimism based on root move's averageScore
-            optimism[us]  = (114 + 20 * (swing > 20)) * avg / (std::abs(avg) + 85);
+            optimism[us]  = (114 + 25 * (swing > 200)) * avg / (std::abs(avg) + 85);
             optimism[~us] = -optimism[us];
 
             // Start with a small aspiration window and, in the case of a fail
