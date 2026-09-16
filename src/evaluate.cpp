@@ -56,8 +56,20 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
     optimism += optimism * i64(nnueComplexity) / 476;
     nnue -= nnue * i64(nnueComplexity) / 18236;
 
+    int deltaN = pos.count<KNIGHT>(WHITE) - pos.count<KNIGHT>(BLACK);
+    int deltaB = pos.count<BISHOP>(WHITE) - pos.count<BISHOP>(BLACK);
+    int deltaR = pos.count<ROOK>(WHITE) - pos.count<ROOK>(BLACK);
+    int deltaQ = pos.count<QUEEN>(WHITE) - pos.count<QUEEN>(BLACK);
+
+    int npmDiff   = 9 * deltaQ + 5 * deltaR + 3 * deltaB + 3 * deltaN;
+    int imbalance = (9 * std::abs(deltaQ) + 5 * std::abs(deltaR) + 3 * std::abs(deltaB)
+                     + 3 * std::abs(deltaN) - std::abs(npmDiff))
+                  / 2;
+
     int material = 534 * pos.count<PAWN>() + pos.non_pawn_material();
-    int v        = nnue + (nnue * i64(material) + optimism * i64(7675)) / 91000;
+    material += 300 * std::max(imbalance - 6, 0);
+
+    int v = nnue + (nnue * i64(material) + optimism * i64(7675)) / 91000;
 
     // Damp down the evaluation linearly when shuffling
     v -= v * pos.rule50_count() / 199;
