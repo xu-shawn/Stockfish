@@ -57,7 +57,7 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
     nnue -= nnue * i64(nnueComplexity) / 18236;
 
     int pawnCnt  = pos.count<PAWN>();
-    int material = 500 * pawnCnt + pos.non_pawn_material();
+    int material = 486 * pawnCnt + pos.non_pawn_material();
     if (pawnCnt > 8)
         material += 100 * (pawnCnt - 8);
 
