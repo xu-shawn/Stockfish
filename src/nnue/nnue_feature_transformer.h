@@ -302,9 +302,12 @@ class FeatureTransformer {
 
         for (IndexType j = 0; j < NumOutputChunks; j += 2)
         {
-            vec_t packed[2];
+            vec_t packed[2] = {Zero, Zero};
             for (IndexType k = 0; k < 2; ++k)
             {
+                if (NumOutputChunks % 2 != 0 && j + k == NumOutputChunks)
+                    break;
+
                 const IndexType i = (j + k) * 2;
 
                 vec_t acc0a = in0[i + 0];
