@@ -26,6 +26,7 @@
 #include <mutex>
 #include <vector>
 
+#include "fiber.h"
 #include "memory.h"
 #include "misc.h"
 #include "numa.h"
@@ -38,6 +39,11 @@ namespace Stockfish {
 
 class OptionsMap;
 using Value = int;
+
+// Number of search workers sharing each OS thread when searching with more than
+// one thread. The workers of a thread run as fibers and hand over the thread to
+// each other every few thousand nodes. A single thread keeps a single worker.
+constexpr usize WorkersPerSMPThread = 2;
 
 // Sometimes we don't want to actually bind the threads, but the recipient still
 // needs to think it runs on *some* NUMA node, such that it can access structures
@@ -65,15 +71,17 @@ class OptionalThreadToNumaNodeBinder {
     NumaIndex         numaId;
 };
 
-// Abstraction of a thread. It contains a pointer to the worker and a native thread.
+// Abstraction of a thread. It contains one or more workers and a native thread.
 // After construction, the native thread is started with idle_loop()
 // waiting for a signal to start searching.
 // When the signal is received, the thread starts searching and when
 // the search is finished, it goes back to idle_loop() waiting for a new signal.
+// If there are several workers, they run as fibers on the native thread.
 class Thread {
    public:
     Thread(Search::SharedState&,
            std::unique_ptr<Search::SearchManager>,
+           usize,
            usize,
            usize,
            usize,
@@ -82,7 +90,12 @@ class Thread {
 
     void idle_loop();
     void start_searching();
-    void clear_worker();
+    void clear_workers();
+
+    // Used by the main worker to start the other workers sharing the main
+    // thread. Must be called from within the main worker's fiber.
+    void start_main_thread_helpers();
+
     void run_custom_job(std::function<void()> f);
 
     void ensure_network_replicated();
@@ -95,16 +108,19 @@ class Thread {
     void  wait_for_search_finished();
     usize id() const { return idx; }
 
-    LargePagePtr<Search::Worker> worker;
-    std::function<void()>        jobFunc;
+    std::vector<LargePagePtr<Search::Worker>> workers;
+    std::function<void()>                     jobFunc;
 
    private:
     std::mutex                mutex;
     std::condition_variable   cv;
-    usize                     idx, idxInNuma, totalNuma;
+    usize                     idx, idxInNuma, totalNuma, workerCount;
     bool                      exit = false, searching = true;  // Set before starting std::thread
     NativeThread              stdThread;
     NumaReplicatedAccessToken numaAccessToken;
+    std::unique_ptr<FiberScheduler> scheduler;
+
+    void start_fiber(usize workerIdx);
 };
 
 
@@ -144,7 +160,7 @@ class ThreadPool {
     Thread*                main_thread() const { return threads.front().get(); }
     u64                    nodes_searched() const;
     u64                    tb_hits() const;
-    Thread*                get_best_thread() const;
+    Search::Worker*        get_best_worker() const;
     void                   start_searching();
     void                   wait_for_search_finished() const;
 
@@ -163,16 +179,19 @@ class ThreadPool {
     auto size() const noexcept { return threads.size(); }
     auto empty() const noexcept { return threads.empty(); }
 
+    const std::vector<Search::Worker*>& all_workers() const { return workers; }
+
    private:
     StateListPtr                         setupStates;
     std::vector<std::unique_ptr<Thread>> threads;
+    std::vector<Search::Worker*>         workers;  // All workers of all threads, by index
     std::vector<NumaIndex>               boundThreadToNumaNode;
 
     u64 accumulate(RelaxedAtomic<u64> Search::Worker::* member) const {
 
         u64 sum = 0;
-        for (auto&& th : threads)
-            sum += (th->worker.get()->*member).load(std::memory_order_relaxed);
+        for (Search::Worker* w : workers)
+            sum += (w->*member).load(std::memory_order_relaxed);
         return sum;
     }
 };

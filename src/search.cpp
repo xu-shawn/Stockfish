@@ -28,6 +28,7 @@
 #include <cstdlib>
 #include <initializer_list>
 #include <iostream>
+#include <limits>
 #include <list>
 #include <ratio>
 #include <string>
@@ -35,6 +36,7 @@
 
 #include "bitboard.h"
 #include "evaluate.h"
+#include "fiber.h"
 #include "history.h"
 #include "misc.h"
 #include "movegen.h"
@@ -71,6 +73,9 @@ using namespace Search;
 namespace {
 
 constexpr u64 NODES_LIMIT_OUTPUT = 10'000'000;
+
+// Nodes a worker searches before handing over its OS thread to the next worker
+constexpr u64 FiberSliceNodes = 2048;
 
 constexpr int SEARCHEDLIST_CAPACITY = 32;
 using SearchedList                  = ValueList<Move, SEARCHEDLIST_CAPACITY>;
@@ -196,6 +201,8 @@ void Search::Worker::start_searching() {
 
     accumulatorStack.reset();
 
+    nextYieldNodes = scheduler ? FiberSliceNodes : std::numeric_limits<u64>::max();
+
     // Non-main threads go directly to iterative_deepening()
     if (!is_mainthread())
     {
@@ -226,13 +233,17 @@ void Search::Worker::start_searching() {
     // GUI sends a "stop" or "ponderhit" command. We therefore simply wait here
     // until the GUI sends one of those commands.
     while (!threads.stop && (main_manager()->ponder || limits.infinite))
-    {}
+        if (scheduler)
+            scheduler->yield();
 
     // Stop the threads if not already stopped (also raise the stop if "ponderhit"
     // just reset threads.ponder).
     threads.stop = true;
 
-    // Wait until all threads have finished
+    // Wait until all threads have finished, including the workers sharing ours
+    if (scheduler)
+        scheduler->wait_for_others();
+
     threads.wait_for_search_finished();
 
     // When playing in 'nodes as time' mode, subtract the searched nodes from
@@ -246,7 +257,7 @@ void Search::Worker::start_searching() {
       Skill(options["Skill Level"], options["UCI_LimitStrength"] ? int(options["UCI_Elo"]) : 0);
 
     if (!limits.depth && !skill.enabled())
-        bestThread = threads.get_best_thread()->worker.get();
+        bestThread = threads.get_best_worker();
 
     main_manager()->bestPreviousScore        = bestThread->rootMoves[0].score;
     main_manager()->bestPreviousAverageScore = bestThread->rootMoves[0].averageScore;
@@ -570,10 +581,10 @@ bool Search::Worker::iterative_deepening() {
             skill.pick_best(rootMoves, multiPV);
 
         // Use part of the gained time from a previous stable move for the current move
-        for (auto&& th : threads)
+        for (Worker* th : threads.all_workers())
         {
-            totBestMoveChanges += th->worker->bestMoveChanges;
-            th->worker->bestMoveChanges = 0;
+            totBestMoveChanges += th->bestMoveChanges;
+            th->bestMoveChanges = 0;
         }
 
         // Do we have time for the next iteration? Can we stop searching now?
@@ -594,7 +605,8 @@ bool Search::Worker::iterative_deepening() {
             double reduction =
               (1.468 + mainThread->previousTimeReduction) / (2.284 * timeReduction);
 
-            double bestMoveInstability = 1.077 + 2.229 * totBestMoveChanges / threads.size();
+            double bestMoveInstability =
+              1.077 + 2.229 * totBestMoveChanges / threads.all_workers().size();
 
             double highBestMoveEffort = std::clamp(
               interpolate(i64(nodesEffort), i64(75800), i64(104510), 0.969, 0.714), 0.693, 0.838);
@@ -789,6 +801,13 @@ Value Search::Worker::search(
     // Check for the available remaining time
     if (is_mainthread())
         main_manager()->check_time(*this);
+
+    // Hand over the OS thread to the other workers sharing it
+    if (nodes >= nextYieldNodes)
+    {
+        nextYieldNodes = nodes + FiberSliceNodes;
+        scheduler->yield();
+    }
 
     // Used to send selDepth info to GUI (selDepth counts from 1, ply from 0)
     if (PvNode && selDepth < ss->ply + 1)

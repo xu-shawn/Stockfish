@@ -52,7 +52,9 @@ enum NodeType {
 
 class TranspositionTable;
 class ThreadPool;
+class Thread;
 class OptionsMap;
+class FiberScheduler;
 
 namespace Eval::NNUE {
 class Network;
@@ -407,7 +409,13 @@ class Worker {
     Eval::NNUE::AccumulatorStack  accumulatorStack;
     Eval::NNUE::AccumulatorCaches refreshTable;
 
+    // Set when several workers share an OS thread. They run as fibers and
+    // hand over the thread to each other every FiberSliceNodes nodes.
+    FiberScheduler* scheduler = nullptr;
+    u64             nextYieldNodes;
+
     friend class Stockfish::ThreadPool;
+    friend class Stockfish::Thread;
     friend class SearchManager;
 };
 

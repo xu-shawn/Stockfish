@@ -51,10 +51,12 @@ Thread::Thread(Search::SharedState&                   sharedState,
                usize                                  n,
                usize                                  numaN,
                usize                                  totalNumaCount,
+               usize                                  workersPerThread,
                OptionalThreadToNumaNodeBinder         binder) :
     idx(n),
     idxInNuma(numaN),
     totalNuma(totalNumaCount),
+    workerCount(workersPerThread),
     stdThread(
       create_native_thread(NativeThreadOptions{}.setLargeStack(true), &Thread::idle_loop, this)) {
 
@@ -71,8 +73,20 @@ Thread::Thread(Search::SharedState&                   sharedState,
         // the Worker allocation. Ideally we would also allocate the SearchManager
         // here, but that's minor.
         this->numaAccessToken = binder();
-        this->worker          = make_unique_large_page<Search::Worker>(
-          sharedState, std::move(sm), n, idxInNuma, totalNuma, this->numaAccessToken);
+
+        // Workers are indexed as if each of them had its own thread. Only the
+        // first worker of the main thread gets the SearchManager.
+        for (usize k = 0; k < workerCount; ++k)
+            this->workers.push_back(make_unique_large_page<Search::Worker>(
+              sharedState, k == 0 ? std::move(sm) : nullptr, n * workerCount + k,
+              idxInNuma * workerCount + k, totalNuma * workerCount, this->numaAccessToken));
+
+        if (workerCount > 1)
+        {
+            this->scheduler = std::make_unique<FiberScheduler>(workerCount);
+            for (auto&& w : this->workers)
+                w->scheduler = this->scheduler.get();
+        }
     });
 
     wait_for_search_finished();
@@ -90,16 +104,43 @@ Thread::~Thread() {
     stdThread.join();
 }
 
-// Wakes up the thread that will start the search
+// Wakes up the thread that will start the search. On the main thread only the
+// main worker is started here, it starts the other workers of the main thread
+// through start_main_thread_helpers() once the search is set up.
 void Thread::start_searching() {
-    assert(worker != nullptr);
-    run_custom_job([this]() { worker->start_searching(); });
+    assert(!workers.empty());
+    run_custom_job([this]() {
+        if (!scheduler)
+        {
+            workers.front()->start_searching();
+            return;
+        }
+
+        for (usize k = 0; k < (idx == 0 ? 1 : workerCount); ++k)
+            start_fiber(k);
+
+        scheduler->run();
+    });
 }
 
-// Clears the histories for the thread worker (usually before a new game)
-void Thread::clear_worker() {
-    assert(worker != nullptr);
-    run_custom_job([this]() { worker->clear(); });
+void Thread::start_fiber(usize workerIdx) {
+    Search::Worker* w = workers[workerIdx].get();
+    scheduler->start(workerIdx, [w]() { w->start_searching(); });
+}
+
+void Thread::start_main_thread_helpers() {
+    assert(idx == 0);
+    for (usize k = 1; k < workerCount; ++k)
+        start_fiber(k);
+}
+
+// Clears the histories for the thread workers (usually before a new game)
+void Thread::clear_workers() {
+    assert(!workers.empty());
+    run_custom_job([this]() {
+        for (auto&& w : workers)
+            w->clear();
+    });
 }
 
 // Blocks on the condition variable until the thread has finished searching
@@ -120,7 +161,10 @@ void Thread::run_custom_job(std::function<void()> f) {
     cv.notify_one();
 }
 
-void Thread::ensure_network_replicated() { worker->ensure_network_replicated(); }
+void Thread::ensure_network_replicated() {
+    for (auto&& w : workers)
+        w->ensure_network_replicated();
+}
 
 // Thread gets parked here, blocked on the condition variable
 // when the thread has no work to do.
@@ -146,7 +190,7 @@ void Thread::idle_loop() {
     }
 }
 
-Search::SearchManager* ThreadPool::main_manager() { return main_thread()->worker->main_manager(); }
+Search::SearchManager* ThreadPool::main_manager() { return workers.front()->main_manager(); }
 
 u64 ThreadPool::nodes_searched() const { return accumulate(&Search::Worker::nodes); }
 u64 ThreadPool::tb_hits() const { return accumulate(&Search::Worker::tbHits); }
@@ -164,12 +208,14 @@ void ThreadPool::set(const NumaConfig&                           numaConfig,
     {
         main_thread()->wait_for_search_finished();
 
+        workers.clear();
         threads.clear();
 
         boundThreadToNumaNode.clear();
     }
 
-    const usize requested = sharedState.options["Threads"];
+    const usize requested        = sharedState.options["Threads"];
+    const usize workersPerThread = requested > 1 ? WorkersPerSMPThread : 1;
 
     if (requested > 0)  // create new thread(s)
     {
@@ -210,7 +256,8 @@ void ThreadPool::set(const NumaConfig&                           numaConfig,
             NumaIndex numaIndex = pair.first;
             u64       count     = pair.second;
             auto      f         = [&]() {
-                sharedState.sharedHistories.try_emplace(numaIndex, next_power_of_two(count));
+                sharedState.sharedHistories.try_emplace(
+                  numaIndex, next_power_of_two(count * workersPerThread));
             };
             if (doBindThreads)
                 numaConfig.execute_on_numa_node(numaIndex, f);
@@ -236,9 +283,9 @@ void ThreadPool::set(const NumaConfig&                           numaConfig,
                 auto binder = doBindThreads ? OptionalThreadToNumaNodeBinder(numaConfig, numaId)
                                                        : OptionalThreadToNumaNodeBinder(numaId);
 
-                threads.emplace_back(std::make_unique<Thread>(sharedState, std::move(manager),
-                                                                         threadId, counts[numaId]++,
-                                                                         threadsPerNode[numaId], binder));
+                threads.emplace_back(std::make_unique<Thread>(
+                  sharedState, std::move(manager), threadId, counts[numaId]++,
+                  threadsPerNode[numaId], workersPerThread, binder));
             };
 
             // Ensure the worker thread inherits the intended NUMA affinity at creation.
@@ -247,6 +294,10 @@ void ThreadPool::set(const NumaConfig&                           numaConfig,
             else
                 create_thread();
         }
+
+        for (auto&& th : threads)
+            for (auto&& w : th->workers)
+                workers.push_back(w.get());
 
         clear();
 
@@ -261,7 +312,7 @@ void ThreadPool::clear() {
         return;
 
     for (auto&& th : threads)
-        th->clear_worker();
+        th->clear_workers();
 
     for (auto&& th : threads)
         th->wait_for_search_finished();
@@ -334,14 +385,17 @@ void ThreadPool::start_thinking(const OptionsMap&  options,
     for (auto&& th : threads)
     {
         th->run_custom_job([&]() {
-            th->worker->limits = limits;
-            th->worker->nodes = th->worker->tbHits = th->worker->bestMoveChanges = 0;
-            th->worker->nmpMinPly                                                = 0;
-            th->worker->rootDepth                                                = 0;
-            th->worker->rootMoves                                                = rootMoves;
-            th->worker->rootPos.set(pos.fen(), pos.is_chess960(), &th->worker->rootState);
-            th->worker->rootState = setupStates->back();
-            th->worker->tbConfig  = tbConfig;
+            for (auto&& w : th->workers)
+            {
+                w->limits = limits;
+                w->nodes = w->tbHits = w->bestMoveChanges = 0;
+                w->nmpMinPly                              = 0;
+                w->rootDepth                              = 0;
+                w->rootMoves                              = rootMoves;
+                w->rootPos.set(pos.fen(), pos.is_chess960(), &w->rootState);
+                w->rootState = setupStates->back();
+                w->tbConfig  = tbConfig;
+            }
         });
     }
 
@@ -351,25 +405,25 @@ void ThreadPool::start_thinking(const OptionsMap&  options,
     main_thread()->start_searching();
 }
 
-Thread* ThreadPool::get_best_thread() const {
+Search::Worker* ThreadPool::get_best_worker() const {
 
-    Thread* bestThread = threads.front().get();
-    Value   minScore   = VALUE_INFINITE;
+    Search::Worker* bestThread = workers.front();
+    Value           minScore   = VALUE_INFINITE;
 
     std::unordered_map<Move, i64, Move::MoveHash> votes(
-      2 * std::min(size(), bestThread->worker->rootMoves.size()));
+      2 * std::min(workers.size(), bestThread->rootMoves.size()));
 
-    for (auto&& th : threads)
-        minScore = std::min(minScore, th->worker->rootMoves[0].score);
+    for (Search::Worker* th : workers)
+        minScore = std::min(minScore, th->rootMoves[0].score);
 
-    // Vote according to score, and select the best thread
-    for (auto&& th : threads)
-        votes[th->worker->rootMoves[0].pv[0]] += th->worker->rootMoves[0].score - minScore + 14;
+    // Vote according to score, and select the best worker
+    for (Search::Worker* th : workers)
+        votes[th->rootMoves[0].pv[0]] += th->rootMoves[0].score - minScore + 14;
 
-    for (auto&& th : threads)
+    for (Search::Worker* th : workers)
     {
-        const auto& bestThreadMove = bestThread->worker->rootMoves[0];
-        const auto& newThreadMove  = th->worker->rootMoves[0];
+        const auto& bestThreadMove = bestThread->rootMoves[0];
+        const auto& newThreadMove  = th->rootMoves[0];
 
         const auto bestThreadMoveVote = votes[bestThreadMove.pv[0]];
         const auto newThreadMoveVote  = votes[newThreadMove.pv[0]];
@@ -390,7 +444,7 @@ Thread* ThreadPool::get_best_thread() const {
                 assert((is_win(bestThreadMove.score) && is_win(newThreadMove.score))
                        || (is_loss(bestThreadMove.score) && is_loss(newThreadMove.score)));
 
-                bestThread = th.get();
+                bestThread = th;
             }
         }
         else if (newThreadDecisive
@@ -398,24 +452,27 @@ Thread* ThreadPool::get_best_thread() const {
                      && (newThreadMoveVote > bestThreadMoveVote
                          || (newThreadMoveVote == bestThreadMoveVote
                              && newThreadMove.pv.size() > bestThreadMove.pv.size()))))
-            bestThread = th.get();
+            bestThread = th;
     }
 
     return bestThread;
 }
 
 
-// Start non-main threads.
-// Will be invoked by main thread after it has started searching.
+// Start non-main workers, including the ones sharing the main thread.
+// Will be invoked by main worker after it has started searching.
 void ThreadPool::start_searching() {
 
     for (auto&& th : threads)
         if (th != threads.front())
             th->start_searching();
+
+    main_thread()->start_main_thread_helpers();
 }
 
 
-// Wait for non-main threads
+// Wait for non-main threads. The main worker waits for the other workers
+// sharing its thread separately, see Search::Worker::start_searching().
 void ThreadPool::wait_for_search_finished() const {
 
     for (auto&& th : threads)
