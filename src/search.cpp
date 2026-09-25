@@ -1020,7 +1020,8 @@ Value Search::Worker::search(
                              - (2789 * improving + 335 * opponentWorsening) * futilityMult / 1024
                              + std::abs(correctionValue) / 198435;
 
-        if (eval - futilityMargin >= beta)
+        if (eval - futilityMargin >= beta
+            && (depth <= 8 || qsearch<NonPV>(pos, ss, alpha, alpha + 1) > alpha))
             return (661 * beta + 363 * eval) / 1024;
     }
 
