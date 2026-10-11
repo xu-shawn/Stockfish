@@ -58,7 +58,7 @@ class HalfKAv2_hm {
 
    public:
     // Hash value embedded in the evaluation file
-    static constexpr u32 HashValue = 0x7f234cb8u;
+    static constexpr u32 HashValue = 0x7f234cb9u;
 
     // Number of feature dimensions
     static constexpr IndexType Dimensions =
