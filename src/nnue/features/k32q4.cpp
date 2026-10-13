@@ -16,9 +16,9 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-//Definition of input features K32Q2 of NNUE evaluation function
+//Definition of input features K32Q4 of NNUE evaluation function
 
-#include "k32q2.h"
+#include "k32q4.h"
 
 #include <array>
 #include <initializer_list>
@@ -34,7 +34,7 @@
 namespace Stockfish::Eval::NNUE::Features {
 
 #if defined(USE_AVX512ICL)
-void K32Q2::write_indices(const std::array<Piece, SQUARE_NB>& oldPieces,
+void K32Q4::write_indices(const std::array<Piece, SQUARE_NB>& oldPieces,
                           const std::array<Piece, SQUARE_NB>& newPieces,
                           Bitboard                            removedBB,
                           Bitboard                            addedBB,
@@ -84,7 +84,7 @@ void K32Q2::write_indices(const std::array<Piece, SQUARE_NB>& oldPieces,
 
 // Index of a feature for a given king position and another piece on some square
 
-IndexType K32Q2::make_index(Color perspective, Square s, Piece pc, Square ksq, bool opponentHasQueen) {
+IndexType K32Q4::make_index(Color perspective, Square s, Piece pc, Square ksq, bool opponentHasQueen) {
     alignas(64) static constexpr auto offsets = [] {
         std::array<std::array<u16, PIECE_NB>, 2 * COLOR_NB * SQUARE_NB> table{};
         for (bool q : {false, true})
@@ -106,7 +106,7 @@ IndexType K32Q2::make_index(Color perspective, Square s, Piece pc, Square ksq, b
 
 // Get a list of indices for recently changed features
 
-void K32Q2::append_changed_indices(
+void K32Q4::append_changed_indices(
   Color perspective, Square ksq, const DiffType& diff, bool opponentHasQueen, IndexList& removed, IndexList& added) {
     removed.push_back(make_index(perspective, diff.from, diff.pc, ksq, opponentHasQueen));
     if (diff.to != SQ_NONE)
@@ -119,13 +119,13 @@ void K32Q2::append_changed_indices(
         added.push_back(make_index(perspective, diff.add_sq, diff.add_pc, ksq, opponentHasQueen));
 }
 
-bool K32Q2::requires_refresh(const DiffType& diff, Color perspective) {
+bool K32Q4::requires_refresh(const DiffType& diff, Color perspective) {
     if (diff.pc == make_piece(perspective, KING))
         return true;
 
-    Color opponent = ~perspective;
-    if (   (diff.remove_sq != SQ_NONE && diff.remove_pc == make_piece(opponent, QUEEN))
-        || (diff.add_sq != SQ_NONE && diff.add_pc == make_piece(opponent, QUEEN)))
+    // Either side gaining or losing a queen may change the queen bucket
+    if (   (diff.remove_sq != SQ_NONE && type_of(diff.remove_pc) == QUEEN)
+        || (diff.add_sq != SQ_NONE && type_of(diff.add_pc) == QUEEN))
         return true;
 
     return false;
