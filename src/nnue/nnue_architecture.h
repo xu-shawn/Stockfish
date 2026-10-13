@@ -59,7 +59,7 @@ struct NetworkArchitecture {
     Layers::AffineTransform<FC_0_OUTPUTS * 2, FC_1_OUTPUTS>                        fc_1;
     Layers::SqrClippedReLU<FC_1_OUTPUTS, WeightScaleBits>                          ac_sqr_1;
     Layers::ClippedReLU<FC_1_OUTPUTS, WeightScaleBits>                             ac_1;
-    Layers::AffineTransform<FC_0_OUTPUTS * 2 + FC_1_OUTPUTS * 2, 1>                fc_2;
+    Layers::AffineTransform<FC_1_OUTPUTS * 2, 1>                                   fc_2;
 
     // Hash value embedded in the evaluation file
     static constexpr u32 get_hash_value() {
@@ -97,8 +97,10 @@ struct NetworkArchitecture {
         struct alignas(CacheLineSize) Buffer {
             alignas(CacheLineSize) typename decltype(fc_0)::OutputBuffer fc_0_out;
             alignas(CacheLineSize) typename decltype(ac_sqr_0)::OutputType
-              concat_buffer[ceil_to_multiple<IndexType>(FC_0_OUTPUTS * 2 + FC_1_OUTPUTS * 2, 32)];
+              ac_0_out[ceil_to_multiple<IndexType>(FC_0_OUTPUTS * 2, 32)];
             alignas(CacheLineSize) typename decltype(fc_1)::OutputBuffer fc_1_out;
+            alignas(CacheLineSize) typename decltype(ac_sqr_1)::OutputType
+              ac_1_out[ceil_to_multiple<IndexType>(FC_1_OUTPUTS * 2, 32)];
             alignas(CacheLineSize) typename decltype(fc_2)::OutputBuffer fc_2_out;
         };
 
@@ -106,28 +108,25 @@ struct NetworkArchitecture {
 
         fc_0.propagate(transformedFeatures, buffer.fc_0_out, nnzInfo);
 #if defined(USE_PAIR_ACTIVATIONS)
-        ac_sqr_0.propagate_pair(buffer.fc_0_out, buffer.concat_buffer,
-                                buffer.concat_buffer + FC_0_OUTPUTS);
+        ac_sqr_0.propagate_pair(buffer.fc_0_out, buffer.ac_0_out, buffer.ac_0_out + FC_0_OUTPUTS);
 #else
-        ac_sqr_0.propagate(buffer.fc_0_out, buffer.concat_buffer);
-        ac_0.propagate(buffer.fc_0_out, buffer.concat_buffer + FC_0_OUTPUTS);
+        ac_sqr_0.propagate(buffer.fc_0_out, buffer.ac_0_out);
+        ac_0.propagate(buffer.fc_0_out, buffer.ac_0_out + FC_0_OUTPUTS);
 #endif
 
-        fc_1.propagate(buffer.concat_buffer, buffer.fc_1_out);
+        fc_1.propagate(buffer.ac_0_out, buffer.fc_1_out);
 #if defined(USE_PAIR_ACTIVATIONS)
-        ac_sqr_1.propagate_pair(buffer.fc_1_out, buffer.concat_buffer + FC_0_OUTPUTS * 2,
-                                buffer.concat_buffer + FC_0_OUTPUTS * 2 + FC_1_OUTPUTS);
+        ac_sqr_1.propagate_pair(buffer.fc_1_out, buffer.ac_1_out, buffer.ac_1_out + FC_1_OUTPUTS);
 #else
-        ac_sqr_1.propagate(buffer.fc_1_out, buffer.concat_buffer + FC_0_OUTPUTS * 2);
-        ac_1.propagate(buffer.fc_1_out, buffer.concat_buffer + FC_0_OUTPUTS * 2 + FC_1_OUTPUTS);
+        ac_sqr_1.propagate(buffer.fc_1_out, buffer.ac_1_out);
+        ac_1.propagate(buffer.fc_1_out, buffer.ac_1_out + FC_1_OUTPUTS);
 #endif
 
-        fc_2.propagate(buffer.concat_buffer, buffer.fc_2_out);
+        // The output layer sees only the second hidden layer: no concatenated first-layer
+        // activations and no direct path from the first layer to the output
+        fc_2.propagate(buffer.ac_1_out, buffer.fc_2_out);
 
-        static_assert(FC_0_OUTPUTS >= 2);
         i32 fwdOut = buffer.fc_2_out[0];
-        i32 skip_0 = buffer.fc_0_out[FC_0_OUTPUTS - 2] - buffer.fc_0_out[FC_0_OUTPUTS - 1];
-        fwdOut += skip_0;
 
         // fwdOut is such that 1.0 is equal to HiddenOneVal*(1<<WeightScaleBits)*2 in
         // quantized form, but we want 1.0 to be equal to 600*OutputScale
