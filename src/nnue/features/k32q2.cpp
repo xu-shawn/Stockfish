@@ -56,7 +56,7 @@ void K32Q2::write_indices(const std::array<Piece, SQUARE_NB>& oldPieces,
     // allowing the orientation to be folded into the per-piece lookup offset.
     const u16     flip        = 56 * perspective;
     const u16     orient      = u16(OrientTBL[ksq]) ^ flip;
-    const u16     queenOffset = opponentHasQueen ? PS_NB : 0;
+    const u16     queenOffset = opponentHasQueen ? QueenOffset : 0;
     const __m512i psi =
       _mm512_castsi256_si512(_mm256_loadu_si256((const __m256i*) PieceSquareIndex[perspective]));
     const __m512i psi_plus_offset =
@@ -93,7 +93,7 @@ IndexType K32Q2::make_index(Color perspective, Square s, Piece pc, Square ksq, b
                 {
                     const u16 flip        = 56 * c;
                     const u16 orient      = u16(OrientTBL[sq]) ^ flip;
-                    const u16 queenOffset = q ? PS_NB : 0;
+                    const u16 queenOffset = q ? QueenOffset : 0;
                     for (int pieceIndex = 0; pieceIndex < PIECE_NB; ++pieceIndex)
                         table[(int(q) * COLOR_NB + c) * SQUARE_NB + sq][pieceIndex] =
                           PieceSquareIndex[c][pieceIndex] + KingBuckets[sq ^ flip] + queenOffset + orient;

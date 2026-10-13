@@ -29,6 +29,7 @@ namespace Stockfish::Eval::NNUE::Features {
 
 // Feature K32Q2: Combination of the position of own king (32 buckets), opponent queen presence (2 states),
 // and piece-square positions. Position mirrored such that king is always on e..h files.
+// The queen state is the outermost index, so each of its two halves is laid out by king bucket.
 class K32Q2 {
 
     // Unique number for each piece type on each square
@@ -48,6 +49,9 @@ class K32Q2 {
         PS_NB       = 11 * SQUARE_NB
     };
 
+    // Offset of the features with an opponent queen (32 king buckets of PS_NB features each)
+    static constexpr u16 QueenOffset = 32 * PS_NB;
+
     alignas(64) static constexpr u16 PieceSquareIndex[COLOR_NB][PIECE_NB] = {
       // Convention: W - us, B - them
       // Viewed from other side, W and B are reversed
@@ -58,13 +62,13 @@ class K32Q2 {
 
    public:
     // Hash value embedded in the evaluation file
-    static constexpr u32 HashValue = 0x32b5e284u;
+    static constexpr u32 HashValue = 0x32b5e285u;
 
     // Number of feature dimensions (45,056 piece-squares)
     static constexpr IndexType Dimensions =
       static_cast<IndexType>(SQUARE_NB) * static_cast<IndexType>(PS_NB);
 
-#define B(v) (v * 2 * PS_NB)
+#define B(v) (v * PS_NB)
     // clang-format off
     static constexpr IndexType KingBuckets[SQUARE_NB] = {
         B(28), B(29), B(30), B(31), B(31), B(30), B(29), B(28),
