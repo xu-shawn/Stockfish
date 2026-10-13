@@ -16,10 +16,10 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-//Definition of input features K32Q2 of NNUE evaluation function
+//Definition of input features K32Q4 of NNUE evaluation function
 
-#ifndef NNUE_FEATURES_K32Q2_H_INCLUDED
-#define NNUE_FEATURES_K32Q2_H_INCLUDED
+#ifndef NNUE_FEATURES_K32Q4_H_INCLUDED
+#define NNUE_FEATURES_K32Q4_H_INCLUDED
 
 #include "../../misc.h"
 #include "../../types.h"
@@ -27,9 +27,11 @@
 
 namespace Stockfish::Eval::NNUE::Features {
 
-// Feature K32Q2: Combination of the position of own king (32 buckets), opponent queen presence (2 states),
-// and piece-square positions. Position mirrored such that king is always on e..h files.
-class K32Q2 {
+// Feature K32Q4: Combination of the position of own king (32 buckets), own and opponent queen
+// presence (4 states), and piece-square positions. Position mirrored such that king is always
+// on e..h files. The own queen presence selects one of two weight blocks; the indices handed out
+// here are relative to that block, which keeps them within 16 bits.
+class K32Q4 {
 
     // Unique number for each piece type on each square
     enum {
@@ -58,11 +60,14 @@ class K32Q2 {
 
    public:
     // Hash value embedded in the evaluation file
-    static constexpr u32 HashValue = 0x32b5e284u;
+    static constexpr u32 HashValue = 0x34b5e284u;
 
-    // Number of feature dimensions (45,056 piece-squares)
-    static constexpr IndexType Dimensions =
+    // Number of feature dimensions for one own queen state (45,056 piece-squares)
+    static constexpr IndexType BlockDimensions =
       static_cast<IndexType>(SQUARE_NB) * static_cast<IndexType>(PS_NB);
+
+    // Number of feature dimensions (90,112 piece-squares)
+    static constexpr IndexType Dimensions = 2 * BlockDimensions;
 
 #define B(v) (v * 2 * PS_NB)
     // clang-format off
@@ -110,7 +115,8 @@ class K32Q2 {
                               IndexList&                          added);
 #endif
 
-    // Index of a feature for a given king position and another piece on some square
+    // Index of a feature for a given king position and another piece on some square,
+    // relative to the weight block of the own queen state
     static IndexType
     make_index(Color perspective, Square s, Piece pc, Square ksq, bool opponentHasQueen);
 
@@ -129,4 +135,4 @@ class K32Q2 {
 
 }  // namespace Stockfish::Eval::NNUE::Features
 
-#endif  // #ifndef NNUE_FEATURES_K32Q2_H_INCLUDED
+#endif  // #ifndef NNUE_FEATURES_K32Q4_H_INCLUDED
