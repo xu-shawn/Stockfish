@@ -65,6 +65,27 @@ namespace Stockfish::Eval::NNUE {
 
 namespace fs = std::filesystem;
 
+namespace {
+
+// Pawn bucket thresholds for each piece count bucket: the pawn bucket is the number of
+// thresholds the pawn count exceeds. The pawn count tracks the piece count closely, so the
+// thresholds are the quartiles of the pawn count within each piece count bucket.
+constexpr int PawnThresholds[8][3] = {{0, 1, 2},   {1, 2, 3},    {4, 5, 6},    {7, 8, 9},
+                                      {9, 10, 11}, {10, 11, 12}, {12, 13, 14}, {13, 14, 15}};
+
+// Layer stack of a position, chosen by piece count, pawn count and queen presence
+int layer_stack(const Position& pos) {
+    const Color stm         = pos.side_to_move();
+    const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
+    const int   pawns       = pos.count<PAWN>();
+    const auto& thresholds  = PawnThresholds[pcBucket];
+    const int   pawnBucket  = (pawns > thresholds[0]) + (pawns > thresholds[1]) + (pawns > thresholds[2]);
+    const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
+    return pcBucket * 16 + pawnBucket * 4 + queenBucket;
+}
+
+}
+
 namespace Detail {
 
 // Read evaluation function parameters
@@ -150,10 +171,7 @@ Value Network::evaluate(const Position&    pos,
 
     NNZInfo<L1> nnzInfo;
 
-    const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
-    const Color stm         = pos.side_to_move();
-    const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
-    const int   bucket      = pcBucket * 4 + queenBucket;
+    const int bucket = layer_stack(pos);
 
     featureTransformer.transform(pos, accumulatorStack, cache, transformedFeatures, nnzInfo);
     const auto positional = network[bucket].propagate(transformedFeatures, nnzInfo);
@@ -214,10 +232,7 @@ NnueEvalTrace Network::trace_evaluate(const Position&    pos,
 
     ASSERT_ALIGNED(transformedFeatures, alignment);
 
-    const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
-    const Color stm         = pos.side_to_move();
-    const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
-    const int   bucket      = pcBucket * 4 + queenBucket;
+    const int bucket = layer_stack(pos);
 
     NnueEvalTrace t{};
     t.correctBucket = bucket;
