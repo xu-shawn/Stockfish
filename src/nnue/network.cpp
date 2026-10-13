@@ -65,6 +65,33 @@ namespace Stockfish::Eval::NNUE {
 
 namespace fs = std::filesystem;
 
+namespace {
+
+// Zone of the side to move's king, seen from its own side with the files mirrored
+// clang-format off
+constexpr int KingZones[SQUARE_NB] = {
+    0, 0, 1, 1, 1, 1, 0, 0,
+    2, 2, 2, 2, 2, 2, 2, 2,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    3, 3, 3, 3, 3, 3, 3, 3,
+};
+// clang-format on
+
+// Layer stack of a position, chosen by piece count, king zone and queen presence
+int layer_stack(const Position& pos) {
+    const Color stm         = pos.side_to_move();
+    const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
+    const int   kingZone    = KingZones[relative_square(stm, pos.square<KING>(stm))];
+    const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
+    return pcBucket * 16 + kingZone * 4 + queenBucket;
+}
+
+}
+
 namespace Detail {
 
 // Read evaluation function parameters
@@ -150,10 +177,7 @@ Value Network::evaluate(const Position&    pos,
 
     NNZInfo<L1> nnzInfo;
 
-    const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
-    const Color stm         = pos.side_to_move();
-    const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
-    const int   bucket      = pcBucket * 4 + queenBucket;
+    const int bucket = layer_stack(pos);
 
     featureTransformer.transform(pos, accumulatorStack, cache, transformedFeatures, nnzInfo);
     const auto positional = network[bucket].propagate(transformedFeatures, nnzInfo);
@@ -214,10 +238,7 @@ NnueEvalTrace Network::trace_evaluate(const Position&    pos,
 
     ASSERT_ALIGNED(transformedFeatures, alignment);
 
-    const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
-    const Color stm         = pos.side_to_move();
-    const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
-    const int   bucket      = pcBucket * 4 + queenBucket;
+    const int bucket = layer_stack(pos);
 
     NnueEvalTrace t{};
     t.correctBucket = bucket;
