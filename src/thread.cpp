@@ -158,7 +158,8 @@ static usize next_power_of_two(u64 count) { return count > 1 ? (2ULL << msb(coun
 // Upon resizing, threads are recreated to allow for binding if necessary.
 void ThreadPool::set(const NumaConfig&                           numaConfig,
                      Search::SharedState                         sharedState,
-                     const Search::SearchManager::UpdateContext& updateContext) {
+                     const Search::SearchManager::UpdateContext& updateContext,
+                     usize                                       threadCount) {
 
     if (threads.size() > 0)  // destroy any existing thread(s)
     {
@@ -169,7 +170,7 @@ void ThreadPool::set(const NumaConfig&                           numaConfig,
         boundThreadToNumaNode.clear();
     }
 
-    const usize requested = sharedState.options["Threads"];
+    const usize requested = threadCount ? threadCount : usize(sharedState.options["Threads"]);
 
     if (requested > 0)  // create new thread(s)
     {

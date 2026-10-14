@@ -969,7 +969,7 @@ void Position::do_move(Move                      m,
     }
 
     if (tt)
-        prefetch(tt->first_entry(adjust_key50(k)));
+        tt->prefetch(adjust_key50(k));
     // Update the key with the final value
     st->key = k;
 

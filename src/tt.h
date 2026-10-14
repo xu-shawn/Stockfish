@@ -73,10 +73,14 @@ struct TTWriter {
     void write(Key k, Value v, bool pv, Bound b, Depth d, Move m, Value ev, u8 generation8);
     void penalize(int penalty);  // decrement stored depth by the penalty
 
+    // Whether the data of the probe came from the frozen table, see TranspositionTable::probe()
+    bool from_frozen() const { return frozen; }
+
    private:
     friend class TranspositionTable;
     TTEntry* entry;
-    TTWriter(TTEntry* tte);
+    bool     frozen;
+    TTWriter(TTEntry* tte, bool fromFrozen = false);
 };
 
 
@@ -111,13 +115,34 @@ class TranspositionTable {
     // The hash function; its only external use is memory prefetching
     TTEntry* first_entry(const Key key) const;
 
+    // Prefetch the cluster of the key, also in the frozen table if there is one
+    void prefetch(const Key key) const;
+
+    // A frozen table holds the results of earlier searches: probe() also looks the key up there,
+    // but the frozen table is never written to, nor aged. Without one, nothing changes.
+    void                      set_frozen(const TranspositionTable* tt) { frozen = tt; }
+    const TranspositionTable* get_frozen() const { return frozen; }
+
+    // Exchange the contents of two tables, and free the memory of one
+    void swap(TranspositionTable& other);
+    void release();
+
+    usize size_mb() const;
+
+    // A hash of the whole table, to verify that it does not change
+    u64 checksum() const;
+
    private:
     friend struct TTEntry;
 
-    usize    clusterCount;
-    Cluster* table = nullptr;
+    std::tuple<bool, TTData, TTWriter> probe_frozen(const Key key, TTEntry* own) const;
+
+    usize    clusterCount = 0;
+    Cluster* table        = nullptr;
 
     u8 generation8 = 0;
+
+    const TranspositionTable* frozen = nullptr;
 };
 
 }  // namespace Stockfish

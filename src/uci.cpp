@@ -89,7 +89,39 @@ void UCIEngine::init_search_update_listeners() {
     engine.set_on_start([]() {});
     engine.set_on_bestmove([](const auto& bm, const auto& p) { on_bestmove(bm, p); });
     engine.set_on_verify_network([](const auto& s) { print_info_string(s); });
+
+    engine.set_on_aux_update_no_moves([](const auto& i) { on_update_no_moves(i, "aux "); });
+    engine.set_on_aux_update_full(
+      [this](const auto& i) { on_update_full(i, engine.get_options()["UCI_ShowWDL"], "aux "); });
+    engine.set_on_aux_bestmove([](const auto& bm, const auto& p) { on_bestmove(bm, p, "aux "); });
 }
+
+namespace {
+
+// Parses the arguments of a position command: "startpos | fen <fen>", then "moves m1 m2 ..."
+bool parse_position(std::istringstream& is, std::string& fen, std::vector<std::string>& moves) {
+    std::string token;
+
+    is >> token;
+
+    if (token == "startpos")
+    {
+        fen = StartFEN;
+        is >> token;  // Consume the "moves" token, if any
+    }
+    else if (token == "fen")
+        while (is >> token && token != "moves")
+            fen += token + " ";
+    else
+        return false;
+
+    while (is >> token)
+        moves.push_back(token);
+
+    return true;
+}
+
+}  // namespace
 
 void UCIEngine::loop() {
     set_console_utf8();
@@ -111,7 +143,11 @@ void UCIEngine::loop() {
         is >> token;
 
         if (token == "quit" || token == "stop")
+        {
             engine.stop();
+            if (token == "quit")
+                engine.aux_stop();
+        }
 
         // The GUI sends 'ponderhit' to tell that the user has played the expected move.
         // So, 'ponderhit' is sent if pondering was done on the same move that the user
@@ -162,6 +198,51 @@ void UCIEngine::loop() {
             engine.trace_eval();
         else if (token == "compiler")
             sync_cout << compiler_info() << sync_endl;
+
+        // Work with the TT left behind by earlier searches, see Engine::tt_freeze(). The reports
+        // ttinfo, ttprobe, ttmoves and ttpv may also be used while a search is running.
+        else if (token == "ttfreeze")
+        {
+            usize scratchMB = 1024;
+            is >> scratchMB;
+            engine.tt_freeze(scratchMB);
+        }
+        else if (token == "ttthaw")
+            engine.tt_thaw();
+        else if (token == "ttinfo")
+        {
+            std::string arg;
+            is >> arg;
+            sync_cout << engine.tt_info(arg == "checksum") << sync_endl;
+        }
+        else if (token == "ttprobe")
+            sync_cout << engine.tt_probe() << sync_endl;
+        else if (token == "ttmoves")
+            sync_cout << engine.tt_moves() << sync_endl;
+        else if (token == "ttpv")
+        {
+            int maxPly = 64;
+            is >> maxPly;
+            sync_cout << engine.tt_pv(maxPly) << sync_endl;
+        }
+
+        // An auxiliary search, which may run alongside the regular one, see Engine::aux_go()
+        else if (token == "auxposition")
+        {
+            std::string              fen;
+            std::vector<std::string> moves;
+            if (parse_position(is, fen, moves))
+                if (auto err = engine.set_aux_position(fen, moves))
+                    print_info_string(std::string("auxposition: ") + err->what());
+        }
+        else if (token == "auxgo")
+        {
+            Search::LimitsType limits = parse_limits(is);
+            limits.perft              = 0;
+            engine.aux_go(limits);
+        }
+        else if (token == "auxstop")
+            engine.aux_stop();
         else if (token == "export_net")
         {
             std::optional<std::filesystem::path> file;
@@ -496,27 +577,11 @@ u64 UCIEngine::perft(const Search::LimitsType& limits) {
 }
 
 void UCIEngine::position(std::istringstream& is) {
-    std::string token, fen;
-
-    is >> token;
-
-    if (token == "startpos")
-    {
-        fen = StartFEN;
-        is >> token;  // Consume the "moves" token, if any
-    }
-    else if (token == "fen")
-        while (is >> token && token != "moves")
-            fen += token + " ";
-    else
-        return;
-
+    std::string              fen;
     std::vector<std::string> moves;
 
-    while (is >> token)
-    {
-        moves.push_back(token);
-    }
+    if (!parse_position(is, fen, moves))
+        return;
 
     auto err = engine.set_position(fen, moves);
     if (err.has_value())
@@ -645,14 +710,17 @@ Move UCIEngine::to_move(const Position& pos, std::string str) {
     return Move::none();
 }
 
-void UCIEngine::on_update_no_moves(const Engine::InfoShort& info) {
-    sync_cout << "info depth " << info.depth << " score " << format_score(info.score) << sync_endl;
+void UCIEngine::on_update_no_moves(const Engine::InfoShort& info, std::string_view prefix) {
+    sync_cout << prefix << "info depth " << info.depth << " score " << format_score(info.score)
+              << sync_endl;
 }
 
-void UCIEngine::on_update_full(const Engine::InfoFull& info, bool showWDL) {
+void UCIEngine::on_update_full(const Engine::InfoFull& info,
+                               bool                    showWDL,
+                               std::string_view        prefix) {
     std::stringstream ss;
 
-    ss << "info";
+    ss << prefix << "info";
     ss << " depth " << info.depth                 //
        << " seldepth " << info.selDepth           //
        << " multipv " << info.multiPV             //
@@ -685,8 +753,10 @@ void UCIEngine::on_iter(const Engine::InfoIter& info) {
     sync_cout << ss.str() << sync_endl;
 }
 
-void UCIEngine::on_bestmove(std::string_view bestmove, std::string_view ponder) {
-    sync_cout << "bestmove " << bestmove;
+void UCIEngine::on_bestmove(std::string_view bestmove,
+                            std::string_view ponder,
+                            std::string_view prefix) {
+    sync_cout << prefix << "bestmove " << bestmove;
     if (!ponder.empty())
         std::cout << " ponder " << ponder;
     std::cout << sync_endl;

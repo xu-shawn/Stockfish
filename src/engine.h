@@ -85,12 +85,29 @@ class Engine {
     void set_ponderhit(bool);
     void search_clear();
 
+    // Freeze the TT: later searches read it but never write to or age it, keeping their own
+    // results in a fresh TT of the given size. Thawing makes the frozen TT the regular one again.
+    void tt_freeze(usize scratchMB);
+    void tt_thaw();
+
+    // An auxiliary search: one more thread, searching from a position of its own, with its own
+    // limits and histories, and sharing only the TT with the regular search, which may keep
+    // running meanwhile. It does not start a new TT generation, and its output lines start
+    // with "aux".
+    std::optional<PositionSetError> set_aux_position(const std::string&              fen,
+                                                     const std::vector<std::string>& moves);
+    void                            aux_go(Search::LimitsType&);
+    void                            aux_stop();
+
     void set_on_update_no_moves(std::function<void(const InfoShort&)>&&);
     void set_on_update_full(std::function<void(const InfoFull&)>&&);
     void set_on_iter(std::function<void(const InfoIter&)>&&);
     void set_on_bestmove(std::function<void(std::string_view, std::string_view)>&&);
     void set_on_start(std::function<void()>&&);
     void set_on_verify_network(std::function<void(std::string_view)>&&);
+    void set_on_aux_update_no_moves(std::function<void(const InfoShort&)>&&);
+    void set_on_aux_update_full(std::function<void(const InfoFull&)>&&);
+    void set_on_aux_bestmove(std::function<void(std::string_view, std::string_view)>&&);
 
     // network related
 
@@ -107,6 +124,13 @@ class Engine {
     OptionsMap&       get_options();
 
     int get_hashfull(int maxAge = 0) const;
+
+    // Reports on the TT: its size and occupancy, the entry of the current position, the entries
+    // of the positions after each legal move, and the PV formed by the TT moves
+    std::string tt_info(bool withChecksum);
+    std::string tt_probe();
+    std::string tt_moves();
+    std::string tt_pv(int maxPly);
 
     std::string                          fen() const;
     std::optional<PositionSetError>      flip();
@@ -128,12 +152,20 @@ class Engine {
     OptionsMap                                        options;
     ThreadPool                                        threads;
     TranspositionTable                                tt;
+    TranspositionTable                                frozenTT;
     Eval::NNUE::EvalFile                              networkFile;
     LazyNumaReplicatedSystemWide<Eval::NNUE::Network> network;
 
     Search::SearchManager::UpdateContext  updateContext;
     std::function<void(std::string_view)> onVerifyNetwork;
     std::map<NumaIndex, SharedHistories>  sharedHists;
+
+    // the auxiliary search, declared last so that its thread is joined first
+    Position                             auxPos;
+    StateListPtr                         auxStates;
+    Search::SearchManager::UpdateContext auxUpdateContext;
+    std::map<NumaIndex, SharedHistories> auxSharedHists;
+    ThreadPool                           auxThreads;
 };
 
 }  // namespace Stockfish

@@ -213,7 +213,8 @@ void Search::Worker::start_searching() {
 
     main_manager()->tm.init(limits, rootPos.side_to_move(), rootPos.game_ply(), options,
                             main_manager()->originalTimeAdjust);
-    tt.new_search();
+    if (threads.agesTT)
+        tt.new_search();
     main_manager()->updates.onStart();
 
     if (rootMoves.empty())
@@ -666,7 +667,7 @@ void Search::Worker::do_move(Position&    pos,
     // prefetch_key() does not model castling, en passant or promotion exactly.
     // The correction-history prefetches also approximate castling and promotion.
     // For these rare moves the prefetches land on unused lines.
-    prefetch(tt.first_entry(pos.prefetch_key(move)));
+    tt.prefetch(pos.prefetch_key(move));
 
     if (ss != nullptr)
     {
@@ -2139,8 +2140,6 @@ void SearchManager::check_time(Search::Worker& worker) {
 
     // When using nodes, ensure checking rate is not lower than 0.1% of nodes
     callsCnt = worker.limits.nodes ? std::min(512, int(worker.limits.nodes / 1024)) : 512;
-
-    static TimePoint lastInfoTime = now();
 
     TimePoint elapsed = tm.elapsed([&worker]() { return worker.threads.nodes_searched(); });
     TimePoint tick    = worker.limits.startTime + elapsed;

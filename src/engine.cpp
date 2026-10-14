@@ -32,6 +32,7 @@
 
 #include "evaluate.h"
 #include "misc.h"
+#include "movegen.h"
 #include "nnue/network.h"
 #include "nnue/nnue_common.h"
 #include "numa.h"
@@ -65,6 +66,14 @@ Engine::Engine(std::optional<std::filesystem::path> path) :
     network(numaContext, get_default_network()) {
 
     pos.set(StartFEN, false, &states->back());
+
+    auxStates = StateListPtr(new std::deque<StateInfo>(1));
+    auxPos.set(StartFEN, false, &auxStates->back());
+    auxUpdateContext.onUpdateNoMoves = [](const InfoShort&) {};
+    auxUpdateContext.onUpdateFull    = [](const InfoFull&) {};
+    auxUpdateContext.onIter          = [](const InfoIter&) {};
+    auxUpdateContext.onBestmove      = [](std::string_view, std::string_view) {};
+    auxUpdateContext.onStart         = []() {};
 
     options.add(  //
       "Debug Log File", Option("", [](const Option& o) {
@@ -163,9 +172,33 @@ void Engine::search_clear() {
 
     tt.clear(threads);
     threads.clear();
+    if (!auxThreads.empty())
+        auxThreads.clear();
 
     // TODO: does not work with multiple instances
     Tablebases::init(options["SyzygyPath"]);  // Free mapped files
+}
+
+void Engine::tt_freeze(usize scratchMB) {
+    wait_for_search_finished();
+
+    // The frozen table takes over the current TT, freeing an earlier frozen one if there was
+    // one, and searches get a fresh TT of their own
+    tt.set_frozen(nullptr);
+    frozenTT.swap(tt);
+    tt.resize(std::max(scratchMB, usize(1)), threads);
+    tt.set_frozen(&frozenTT);
+}
+
+void Engine::tt_thaw() {
+    wait_for_search_finished();
+
+    if (!tt.get_frozen())
+        return;
+
+    tt.set_frozen(nullptr);
+    tt.swap(frozenTT);
+    frozenTT.release();
 }
 
 void Engine::set_on_update_no_moves(std::function<void(const Engine::InfoShort&)>&& f) {
@@ -190,7 +223,70 @@ void Engine::set_on_verify_network(std::function<void(std::string_view)>&& f) {
     onVerifyNetwork = std::move(f);
 }
 
-void Engine::wait_for_search_finished() { threads.main_thread()->wait_for_search_finished(); }
+void Engine::set_on_aux_update_no_moves(std::function<void(const Engine::InfoShort&)>&& f) {
+    auxUpdateContext.onUpdateNoMoves = std::move(f);
+}
+
+void Engine::set_on_aux_update_full(std::function<void(const Engine::InfoFull&)>&& f) {
+    auxUpdateContext.onUpdateFull = std::move(f);
+}
+
+void Engine::set_on_aux_bestmove(std::function<void(std::string_view, std::string_view)>&& f) {
+    auxUpdateContext.onBestmove = std::move(f);
+}
+
+// Waits for both the regular and the auxiliary search, as both use the TT
+void Engine::wait_for_search_finished() {
+    threads.main_thread()->wait_for_search_finished();
+    if (!auxThreads.empty())
+        auxThreads.main_thread()->wait_for_search_finished();
+}
+
+std::optional<PositionSetError> Engine::set_aux_position(const std::string&              fen,
+                                                         const std::vector<std::string>& moves) {
+    // As in set_position(). A running auxiliary search owns its own copy of the states.
+    auxStates = StateListPtr(new std::deque<StateInfo>(1));
+    auto err  = auxPos.set(fen, options["UCI_Chess960"], &auxStates->back());
+
+    for (usize i = 0; !err.has_value() && i < moves.size(); ++i)
+    {
+        auto m = UCIEngine::to_move(auxPos, moves[i]);
+
+        if (m == Move::none())
+            err = PositionSetError("Illegal move: " + moves[i]);
+        else
+        {
+            auxStates->emplace_back();
+            auxPos.do_move(m, auxStates->back());
+        }
+    }
+
+    // Rather than keep a partial position, fall back to the start position
+    if (err.has_value())
+    {
+        auxStates = StateListPtr(new std::deque<StateInfo>(1));
+        auxPos.set(StartFEN, false, &auxStates->back());
+    }
+    return err;
+}
+
+void Engine::aux_go(Search::LimitsType& limits) {
+    assert(limits.perft == 0);
+    verify_network();
+
+    if (auxThreads.empty())
+    {
+        auxThreads.agesTT = false;
+        auxThreads.set(numaContext.get_numa_config(),
+                       {options, auxThreads, tt, auxSharedHists, network}, auxUpdateContext, 1);
+    }
+    auxThreads.start_thinking(options, auxPos, auxStates, limits);
+}
+
+void Engine::aux_stop() {
+    if (!auxThreads.empty())
+        auxThreads.stop = true;
+}
 
 std::optional<PositionSetError> Engine::set_position(const std::string&              fen,
                                                      const std::vector<std::string>& moves) {
@@ -296,6 +392,8 @@ void Engine::load_network(const std::filesystem::path& file) {
       [this, &file](NN::Network& network_) { network_.load(binaryDirectory, file, networkFile); });
     threads.clear();
     threads.ensure_network_replicated();
+    if (!auxThreads.empty())
+        auxThreads.clear();
 }
 
 void Engine::save_network(const std::optional<std::filesystem::path>& file) {
@@ -329,6 +427,118 @@ std::string Engine::visualize() const {
 }
 
 int Engine::get_hashfull(int maxAge) const { return tt.hashfull(maxAge); }
+
+namespace {
+
+const char* bound_name(Bound b) {
+    return b == BOUND_EXACT ? "exact"
+         : b == BOUND_LOWER ? "lower"
+         : b == BOUND_UPPER ? "upper"
+                            : "none";
+}
+
+// A TT entry as text. With asMove, the entry is that of the position after a move from pos,
+// and value and bound are given for the side to move in pos, i.e. as the score of the move.
+std::string tt_entry(bool hit, const TTData& d, bool fromFrozen, const Position& pos, bool asMove) {
+    std::stringstream ss;
+    if (!hit)
+        return " hit 0";
+
+    Value v = d.value;
+    Bound b = d.bound;
+    if (asMove)
+    {
+        b = b == BOUND_LOWER ? BOUND_UPPER : b == BOUND_UPPER ? BOUND_LOWER : b;
+        if (is_valid(v))
+        {
+            // stored values are relative to their position: one more ply to a mate from pos
+            v = -v;
+            v += is_win(v) ? -1 : is_loss(v) ? 1 : 0;
+        }
+    }
+    ss << " hit 1 source " << (fromFrozen ? "frozen" : "own") << " depth " << d.depth << " bound "
+       << bound_name(b) << " value "
+       << (is_valid(v) ? UCIEngine::format_score(Score(v, pos)) : "none")
+       << (asMove ? " reply " : " move ")
+       << (d.move ? UCIEngine::move(d.move, pos.is_chess960()) : "none") << " ttpv " << d.is_pv;
+    if (!asMove && is_valid(d.eval))
+        ss << " eval " << UCIEngine::format_score(Score(d.eval, pos));
+    return ss.str();
+}
+
+}  // namespace
+
+// The reports below may run while a search is going on: they only read the TT, whose entries are
+// relaxed atomics, and work on the position of the UCI loop, which the search does not use.
+// Only the checksum, which scans all of memory, waits for the search to finish.
+std::string Engine::tt_info(bool withChecksum) {
+    if (withChecksum)
+        wait_for_search_finished();
+
+    std::stringstream ss;
+    ss << "ttinfo size " << tt.size_mb() << " hashfull " << tt.hashfull(31);
+    if (withChecksum)
+        ss << " checksum " << std::hex << tt.checksum() << std::dec;
+    if (tt.get_frozen())
+    {
+        ss << "\nttinfo frozen size " << frozenTT.size_mb() << " hashfull "
+           << frozenTT.hashfull(31);
+        if (withChecksum)
+            ss << " checksum " << std::hex << frozenTT.checksum() << std::dec;
+    }
+    return ss.str();
+}
+
+std::string Engine::tt_probe() {
+    auto [ttHit, ttData, ttWriter] = tt.probe(pos.key());
+    return "ttprobe" + tt_entry(ttHit, ttData, ttWriter.from_frozen(), pos, false);
+}
+
+std::string Engine::tt_moves() {
+    // probe the position after each move, and list the moves by their (possibly bounded) values
+    std::vector<std::pair<Value, std::string>> entries;
+    for (const auto& m : MoveList<ALL>(pos))
+    {
+        StateInfo st;
+        pos.do_move(m, st);
+        auto [ttHit, ttData, ttWriter] = tt.probe(pos.key());
+        bool fromFrozen                = ttWriter.from_frozen();
+        pos.undo_move(m);
+
+        Value v = ttHit && is_valid(ttData.value) ? -ttData.value : -VALUE_INFINITE;
+        entries.emplace_back(v, "ttmove " + UCIEngine::move(m, pos.is_chess960())
+                                  + tt_entry(ttHit, ttData, fromFrozen, pos, true));
+    }
+    std::stable_sort(entries.begin(), entries.end(),
+                     [](const auto& a, const auto& b) { return a.first > b.first; });
+
+    std::stringstream ss;
+    for (const auto& e : entries)
+        ss << e.second << "\n";
+    ss << "ttmoves end";
+    return ss.str();
+}
+
+std::string Engine::tt_pv(int maxPly) {
+    std::deque<StateInfo> sts;
+    std::vector<Move>     pv;
+    while (int(pv.size()) < maxPly)
+    {
+        auto [ttHit, ttData, ttWriter] = tt.probe(pos.key());
+        if (!ttHit || !ttData.move || !pos.legal(ttData.move) || pos.is_draw(int(pv.size())))
+            break;
+        pv.push_back(ttData.move);
+        pos.do_move(ttData.move, sts.emplace_back());
+    }
+    for (auto it = pv.rbegin(); it != pv.rend(); ++it)
+        pos.undo_move(*it);
+
+    std::stringstream ss;
+    ss << "ttpv";
+    for (Move m : pv)
+        ss << " " << UCIEngine::move(m, pos.is_chess960());
+    return ss.str();
+}
 
 std::vector<std::pair<usize, usize>> Engine::get_bound_thread_count_by_numa_node() const {
     auto                                 counts = threads.get_bound_thread_count_by_numa_node();

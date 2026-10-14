@@ -297,6 +297,7 @@ class SearchManager {
     Stockfish::TimeManagement tm;
     double                    originalTimeAdjust;
     int                       callsCnt;
+    TimePoint                 lastInfoTime = now();
     std::atomic_bool          ponder;
 
     std::array<Value, 4> iterValue;

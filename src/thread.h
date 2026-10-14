@@ -136,9 +136,11 @@ class ThreadPool {
     void  wait_on_thread(usize threadId);
     usize num_threads() const;
     void  clear();
-    void  set(const NumaConfig& numaConfig,
-              Search::SharedState,
-              const Search::SearchManager::UpdateContext&);
+    // Without a thread count, the pool gets the number of threads of the "Threads" option
+    void set(const NumaConfig& numaConfig,
+             Search::SharedState,
+             const Search::SearchManager::UpdateContext&,
+             usize threadCount = 0);
 
     Search::SearchManager* main_manager();
     Thread*                main_thread() const { return threads.front().get(); }
@@ -155,6 +157,9 @@ class ThreadPool {
     void ensure_network_replicated();
 
     std::atomic_bool stop, increaseDepth;
+
+    // Whether a search of this pool starts a new TT generation, see TranspositionTable::new_search()
+    bool agesTT = true;
 
     auto cbegin() const noexcept { return threads.cbegin(); }
     auto begin() noexcept { return threads.begin(); }

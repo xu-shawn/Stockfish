@@ -69,10 +69,13 @@ class UCIEngine {
     void setoption(std::istringstream& is);
     u64  perft(const Search::LimitsType&);
 
-    static void on_update_no_moves(const Engine::InfoShort& info);
-    static void on_update_full(const Engine::InfoFull& info, bool showWDL);
+    // The prefix tells the output of the auxiliary search apart, see Engine::aux_go()
+    static void on_update_no_moves(const Engine::InfoShort& info, std::string_view prefix = "");
+    static void
+    on_update_full(const Engine::InfoFull& info, bool showWDL, std::string_view prefix = "");
     static void on_iter(const Engine::InfoIter& info);
-    static void on_bestmove(std::string_view bestmove, std::string_view ponder);
+    static void
+    on_bestmove(std::string_view bestmove, std::string_view ponder, std::string_view prefix = "");
 
     void init_search_update_listeners();
 

@@ -143,8 +143,9 @@ u8 TTEntry::relative_age(const u8 curr_generation) const {
 
 
 // TTWriter is but a very thin wrapper around the TTEntry pointer
-TTWriter::TTWriter(TTEntry* tte) :
-    entry(tte) {}
+TTWriter::TTWriter(TTEntry* tte, bool fromFrozen) :
+    entry(tte),
+    frozen(fromFrozen) {}
 
 // Wrapper around TTEntry::save()
 void TTWriter::write(
@@ -154,6 +155,10 @@ void TTWriter::write(
 
 // Flag a TTEntry as useless (decrementing the stored depth by the given penalty)
 void TTWriter::penalize(int penalty) {
+    // The data came from the frozen table, and our entry holds another position: leave both alone
+    if (frozen)
+        return;
+
     // Guard against racy underflows, default to "unoccupied"
     entry->depth8 = std::max(int(entry->depth8) - penalty, 0);
 }
@@ -274,9 +279,14 @@ std::tuple<bool, TTData, TTWriter> TranspositionTable::probe(const Key key) cons
 
     for (int i = 0; i < ClusterSize; ++i)
         if (tte[i].key16 == key16)
+        {
+            if (frozen)
+                return probe_frozen(key, &tte[i]);
+
             // This gap is the main place for read races.
             // After `read()` completes that copy is final, but may be self-inconsistent.
             return {tte[i].is_occupied(), tte[i].read(), TTWriter(&tte[i])};
+        }
 
     // Find an entry to be replaced according to the replacement strategy
     TTEntry* replace = tte;
@@ -285,14 +295,80 @@ std::tuple<bool, TTData, TTWriter> TranspositionTable::probe(const Key key) cons
             > tte[i].depth8 - 8 * tte[i].relative_age(generation8))
             replace = &tte[i];
 
+    if (frozen)
+        return probe_frozen(key, replace);
+
     return {false, TTData{Move::none(), VALUE_NONE, VALUE_NONE, DEPTH_NONE, BOUND_NONE, false},
             TTWriter(replace)};
+}
+
+
+// Probe with a frozen table: `own` is the entry in this table holding the key, or else the one
+// to be replaced. The frozen table acts like the entries of earlier searches in a regular TT:
+// they are used until this search writes its own results, which then take precedence (copy on
+// write). The writer always points to `own`, as the frozen table is never written to.
+std::tuple<bool, TTData, TTWriter> TranspositionTable::probe_frozen(const Key key,
+                                                                    TTEntry*  own) const {
+
+    const u16 key16 = u16(key);
+
+    if (own->key16 == key16 && own->is_occupied())
+        return {true, own->read(), TTWriter(own)};
+
+    const TTEntry* const fte = frozen->first_entry(key);
+    for (int i = 0; i < ClusterSize; ++i)
+        if (fte[i].key16 == key16 && fte[i].is_occupied())
+            return {true, fte[i].read(), TTWriter(own, true)};
+
+    if (own->key16 == key16)
+        return {false, own->read(), TTWriter(own)};
+
+    return {false, TTData{Move::none(), VALUE_NONE, VALUE_NONE, DEPTH_NONE, BOUND_NONE, false},
+            TTWriter(own)};
 }
 
 
 // The hash function; its only external use is memory prefetching
 TTEntry* TranspositionTable::first_entry(const Key key) const {
     return &table[mul_hi64(key, clusterCount)].entry[0];
+}
+
+
+void TranspositionTable::prefetch(const Key key) const {
+    Stockfish::prefetch(first_entry(key));
+    if (frozen)
+        Stockfish::prefetch(frozen->first_entry(key));
+}
+
+
+void TranspositionTable::swap(TranspositionTable& other) {
+    std::swap(clusterCount, other.clusterCount);
+    std::swap(table, other.table);
+    std::swap(generation8, other.generation8);
+}
+
+
+void TranspositionTable::release() {
+    aligned_large_pages_free(table);
+    table        = nullptr;
+    clusterCount = 0;
+}
+
+
+usize TranspositionTable::size_mb() const { return clusterCount * sizeof(Cluster) / (1024 * 1024); }
+
+
+u64 TranspositionTable::checksum() const {
+    u64 h[4] = {};
+    for (usize c = 0; c < clusterCount; ++c)
+    {
+        u64 w[4];
+        static_assert(sizeof(w) == sizeof(Cluster));
+        std::memcpy(w, &table[c], sizeof(Cluster));
+        for (int j = 0; j < 4; ++j)
+            h[j] = (h[j] ^ w[j]) * 0x9E3779B97F4A7C15ULL;
+    }
+    return h[0] ^ (h[1] << 16 | h[1] >> 48) ^ (h[2] << 32 | h[2] >> 32) ^ (h[3] << 48 | h[3] >> 16);
 }
 
 }  // namespace Stockfish
