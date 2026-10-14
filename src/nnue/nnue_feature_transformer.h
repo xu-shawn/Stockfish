@@ -161,12 +161,12 @@ class FeatureTransformer {
 
     // Read network parameters
     bool read_parameters(std::istream& stream) {
-        read_leb_128(stream, biases);
+        read_little_endian(stream, biases.data(), HalfDimensions);
 
         read_little_endian(stream, threatWeightData(), ThreatWeightSize);
         read_little_endian(stream, pawnPairWeightData(), PairWeightSize);
 
-        read_leb_128(stream, weights);
+        read_little_endian(stream, weights.data(), weights.size());
 
         permute_weights();
 
@@ -179,12 +179,12 @@ class FeatureTransformer {
 
         copy->unpermute_weights();
 
-        write_leb_128<BiasType>(stream, copy->biases);
+        write_little_endian(stream, copy->biases.data(), HalfDimensions);
 
         write_little_endian(stream, copy->threatWeightData(), ThreatWeightSize);
         write_little_endian(stream, copy->pawnPairWeightData(), PairWeightSize);
 
-        write_leb_128<WeightType>(stream, copy->weights);
+        write_little_endian(stream, copy->weights.data(), copy->weights.size());
 
         return !stream.fail();
     }
