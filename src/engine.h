@@ -98,6 +98,8 @@ class Engine {
                                                      const std::vector<std::string>& moves);
     void                            aux_go(Search::LimitsType&);
     void                            aux_stop();
+    // The number of threads of the auxiliary search. Only waits for the auxiliary search.
+    void set_aux_threads(usize n);
 
     void set_on_update_no_moves(std::function<void(const InfoShort&)>&&);
     void set_on_update_full(std::function<void(const InfoFull&)>&&);
@@ -165,6 +167,7 @@ class Engine {
     StateListPtr                         auxStates;
     Search::SearchManager::UpdateContext auxUpdateContext;
     std::map<NumaIndex, SharedHistories> auxSharedHists;
+    usize                                auxThreadCount = 1;
     ThreadPool                           auxThreads;
 };
 

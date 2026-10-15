@@ -243,6 +243,12 @@ void UCIEngine::loop() {
         }
         else if (token == "auxstop")
             engine.aux_stop();
+        else if (token == "auxthreads")
+        {
+            usize n = 1;
+            is >> n;
+            engine.set_aux_threads(n);
+        }
         else if (token == "export_net")
         {
             std::optional<std::filesystem::path> file;

@@ -278,9 +278,22 @@ void Engine::aux_go(Search::LimitsType& limits) {
     {
         auxThreads.agesTT = false;
         auxThreads.set(numaContext.get_numa_config(),
-                       {options, auxThreads, tt, auxSharedHists, network}, auxUpdateContext, 1);
+                       {options, auxThreads, tt, auxSharedHists, network}, auxUpdateContext,
+                       auxThreadCount);
     }
     auxThreads.start_thinking(options, auxPos, auxStates, limits);
+}
+
+void Engine::set_aux_threads(usize n) {
+    // only the auxiliary search has to be finished: the regular one may go on
+    if (!auxThreads.empty())
+        auxThreads.main_thread()->wait_for_search_finished();
+
+    auxThreadCount = std::clamp(n, usize(1), usize(MaxThreads));
+    if (!auxThreads.empty())
+        auxThreads.set(numaContext.get_numa_config(),
+                       {options, auxThreads, tt, auxSharedHists, network}, auxUpdateContext,
+                       auxThreadCount);
 }
 
 void Engine::aux_stop() {
