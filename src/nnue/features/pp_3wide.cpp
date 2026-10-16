@@ -134,10 +134,11 @@ void PP_3Wide::append_changed_indices(Color                                    p
             const u16     aId      = u16(((u8(a) ^ orientation) - 8) + colorOff);
             const __m256i pids     = _mm256_cvtepu8_epi16(
               _mm512_castsi512_si128(_mm512_maskz_compress_epi8(partners, ids)));
-            const __m256i feats = pp_idx_epi16(_mm256_set1_epi16(aId), pids);
+            const __m512i feats =
+              _mm512_cvtepu16_epi32(pp_idx_epi16(_mm256_set1_epi16(aId), pids));
 
-            u16* w = out.make_space(n);
-            _mm256_storeu_epi16(w, feats);
+            u32* w = out.make_space(n);
+            _mm512_storeu_si512(w, feats);
         }
     };
 #else
