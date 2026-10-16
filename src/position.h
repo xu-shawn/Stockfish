@@ -65,6 +65,9 @@ struct StateInfo {
     Bitboard   threats[PIECE_TYPE_NB];
     Piece      capturedPiece;
     int        repetition;
+
+    // Promo_Atk state, only valid when a pawn stands on its 7th rank
+    DirtyPromo::State promoAttacks;
 };
 
 
@@ -176,6 +179,9 @@ class Position {
     Value non_pawn_material(Color c) const;
     Value non_pawn_material() const;
     bool  dtz_is_dtm() const;  // Pawnless && (3-men || 4-men-minors-only)
+
+    // Fills the Promo_Atk state of the current position
+    void promo_attacks(DirtyPromo::State& state) const;
 
     // Position consistency check, for debugging
     bool                            pos_is_ok() const;

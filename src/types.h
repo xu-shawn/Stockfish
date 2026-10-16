@@ -351,10 +351,31 @@ struct DirtyPawnPairs {
     Bitboard after[COLOR_NB];
 };
 
+// Attackers of the promotion squares of pawns on their 7th rank (used by NNUE).
+// For each pawn color and file, bit 2 * kind + level is set when at least
+// level + 1 pieces of that kind attack the promotion square. Kinds are relative
+// to the pawn: own pawn, knight, bishop, rook, queen, king, then enemy knight,
+// bishop, rook, queen, king. Each position computes its state once and keeps it
+// in its StateInfo; before (after) points there and is only set, and only read,
+// when DirtyPawnPairs::before (after) has a pawn on its 7th rank.
+struct DirtyPromo {
+    static constexpr int Kinds = 11;
+    static constexpr int Bits  = 2 * Kinds;
+    using State                = u32[COLOR_NB][FILE_NB];
+
+    const State* before;
+    const State* after;
+};
+
+constexpr bool has_seventh_rank_pawn(Bitboard whitePawns, Bitboard blackPawns) {
+    return (whitePawns & (0xFFULL << 48)) | (blackPawns & (0xFFULL << 8));
+}
+
 struct Dirties {
     DirtyPiece     dirtyPiece;
     DirtyThreats   dirtyThreats;
     DirtyPawnPairs dirtyPawnPairs;
+    DirtyPromo     dirtyPromo;
 };
 
     #define ENABLE_INCR_OPERATORS_ON(T) \

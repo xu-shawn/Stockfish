@@ -534,6 +534,9 @@ void Position::set_state() const {
 
     st->key ^= Zobrist::castling[st->castlingRights];
     st->materialKey = compute_material_key();
+
+    if (has_seventh_rank_pawn(pieces(WHITE, PAWN), pieces(BLACK, PAWN)))
+        promo_attacks(st->promoAttacks);
 }
 
 Key Position::compute_material_key() const {
@@ -810,6 +813,10 @@ void Position::do_move(Move                      m,
     dpps.before[WHITE] = pieces(WHITE, PAWN);
     dpps.before[BLACK] = pieces(BLACK, PAWN);
 
+    auto& dpr = dirties.dirtyPromo;
+    if (has_seventh_rank_pawn(dpps.before[WHITE], dpps.before[BLACK]))
+        dpr.before = &st->previous->promoAttacks;
+
     Color  us       = sideToMove;
     Color  them     = ~us;
     Square from     = m.from_sq();
@@ -1038,6 +1045,12 @@ void Position::do_move(Move                      m,
     dpps.after[WHITE] = pieces(WHITE, PAWN);
     dpps.after[BLACK] = pieces(BLACK, PAWN);
 
+    if (has_seventh_rank_pawn(dpps.after[WHITE], dpps.after[BLACK]))
+    {
+        promo_attacks(st->promoAttacks);
+        dpr.after = &st->promoAttacks;
+    }
+
     assert(dp.pc != NO_PIECE);
     assert(!(bool(captured) || m.type_of() == CASTLING) ^ (dp.remove_sq != SQ_NONE));
     assert(dp.from != SQ_NONE);
@@ -1252,6 +1265,28 @@ void Position::update_piece_threats(Piece               pc,
         add_dirty_threat(dts, putPiece, srcPc, pc, srcSq, s);
     }
 #endif
+}
+
+void Position::promo_attacks(DirtyPromo::State& state) const {
+    std::memset(state, 0, sizeof(DirtyPromo::State));
+
+    for (Color c : {WHITE, BLACK})
+        for (Bitboard b = pieces(c, PAWN) & (c == WHITE ? Rank7BB : Rank2BB); b;)
+        {
+            const Square to   = pop_lsb(b) + pawn_push(c);
+            u32          bits = 0;
+
+            // The first attacker of a kind sets its level-0 bit, the second its level-1 bit
+            for (Bitboard a = attackers_to(to); a;)
+            {
+                const Piece pc = piece_on(pop_lsb(a));
+                const int kind = color_of(pc) == c ? type_of(pc) - PAWN : type_of(pc) - KNIGHT + 6;
+                const u32 bit  = 1u << (2 * kind);
+                bits |= bits & bit ? bit << 1 : bit;
+            }
+
+            state[c][file_of(to)] = bits;
+        }
 }
 
 Key Position::prefetch_key(Move m) const {
