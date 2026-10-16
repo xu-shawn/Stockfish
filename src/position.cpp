@@ -1175,6 +1175,26 @@ void Position::update_piece_threats(Piece               pc,
     const PieceType pt              = type_of(pc);
     const Bitboard  sliders = (pieces(BISHOP, QUEEN) & bAttacks) | (pieces(ROOK, QUEEN) & rAttacks);
 
+    // Pawn_Push: a pawn and the non-pawn piece on its push square. A pawn on its last
+    // rank only exists transiently during a promotion.
+    if (pt == PAWN)
+    {
+        if (relative_rank(color_of(pc), s) != RANK_8)
+        {
+            const Square to      = s + pawn_push(color_of(pc));
+            const Piece  blocker = piece_on(to);
+            if (blocker != NO_PIECE && type_of(blocker) != PAWN)
+                dts->pushes.push_back({pc, blocker, s, to, putPiece});
+        }
+    }
+    else
+    {
+        if (rank_of(s) >= RANK_3 && piece_on(s + SOUTH) == W_PAWN)
+            dts->pushes.push_back({W_PAWN, pc, s + SOUTH, s, putPiece});
+        if (rank_of(s) <= RANK_6 && piece_on(s + NORTH) == B_PAWN)
+            dts->pushes.push_back({B_PAWN, pc, s + NORTH, s, putPiece});
+    }
+
     auto process_sliders = [&](bool addDirectAttacks) {
         Bitboard b = sliders;
         while (b)

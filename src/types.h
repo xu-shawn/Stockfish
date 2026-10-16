@@ -342,8 +342,14 @@ struct DirtyThreat {
 
 using DirtyThreatList = ValueList<DirtyThreat, 96>;
 
+// Pawns whose push square holds a non-pawn piece (the Pawn_Push features), stored as
+// pawn -> blocker threats. A move puts or removes at most four non-pawn pieces (castling),
+// each in front of at most two pawns, so 8 entries suffice.
+using DirtyPushList = ValueList<DirtyThreat, 16>;
+
 struct DirtyThreats {
     DirtyThreatList list;
+    DirtyPushList   pushes;
 };
 
 struct DirtyPawnPairs {
