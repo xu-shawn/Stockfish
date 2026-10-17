@@ -93,7 +93,8 @@ struct NetworkArchitecture {
     }
 
     i32 propagate(const TransformedFeatureType* transformedFeatures,
-                  const NNZInfo<L1>&            nnzInfo) const {
+                  const NNZInfo<L1>&            nnzInfo,
+                  const i32*                    material) const {
         struct alignas(CacheLineSize) Buffer {
             alignas(CacheLineSize) typename decltype(fc_0)::OutputBuffer fc_0_out;
             alignas(CacheLineSize) typename decltype(ac_sqr_0)::OutputType
@@ -105,6 +106,8 @@ struct NetworkArchitecture {
         Buffer buffer;
 
         fc_0.propagate(transformedFeatures, buffer.fc_0_out, nnzInfo);
+        for (IndexType i = 0; i < FC_0_OUTPUTS; ++i)
+            buffer.fc_0_out[i] += material[i];
 #if defined(USE_PAIR_ACTIVATIONS)
         ac_sqr_0.propagate_pair(buffer.fc_0_out, buffer.concat_buffer,
                                 buffer.concat_buffer + FC_0_OUTPUTS);

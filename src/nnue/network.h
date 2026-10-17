@@ -29,6 +29,7 @@
 
 #include "../types.h"
 #include "../misc.h"
+#include "layers/material_input.h"
 #include "nnue_architecture.h"
 #include "nnue_feature_transformer.h"
 #include "nnue_misc.h"
@@ -95,6 +96,9 @@ class Network {
 
     // Evaluation function
     NetworkArchitecture network[LayerStacks];
+
+    // Material input, added to the first hidden layer of every layer stack
+    Layers::MaterialInput<L2> material;
 
     bool initialized = false;
 
