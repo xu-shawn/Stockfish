@@ -78,7 +78,20 @@ struct AccumulatorCaches {
             for (auto& entries1D : entries2D)
                 for (auto& entry : entries1D)
                     entry.clear(network.featureTransformer.biases);
+        for (auto& entry : material)
+            entry.network = nullptr;
     }
+
+    // Material inputs of recent evaluations, indexed by material key: the material input only
+    // changes with captures and promotions, and a search visits few material configurations
+    struct alignas(CacheLineSize) MaterialEntry {
+        Key                 key     = 0;
+        const void*         network = nullptr;
+        std::array<i32, L2> values;
+    };
+    static constexpr usize MaterialEntries = 256;
+
+    std::array<MaterialEntry, MaterialEntries> material;
 
     auto&       operator[](bool opponentHasQueen) { return entries[opponentHasQueen ? 1 : 0]; }
     const auto& operator[](bool opponentHasQueen) const {

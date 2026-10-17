@@ -155,11 +155,18 @@ Value Network::evaluate(const Position&    pos,
     const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
     const int   bucket      = pcBucket * 4 + queenBucket;
 
-    alignas(alignment) i32 materialOut[L2];
-    material.propagate(pos, materialOut);
+    const Key materialKey   = material.cache_key(pos);
+    auto&     materialEntry = cache.material[materialKey % AccumulatorCaches::MaterialEntries];
+    if (materialEntry.key != materialKey || materialEntry.network != this)
+    {
+        material.propagate(pos, materialEntry.values.data());
+        materialEntry.key     = materialKey;
+        materialEntry.network = this;
+    }
 
     featureTransformer.transform(pos, accumulatorStack, cache, transformedFeatures, nnzInfo);
-    const auto positional = network[bucket].propagate(transformedFeatures, nnzInfo, materialOut);
+    const auto positional =
+      network[bucket].propagate(transformedFeatures, nnzInfo, materialEntry.values.data());
     return static_cast<Value>(positional / OutputScale);
 }
 
