@@ -242,9 +242,9 @@ class AffineTransformSparseInput {
                 vec_add_dpbusd_32(acc[k], in, col[k]);
         }
     #else
-        static_assert(InputDimensions % 256 == 0);
+        static_assert(InputDimensions % 128 == 0);
 
-        for (IndexType k = 0; k < InputDimensions / 256; ++k)
+        for (IndexType k = 0; k < (InputDimensions + 255) / 256; ++k)
         {
             u64   bits = load_as<u64>(nnzInfo.bitset + k * 8);
             isize base = k * 64;

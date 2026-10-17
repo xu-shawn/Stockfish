@@ -489,13 +489,20 @@ class SIMDTiling {
         static_assert(RegisterSize % LaneSize == 0);
         static_assert((NumLanes * LaneSize) % RegisterSize == 0);
 
+    #if defined(USE_PAIRED_WIDENING_ADD)
+        // apply_feature_pair() fills two registers from each int8 weight register
+        constexpr int Step = 2;
+    #else
+        constexpr int Step = 1;
+    #endif
+
         const int ideal = (NumLanes * LaneSize) / RegisterSize;
-        if (ideal <= MaxRegisters)
+        if (ideal <= MaxRegisters && ideal % Step == 0)
             return ideal;
 
         // Look for the largest divisor of the ideal register count that is smaller than MaxRegisters
         for (int divisor = MaxRegisters; divisor > 1; --divisor)
-            if (ideal % divisor == 0)
+            if (ideal % divisor == 0 && divisor % Step == 0)
                 return divisor;
 
         return 1;
