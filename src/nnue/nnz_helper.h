@@ -19,6 +19,7 @@
 #ifndef NNZ_HELPER_H_INCLUDED
 #define NNZ_HELPER_H_INCLUDED
 
+#include <cstring>
 #include <utility>
 
 #include "nnue_common.h"
@@ -32,7 +33,7 @@ struct NNZInfo {
 #if defined(USE_AVX512)
     unsigned count = 0;
     // indices of non-zero chunks
-    u16 nnz[Dimensions / 4];
+    u16 nnz[ceil_to_multiple<usize>(Dimensions / 4, 64)];
 
     #ifdef USE_AVX512ICL
     alignas(64) static constexpr auto Indices = []() {
@@ -109,7 +110,13 @@ struct NNZInfo {
     u16   nnz[Dimensions];  // indices of non-zero chunks
 #else
     // Each 8-bit chunk
-    alignas(8) u8 bitset[(Dimensions + 31) / 32];
+    static constexpr usize BitsetBytes = (Dimensions + 31) / 32;
+    alignas(8) u8 bitset[ceil_to_multiple<usize>(BitsetBytes, 8)];
+
+    NNZInfo() {
+        if constexpr (BitsetBytes % 8 != 0)
+            std::memset(bitset + BitsetBytes, 0, sizeof(bitset) - BitsetBytes);
+    }
 
     struct NNZCursor {
         u8* out;
