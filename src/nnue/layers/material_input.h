@@ -109,6 +109,18 @@ class MaterialInput {
         return n;
     }
 
+    // Identifies the material input of a position: material counts (the material key), side
+    // to move and bishop pairs, which piece counts alone do not determine
+    static Key cache_key(const Position& pos) {
+        constexpr Bitboard Light    = 0x55AA55AA55AA55AAULL;
+        const Bitboard     bishops0 = pos.pieces(pos.side_to_move(), BISHOP);
+        const Bitboard     bishops1 = pos.pieces(~pos.side_to_move(), BISHOP);
+        const Key          pairs    = (bool(bishops0 & Light) & bool(bishops0 & ~Light))
+                       | (bool(bishops1 & Light) & bool(bishops1 & ~Light)) << 1;
+        return pos.material_key() ^ (pos.side_to_move() * 0x9E3779B97F4A7C15ULL)
+             ^ (pairs * 0xC2B2AE3D27D4EB4FULL);
+    }
+
     // Writes biases plus the weights of the active features to output
     void propagate(const Position& pos, OutputType* RESTRICT output) const {
         constexpr Bitboard Light = 0x55AA55AA55AA55AAULL;
