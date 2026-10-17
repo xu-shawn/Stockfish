@@ -26,6 +26,7 @@
 #include <iostream>
 
 #include "../../bitboard.h"
+#include "../../misc.h"
 #include "../../position.h"
 #include "../nnue_common.h"
 
@@ -42,6 +43,13 @@ namespace Stockfish::Eval::NNUE::Layers {
 //   - joint non-pawn signature: per side s = min(Q, 1) * 27 + min(R, 2) * 9 + min(B, 2) * 3
 //     + min(N, 2), feature s(side to move) * 54 + s(opponent) (2916 features)
 // The weights are i32 in the scale of the first layer's accumulators.
+//
+// At load time the weights are folded into two tables: one row per joint signature (with
+// the bias, the N, B, R, Q counts and their differences, which the signature determines
+// whenever no side has more than two knights, bishops or rooks or more than one queen) and
+// one row per pawn counts and bishop pairs. An evaluation then adds two rows instead of up
+// to 17; positions beyond those counts (promotions) take the general path. Integer sums are
+// exact, so both paths give the same result.
 template<IndexType OutDims>
 class MaterialInput {
    public:
@@ -102,7 +110,36 @@ class MaterialInput {
     }
 
     // Writes biases plus the weights of the active features to output
-    void propagate(const Position& pos, OutputType* output) const {
+    void propagate(const Position& pos, OutputType* RESTRICT output) const {
+        constexpr Bitboard Light = 0x55AA55AA55AA55AAULL;
+
+        const Color us = pos.side_to_move(), them = ~us;
+        const int   n0 = pos.count<KNIGHT>(us), n1 = pos.count<KNIGHT>(them);
+        const int   b0 = pos.count<BISHOP>(us), b1 = pos.count<BISHOP>(them);
+        const int   r0 = pos.count<ROOK>(us), r1 = pos.count<ROOK>(them);
+        const int   q0 = pos.count<QUEEN>(us), q1 = pos.count<QUEEN>(them);
+
+        if (std::max({n0, n1, b0, b1, r0, r1}) > 2 || std::max(q0, q1) > 1)
+        {
+            propagate_general(pos, output);
+            return;
+        }
+
+        const Bitboard bishops0 = pos.pieces(us, BISHOP), bishops1 = pos.pieces(them, BISHOP);
+        const int      pair0    = bool(bishops0 & Light) & bool(bishops0 & ~Light);
+        const int      pair1    = bool(bishops1 & Light) & bool(bishops1 & ~Light);
+        const int      pawns =
+          ((pos.count<PAWN>(us) * 9 + pos.count<PAWN>(them)) * 2 + pair0) * 2 + pair1;
+        const int signature = (q0 * 27 + r0 * 9 + b0 * 3 + n0) * 54 + q1 * 27 + r1 * 9 + b1 * 3 + n1;
+
+        const i32* sigRow  = &signatureTable[signature * OutputDimensions];
+        const i32* pawnRow = &pawnTable[pawns * OutputDimensions];
+        for (IndexType o = 0; o < OutputDimensions; ++o)
+            output[o] = sigRow[o] + pawnRow[o];
+    }
+
+    // Any material: biases plus the rows of all active features
+    void propagate_general(const Position& pos, OutputType* output) const {
         IndexType active[MaxActive];
         const int n = active_features(pos, active);
 
@@ -119,6 +156,7 @@ class MaterialInput {
     bool read_parameters(std::istream& stream) {
         read_little_endian<i32>(stream, biases, OutputDimensions);
         read_little_endian<i32>(stream, weights, InputDimensions * OutputDimensions);
+        build_tables();
         return !stream.fail();
     }
 
@@ -137,8 +175,64 @@ class MaterialInput {
     }
 
    private:
+    // Feature offsets, in the order of active_features()
+    static constexpr int OwnCounts = 0, OppCounts = 20, MinorDiff = 40, RookDiff = 47,
+                         QueenDiff = 52, PawnDiff = 55, BishopPair = 64, Signature = 66;
+
+    void add_row(i32* dst, int feature) const {
+        for (IndexType o = 0; o < OutputDimensions; ++o)
+            dst[o] += weights[feature * OutputDimensions + o];
+    }
+
+    void build_tables() {
+        for (int sig0 = 0; sig0 < 54; ++sig0)
+            for (int sig1 = 0; sig1 < 54; ++sig1)
+            {
+                // signature = Q * 27 + R * 9 + B * 3 + N, counts within the caps
+                const int q0 = sig0 / 27, r0 = sig0 / 9 % 3, b0 = sig0 / 3 % 3, n0 = sig0 % 3;
+                const int q1 = sig1 / 27, r1 = sig1 / 9 % 3, b1 = sig1 / 3 % 3, n1 = sig1 % 3;
+                i32*      row = &signatureTable[(sig0 * 54 + sig1) * OutputDimensions];
+                for (IndexType o = 0; o < OutputDimensions; ++o)
+                    row[o] = biases[o];
+                add_row(row, Signature + sig0 * 54 + sig1);
+                add_row(row, OwnCounts + 9 + n0);
+                add_row(row, OwnCounts + 12 + b0);
+                add_row(row, OwnCounts + 15 + r0);
+                add_row(row, OwnCounts + 18 + q0);
+                add_row(row, OppCounts + 9 + n1);
+                add_row(row, OppCounts + 12 + b1);
+                add_row(row, OppCounts + 15 + r1);
+                add_row(row, OppCounts + 18 + q1);
+                add_row(row, MinorDiff + std::clamp(n0 + b0 - n1 - b1, -3, 3) + 3);
+                add_row(row, RookDiff + std::clamp(r0 - r1, -2, 2) + 2);
+                add_row(row, QueenDiff + std::clamp(q0 - q1, -1, 1) + 1);
+            }
+
+        for (int p0 = 0; p0 <= 8; ++p0)
+            for (int p1 = 0; p1 <= 8; ++p1)
+                for (int pair0 = 0; pair0 < 2; ++pair0)
+                    for (int pair1 = 0; pair1 < 2; ++pair1)
+                    {
+                        i32* row = &pawnTable[(((p0 * 9 + p1) * 2 + pair0) * 2 + pair1)
+                                              * OutputDimensions];
+                        for (IndexType o = 0; o < OutputDimensions; ++o)
+                            row[o] = 0;
+                        add_row(row, OwnCounts + p0);
+                        add_row(row, OppCounts + p1);
+                        add_row(row, PawnDiff + std::clamp(p0 - p1, -4, 4) + 4);
+                        if (pair0)
+                            add_row(row, BishopPair);
+                        if (pair1)
+                            add_row(row, BishopPair + 1);
+                    }
+    }
+
     alignas(CacheLineSize) i32 biases[OutputDimensions];
     alignas(CacheLineSize) i32 weights[InputDimensions * OutputDimensions];
+
+    // Derived at load time (see above)
+    alignas(CacheLineSize) i32 signatureTable[54 * 54 * OutputDimensions];
+    alignas(CacheLineSize) i32 pawnTable[9 * 9 * 2 * 2 * OutputDimensions];
 };
 
 }  // namespace Stockfish::Eval::NNUE::Layers
