@@ -1154,6 +1154,107 @@ constexpr bool can_slider_threat(Piece pc, Piece slider) {
     return type_of(pc) != QUEEN || type_of(slider) == QUEEN;
 }
 
+// Records the Stop_Threats features (a knight, bishop, rook, queen or king attacking the
+// empty square in front of a pawn) that differ between the board with pc on s and the
+// board without it, given the bishop and rook attacks from s. Four cases cover them:
+// pc is a pawn (the attackers of its stop square), pc is another piece (its attacks on
+// empty stop squares), s is a stop square (its attackers, for the pawns behind it) and
+// sliders attacking s (the empty stop squares behind s on their rays). The last two depend
+// only on the occupancy of s, which does not change when ComputeRay is false.
+template<bool ComputeRay>
+inline void add_stop_threats(const Position&     pos,
+                             Piece               pc,
+                             bool                putPiece,
+                             Square              s,
+                             Bitboard            bAttacks,
+                             Bitboard            rAttacks,
+                             DirtyThreats* const dts) {
+    // A piece being replaced (ComputeRay is false) has already left the board. The pawns
+    // whose stop squares matter are the others: pc's own features are those of the first case.
+    const Bitboard  occupied      = pos.pieces() | s;
+    const Bitboard  wFront        = shift(pos.pieces(WHITE, PAWN) & ~square_bb(s), NORTH);
+    const Bitboard  bFront        = shift(pos.pieces(BLACK, PAWN) & ~square_bb(s), SOUTH);
+    const Bitboard  wStops        = wFront & ~occupied;
+    const Bitboard  bStops        = bFront & ~occupied;
+    const Bitboard  sliderAttacks = bAttacks | rAttacks;
+    const PieceType pt            = type_of(pc);
+
+    auto non_pawn_attackers = [&](Square sq, Bitboard bishopAttacks, Bitboard rookAttacks) {
+        return (bishopAttacks & pos.pieces(BISHOP, QUEEN)) | (rookAttacks & pos.pieces(ROOK, QUEEN))
+             | (PseudoAttacks[KNIGHT][sq] & pos.pieces(KNIGHT))
+             | (PseudoAttacks[KING][sq] & pos.pieces(KING));
+    };
+
+    if (pt == PAWN)
+    {
+        const Color c = color_of(pc);
+        // A pawn on its last rank only exists transiently during a promotion
+        if (relative_rank(c, s) != RANK_8)
+        {
+            const Square stop = s + pawn_push(c);
+            if (!(occupied & stop))
+            {
+                const auto [bA, rA] = both_attacks_bb(stop, occupied);
+                for (Bitboard b = non_pawn_attackers(stop, bA, rA); b;)
+                {
+                    const Square from = pop_lsb(b);
+                    dts->stops.push_back({pos.piece_on(from), pc, from, stop, putPiece});
+                }
+            }
+        }
+    }
+    else
+    {
+        const Bitboard attacks = pt == BISHOP ? bAttacks
+                               : pt == ROOK   ? rAttacks
+                               : pt == QUEEN  ? sliderAttacks
+                                              : PseudoAttacks[pt][s];
+
+        // Most placements touch no stop square
+        if (!((wStops | bStops) & (ComputeRay ? attacks | sliderAttacks : attacks))
+            && !(ComputeRay && ((wFront | bFront) & s)))
+            return;
+
+        for (Bitboard b = attacks & wStops; b;)
+            dts->stops.push_back({pc, W_PAWN, s, pop_lsb(b), putPiece});
+        for (Bitboard b = attacks & bStops; b;)
+            dts->stops.push_back({pc, B_PAWN, s, pop_lsb(b), putPiece});
+    }
+
+    if constexpr (ComputeRay)
+    {
+        const bool wOwner = wFront & s;
+        const bool bOwner = bFront & s;
+        if (wOwner || bOwner)
+            for (Bitboard b = non_pawn_attackers(s, bAttacks, rAttacks); b;)
+            {
+                const Square from     = pop_lsb(b);
+                const Piece  attacker = pos.piece_on(from);
+                if (wOwner)
+                    dts->stops.push_back({attacker, W_PAWN, from, s, !putPiece});
+                if (bOwner)
+                    dts->stops.push_back({attacker, B_PAWN, from, s, !putPiece});
+            }
+
+        if (sliderAttacks & (wStops | bStops))
+        {
+            Bitboard sliders =
+              (pos.pieces(BISHOP, QUEEN) & bAttacks) | (pos.pieces(ROOK, QUEEN) & rAttacks);
+            while (sliders)
+            {
+                const Square   sliderSq = pop_lsb(sliders);
+                const Piece    slider   = pos.piece_on(sliderSq);
+                const Bitboard behind =
+                  ray_pass_bb(sliderSq, s) & ~between_bb(sliderSq, s) & sliderAttacks;
+                for (Bitboard b = behind & wStops; b;)
+                    dts->stops.push_back({slider, W_PAWN, sliderSq, pop_lsb(b), !putPiece});
+                for (Bitboard b = behind & bStops; b;)
+                    dts->stops.push_back({slider, B_PAWN, sliderSq, pop_lsb(b), !putPiece});
+            }
+        }
+    }
+}
+
 template<bool ComputeRay>
 void Position::update_piece_threats(Piece               pc,
                                     bool                putPiece,
@@ -1167,6 +1268,8 @@ void Position::update_piece_threats(Piece               pc,
     const Bitboard  occupiedNoK     = occupied ^ pieces(KING);
     const PieceType pt              = type_of(pc);
     const Bitboard  sliders = (pieces(BISHOP, QUEEN) & bAttacks) | (pieces(ROOK, QUEEN) & rAttacks);
+
+    add_stop_threats<ComputeRay>(*this, pc, putPiece, s, bAttacks, rAttacks, dts);
 
     auto process_sliders = [&](bool addDirectAttacks) {
         Bitboard b = sliders;

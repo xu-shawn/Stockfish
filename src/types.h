@@ -342,8 +342,18 @@ struct DirtyThreat {
 
 using DirtyThreatList = ValueList<DirtyThreat, 96>;
 
+// Changed Stop_Threats features, stored as attacker -> pawn threats whose threatened square
+// is the pawn's stop square. Putting or removing a piece changes at most 70 of them: the
+// attackers of its own stop square (pawns, at most 18) or its attacks on empty stop squares
+// (other pieces, at most 16), the attackers of the square for the at most two pawns whose
+// stop square it is (36) and the stop squares behind it on slider rays (16). Replacing a
+// piece without changing the occupancy changes at most 18. A move puts or removes at most
+// four pieces (castling), so 280 entries suffice.
+using DirtyStopList = ValueList<DirtyThreat, 280>;
+
 struct DirtyThreats {
     DirtyThreatList list;
+    DirtyStopList   stops;
 };
 
 struct DirtyPawnPairs {

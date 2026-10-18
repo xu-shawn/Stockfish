@@ -415,6 +415,23 @@ sf_always_inline Tile apply_threat_features(IndexType                          j
     return acc;
 }
 
+template<int sign>
+sf_always_inline Tile apply_stop_features(IndexType                        j,
+                                          Tile                             acc,
+                                          const StopFeatureSet::IndexList& list,
+                                          const FeatureTransformer&        ft) {
+    static_assert(sign == 1 || sign == -1);
+    const auto* base = &ft.threatAndPpWeights[StopFeatureSet::IndexBase * Dimensions];
+    for (int i = 0; i < list.ssize(); ++i)
+        acc = apply_feature_single<sign>(j, acc,
+                                         reinterpret_cast<const i8*>(&base[list[i] * Dimensions]));
+    return acc;
+}
+
+const ThreatWeightType* stop_weights(const FeatureTransformer& ft) {
+    return &ft.threatAndPpWeights[StopFeatureSet::IndexBase * Dimensions];
+}
+
 void apply_combined(Color                              perspective,
                     const FeatureTransformer&          featureTransformer,
                     const AccumulatorState&            from,
@@ -422,7 +439,9 @@ void apply_combined(Color                              perspective,
                     const PSQFeatureSet::IndexList&    psqAdded,
                     const PSQFeatureSet::IndexList&    psqRemoved,
                     const ThreatFeatureSet::IndexList& thrAdded,
-                    const ThreatFeatureSet::IndexList& thrRemoved) {
+                    const ThreatFeatureSet::IndexList& thrRemoved,
+                    const StopFeatureSet::IndexList&   stopAdded,
+                    const StopFeatureSet::IndexList&   stopRemoved) {
 
     const auto& fromAcc = from.accumulation[perspective];
     auto&       toAcc   = to.accumulation[perspective];
@@ -438,6 +457,9 @@ void apply_combined(Color                              perspective,
 
         acc = apply_threat_features<-1>(j, acc, thrRemoved, featureTransformer);
         acc = apply_threat_features<+1>(j, acc, thrAdded, featureTransformer);
+
+        acc = apply_stop_features<-1>(j, acc, stopRemoved, featureTransformer);
+        acc = apply_stop_features<+1>(j, acc, stopAdded, featureTransformer);
 
         store_tile(j, toAcc.data(), acc);
     }
@@ -460,6 +482,7 @@ void update_accumulator_incremental(Color                     perspective,
     // updates with more added/removed features than MaxActiveDimensions.
     PSQFeatureSet::IndexList    psqRemoved, psqAdded;
     ThreatFeatureSet::IndexList thrRemoved, thrAdded;
+    StopFeatureSet::IndexList   stopRemoved, stopAdded;
 
     const auto& dirtyPiece     = Forward ? target_state.dirtyPiece : computed.dirtyPiece;
     const auto& dirtyThreats   = Forward ? target_state.dirtyThreats : computed.dirtyThreats;
@@ -467,6 +490,7 @@ void update_accumulator_incremental(Color                     perspective,
 
     // Used solely for prefetching
     const auto* threatPpBase = &featureTransformer.threatAndPpWeights[0];
+    const auto* stopBase     = stop_weights(featureTransformer);
     IndexType   pfStride     = FeatureTransformer::OutputDimensions;
 
     if constexpr (Forward)
@@ -475,6 +499,8 @@ void update_accumulator_incremental(Color                     perspective,
                                                  thrAdded, threatPpBase, pfStride);
         PairFeatureSet::append_changed_indices(perspective, ksq, dirtyPawnPairs, thrRemoved,
                                                thrAdded, threatPpBase, pfStride);
+        StopFeatureSet::append_changed_indices(perspective, ksq, dirtyThreats, stopRemoved,
+                                               stopAdded, stopBase, pfStride);
         PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, opponentHasQueen,
                                               psqRemoved, psqAdded);
     }
@@ -484,12 +510,14 @@ void update_accumulator_incremental(Color                     perspective,
                                                  thrRemoved, threatPpBase, pfStride);
         PairFeatureSet::append_changed_indices(perspective, ksq, dirtyPawnPairs, thrAdded,
                                                thrRemoved, threatPpBase, pfStride);
+        StopFeatureSet::append_changed_indices(perspective, ksq, dirtyThreats, stopAdded,
+                                               stopRemoved, stopBase, pfStride);
         PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, opponentHasQueen,
                                               psqAdded, psqRemoved);
     }
 
     apply_combined(perspective, featureTransformer, computed, target_state, psqAdded, psqRemoved,
-                   thrAdded, thrRemoved);
+                   thrAdded, thrRemoved, stopAdded, stopRemoved);
 
     target_state.computed[perspective] = true;
 }
@@ -509,6 +537,7 @@ void update_accumulator_incremental_both(const FeatureTransformer& featureTransf
 
     PSQFeatureSet::IndexList    psq_removed[COLOR_NB], psq_added[COLOR_NB];
     ThreatFeatureSet::IndexList thr_removed[COLOR_NB], thr_added[COLOR_NB];
+    StopFeatureSet::IndexList   stop_removed[COLOR_NB], stop_added[COLOR_NB];
 
     const auto* threat_pp_base = &featureTransformer.threatAndPpWeights[0];
     const auto  pf_stride      = FeatureTransformer::OutputDimensions;
@@ -519,15 +548,20 @@ void update_accumulator_incremental_both(const FeatureTransformer& featureTransf
     PairFeatureSet::append_changed_indices_both(
       white_ksq, black_ksq, target_state.dirtyPawnPairs, thr_removed[WHITE], thr_added[WHITE],
       thr_removed[BLACK], thr_added[BLACK], threat_pp_base, pf_stride);
+    StopFeatureSet::append_changed_indices_both(
+      white_ksq, black_ksq, target_state.dirtyThreats, stop_removed[WHITE], stop_added[WHITE],
+      stop_removed[BLACK], stop_added[BLACK], stop_weights(featureTransformer), pf_stride);
     PSQFeatureSet::append_changed_indices(WHITE, white_ksq, target_state.dirtyPiece, whiteOppQueen,
                                           psq_removed[WHITE], psq_added[WHITE]);
     PSQFeatureSet::append_changed_indices(BLACK, black_ksq, target_state.dirtyPiece, blackOppQueen,
                                           psq_removed[BLACK], psq_added[BLACK]);
 
     apply_combined(WHITE, featureTransformer, computed, target_state, psq_added[WHITE],
-                   psq_removed[WHITE], thr_added[WHITE], thr_removed[WHITE]);
+                   psq_removed[WHITE], thr_added[WHITE], thr_removed[WHITE], stop_added[WHITE],
+                   stop_removed[WHITE]);
     apply_combined(BLACK, featureTransformer, computed, target_state, psq_added[BLACK],
-                   psq_removed[BLACK], thr_added[BLACK], thr_removed[BLACK]);
+                   psq_removed[BLACK], thr_added[BLACK], thr_removed[BLACK], stop_added[BLACK],
+                   stop_removed[BLACK]);
 
     target_state.computed[WHITE] = true;
     target_state.computed[BLACK] = true;
@@ -733,6 +767,9 @@ void update_accumulator_hybrid(Color                     perspective,
                                              thrAdded, threatPpBase, pfStride);
     PairFeatureSet::append_changed_indices(perspective, newKsq, target.dirtyPawnPairs, thrRemoved,
                                            thrAdded, threatPpBase, pfStride);
+    StopFeatureSet::IndexList stopRemoved, stopAdded;
+    StopFeatureSet::append_changed_indices(perspective, newKsq, target.dirtyThreats, stopRemoved,
+                                           stopAdded, stop_weights(featureTransformer), pfStride);
 
     const auto& fromAcc = computed.accumulation[perspective];
     auto&       toAcc   = target.accumulation[perspective];
@@ -761,6 +798,9 @@ void update_accumulator_hybrid(Color                     perspective,
 
         acc = apply_threat_features<-1>(j, acc, thrRemoved, featureTransformer);
         acc = apply_threat_features<+1>(j, acc, thrAdded, featureTransformer);
+
+        acc = apply_stop_features<-1>(j, acc, stopRemoved, featureTransformer);
+        acc = apply_stop_features<+1>(j, acc, stopAdded, featureTransformer);
 
         store_tile(j, toAcc.data(), acc);
     }
@@ -812,6 +852,8 @@ void update_accumulator_refresh_cache(Color                     perspective,
     ThreatFeatureSet::IndexList active;
     ThreatFeatureSet::append_active_indices(perspective, pos, active);
     PairFeatureSet::append_active_indices(perspective, pos, active);
+    StopFeatureSet::IndexList stopActive;
+    StopFeatureSet::append_active_indices(perspective, pos, stopActive);
 
     accumulator.computed[perspective] = true;
 
@@ -827,6 +869,7 @@ void update_accumulator_refresh_cache(Color                     perspective,
         store_tile(j, &entry.accumulation[0], acc);
 
         acc = apply_threat_features<+1>(j, acc, active, featureTransformer);
+        acc = apply_stop_features<+1>(j, acc, stopActive, featureTransformer);
 
         store_tile(j, accumulator.accumulation[perspective].data(), acc);
     }
