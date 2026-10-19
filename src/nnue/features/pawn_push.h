@@ -52,13 +52,51 @@ class PawnPush {
 
     static void append_active_indices(Color perspective, const Position& pos, IndexList& active);
 
+    // Most moves create or break no pawn/blocker pair
     static void append_changed_indices(Color                   perspective,
                                        Square                  ksq,
                                        const Dirties&          diff,
                                        IndexList&              removed,
                                        IndexList&              added,
                                        const ThreatWeightType* prefetchBase   = nullptr,
-                                       IndexType               prefetchStride = 0);
+                                       IndexType               prefetchStride = 0) {
+        if (diff.dirtyThreats.pushes.size())
+            append_push_changes(perspective, ksq, diff, removed, added, prefetchBase,
+                                prefetchStride);
+    }
+
+    static void append_changed_indices_both(Square                  white_ksq,
+                                            Square                  black_ksq,
+                                            const Dirties&          diff,
+                                            IndexList&              white_removed,
+                                            IndexList&              white_added,
+                                            IndexList&              black_removed,
+                                            IndexList&              black_added,
+                                            const ThreatWeightType* prefetchBase,
+                                            IndexType               prefetchStride) {
+        if (diff.dirtyThreats.pushes.size())
+            append_push_changes_both(white_ksq, black_ksq, diff, white_removed, white_added,
+                                     black_removed, black_added, prefetchBase, prefetchStride);
+    }
+
+   private:
+    static void append_push_changes(Color                   perspective,
+                                    Square                  ksq,
+                                    const Dirties&          diff,
+                                    IndexList&              removed,
+                                    IndexList&              added,
+                                    const ThreatWeightType* prefetchBase,
+                                    IndexType               prefetchStride);
+
+    static void append_push_changes_both(Square                  white_ksq,
+                                         Square                  black_ksq,
+                                         const Dirties&          diff,
+                                         IndexList&              white_removed,
+                                         IndexList&              white_added,
+                                         IndexList&              black_removed,
+                                         IndexList&              black_added,
+                                         const ThreatWeightType* prefetchBase,
+                                         IndexType               prefetchStride);
 };
 
 }  // namespace Stockfish::Eval::NNUE::Features

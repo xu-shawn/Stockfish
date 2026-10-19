@@ -58,13 +58,13 @@ void PawnPush::append_active_indices(Color perspective, const Position& pos, Ind
     }
 }
 
-void PawnPush::append_changed_indices(Color                   perspective,
-                                      Square                  ksq,
-                                      const Dirties&          diff,
-                                      IndexList&              removed,
-                                      IndexList&              added,
-                                      const ThreatWeightType* prefetchBase,
-                                      IndexType               prefetchStride) {
+void PawnPush::append_push_changes(Color                   perspective,
+                                   Square                  ksq,
+                                   const Dirties&          diff,
+                                   IndexList&              removed,
+                                   IndexList&              added,
+                                   const ThreatWeightType* prefetchBase,
+                                   IndexType               prefetchStride) {
 
     for (const auto& dirty : diff.dirtyThreats.pushes)
     {
@@ -76,6 +76,33 @@ void PawnPush::append_changed_indices(Color                   perspective,
               reinterpret_cast<uintptr_t>(prefetchBase) + uintptr_t(index) * prefetchStride));
 
         (dirty.add() ? added : removed).push_back(index);
+    }
+}
+
+void PawnPush::append_push_changes_both(Square                  white_ksq,
+                                        Square                  black_ksq,
+                                        const Dirties&          diff,
+                                        IndexList&              white_removed,
+                                        IndexList&              white_added,
+                                        IndexList&              black_removed,
+                                        IndexList&              black_added,
+                                        const ThreatWeightType* prefetchBase,
+                                        IndexType               prefetchStride) {
+
+    for (const auto& dirty : diff.dirtyThreats.pushes)
+    {
+        const IndexType white_index =
+          make_index(WHITE, dirty.pc(), dirty.pc_sq(), dirty.threatened_pc(), white_ksq);
+        const IndexType black_index =
+          make_index(BLACK, dirty.pc(), dirty.pc_sq(), dirty.threatened_pc(), black_ksq);
+
+        prefetch<PrefetchRw::READ, PrefetchLoc::LOW>(reinterpret_cast<const void*>(
+          reinterpret_cast<uintptr_t>(prefetchBase) + uintptr_t(white_index) * prefetchStride));
+        prefetch<PrefetchRw::READ, PrefetchLoc::LOW>(reinterpret_cast<const void*>(
+          reinterpret_cast<uintptr_t>(prefetchBase) + uintptr_t(black_index) * prefetchStride));
+
+        (dirty.add() ? white_added : white_removed).push_back(white_index);
+        (dirty.add() ? black_added : black_removed).push_back(black_index);
     }
 }
 

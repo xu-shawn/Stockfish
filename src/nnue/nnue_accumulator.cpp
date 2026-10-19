@@ -528,10 +528,9 @@ void update_accumulator_incremental_both(const FeatureTransformer& featureTransf
     PairFeatureSet::append_changed_indices_both(
       white_ksq, black_ksq, target_state.dirtyPawnPairs, thr_removed[WHITE], thr_added[WHITE],
       thr_removed[BLACK], thr_added[BLACK], threat_pp_base, pf_stride);
-    ExtraFeatureSet::append_changed_indices(WHITE, white_ksq, target_state, thr_removed[WHITE],
-                                            thr_added[WHITE], threat_pp_base, pf_stride);
-    ExtraFeatureSet::append_changed_indices(BLACK, black_ksq, target_state, thr_removed[BLACK],
-                                            thr_added[BLACK], threat_pp_base, pf_stride);
+    ExtraFeatureSet::append_changed_indices_both(
+      white_ksq, black_ksq, target_state, thr_removed[WHITE], thr_added[WHITE], thr_removed[BLACK],
+      thr_added[BLACK], threat_pp_base, pf_stride);
     PSQFeatureSet::append_changed_indices(WHITE, white_ksq, target_state.dirtyPiece, whiteOppQueen,
                                           psq_removed[WHITE], psq_added[WHITE]);
     PSQFeatureSet::append_changed_indices(BLACK, black_ksq, target_state.dirtyPiece, blackOppQueen,
