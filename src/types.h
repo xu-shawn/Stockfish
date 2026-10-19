@@ -351,6 +351,10 @@ using DirtyThreatList = ValueList<DirtyThreat, 96>;
 // pawns are passed; do_move then records the difference of the full lists, at most 288 each.
 using DirtyStopList = ValueList<DirtyThreat, 576>;
 
+// The PassStop_Threats features exist only while there are at most this many knights,
+// bishops, rooks and queens on the board
+constexpr int PassStopMaxPieces = 4;
+
 struct DirtyThreats {
     DirtyThreatList list;
     DirtyStopList   stops;

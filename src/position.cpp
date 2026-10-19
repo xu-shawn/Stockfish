@@ -789,7 +789,8 @@ static int stop_features(const Position& pos, bool add, u32* list) {
             for (Bitboard b = pos.attackers_to(stop, occupied) & nonPawns; b;)
             {
                 const Square from = pop_lsb(b);
-                list[n++] = DirtyThreat(pos.piece_on(from), make_piece(c, PAWN), from, stop, add).raw();
+                list[n++] =
+                  DirtyThreat(pos.piece_on(from), make_piece(c, PAWN), from, stop, add).raw();
             }
         }
 
@@ -848,20 +849,28 @@ void Position::do_move(Move                      m,
     assert(captured == NO_PIECE || color_of(captured) == (m.type_of() != CASTLING ? them : us));
     assert(type_of(captured) != KING);
 
-    // A move of or onto a pawn can change which pawns are passed. Its Stop_Threats features
-    // are the difference between the full lists before and after it; other moves record
-    // them piece by piece for the passed pawns.
-    const bool pawnsChange = type_of(pc) == PAWN || type_of(captured) == PAWN;
-    u32        stopsBefore[288];
-    int        stopsBeforeCount = 0;
+    // The Stop_Threats features exist only with at most PassStopMaxPieces knights, bishops,
+    // rooks and queens on the board, so a capture or a promotion can switch them on or off,
+    // and a move of or onto a pawn can change which pawns are passed. Such a move records
+    // the difference between the full lists before and after it; other moves record the
+    // features piece by piece for the passed pawns.
+    const int  officers = count<ALL_PIECES>() - count<PAWN>() - 2;
+    const int  taken    = m.type_of() != CASTLING && captured && type_of(captured) != PAWN;
+    const bool onBefore = officers <= PassStopMaxPieces;
+    const bool onAfter  = officers - taken + (m.type_of() == PROMOTION) <= PassStopMaxPieces;
+    const bool fullDiff = (onBefore || onAfter)
+                       && (onBefore != onAfter || type_of(pc) == PAWN || type_of(captured) == PAWN);
+    u32 stopsBefore[288];
+    int stopsBeforeCount = 0;
 
-    if (pawnsChange)
+    if (fullDiff)
     {
-        dts.stopPawns    = 0;
-        stopsBeforeCount = stop_features(*this, false, stopsBefore);
+        dts.stopPawns = 0;
+        if (onBefore)
+            stopsBeforeCount = stop_features(*this, false, stopsBefore);
     }
     else
-        dts.stopPawns = passed_pawns_bb(dpps.before[WHITE], dpps.before[BLACK]);
+        dts.stopPawns = onBefore ? passed_pawns_bb(dpps.before[WHITE], dpps.before[BLACK]) : 0;
 
     if (m.type_of() == CASTLING)
     {
@@ -1040,10 +1049,10 @@ void Position::do_move(Move                      m,
         }
     }
 
-    if (pawnsChange)
+    if (fullDiff)
     {
         u32       stopsAfter[288];
-        const int stopsAfterCount = stop_features(*this, true, stopsAfter);
+        const int stopsAfterCount = onAfter ? stop_features(*this, true, stopsAfter) : 0;
 
         // Features in both lists stay
         for (int i = 0; i < stopsAfterCount; ++i)
