@@ -94,13 +94,13 @@ class Network {
     FeatureTransformer featureTransformer;
 
     // Evaluation function
-    NetworkArchitecture network[LayerStacks];
+    LayerStackSet network;
 
     bool initialized = false;
 
     // Hash value of evaluation function structure
     static constexpr u32 hash =
-      FeatureTransformer::get_hash_value() ^ NetworkArchitecture::get_hash_value();
+      FeatureTransformer::get_hash_value() ^ NetworkArchitecture<L2Wide>::get_hash_value();
 
     friend struct AccumulatorCaches;
 };

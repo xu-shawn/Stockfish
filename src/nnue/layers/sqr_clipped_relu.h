@@ -22,6 +22,7 @@
 #define NNUE_LAYERS_SQR_CLIPPED_RELU_H_INCLUDED
 
 #include <algorithm>
+#include <cassert>
 #include <cstdint>
 #include <iosfwd>
 
@@ -75,11 +76,40 @@ class SqrClippedReLU {
     void propagate_pair(const InputType* input, OutputType* squared, OutputType* clipped) const {
         static_assert(WeightScaleBitsLocal >= 5 && WeightScaleBitsLocal <= 8,
                       "SqrClippedReLU only support WeightScaleBitsLocal between 5 and 8");
-        static_assert(InputDimensions % 32 == 0,
-                      "propagate_pair() needs a tail path if L2/L3 change to multiple of 16");
+        static_assert(InputDimensions % 32 == 0 || InputDimensions == 16,
+                      "propagate_pair() needs a tail path for other multiples of 16");
 
         constexpr IndexType NumChunks       = InputDimensions / 32;
         constexpr int       SimdShiftAmount = WeightScaleBitsLocal * 2 + 7 - 16;
+
+        if constexpr (InputDimensions == 16)
+        {
+            // 16 outputs: squared and clipped are adjacent and form one 32-byte block of the
+            // next layer's input, so one store writes both, in the lane order that
+            // AffineTransform::get_weight_index_scrambled() expects for that block.
+            assert(clipped == squared + 16);
+    #if defined(USE_AVX512)
+            const __m512i v     = _mm512_load_si512(input);
+            const __m512i words = _mm512_packs_epi32(v, v);
+            const __m512i sqr =
+              _mm512_srli_epi16(_mm512_mulhi_epi16(words, words), SimdShiftAmount);
+            const __m512i clip = _mm512_srli_epi16(_mm512_max_epi16(words, _mm512_setzero_si512()),
+                                                   WeightScaleBitsLocal);
+            // Per 128-bit lane: 4 squared, then 4 clipped values
+            const __m512i both = _mm512_mask_blend_epi16(0xF0F0F0F0u, sqr, clip);
+            _mm256_store_si256(reinterpret_cast<__m256i*>(squared), _mm512_cvtsepi16_epi8(both));
+    #elif defined(USE_AVX2)
+            const auto    in    = reinterpret_cast<const __m256i*>(input);
+            const __m256i words =
+              _mm256_packs_epi32(_mm256_load_si256(&in[0]), _mm256_load_si256(&in[1]));
+            const __m256i sqr =
+              _mm256_srli_epi16(_mm256_mulhi_epi16(words, words), SimdShiftAmount);
+            const __m256i clip = _mm256_srli_epi16(_mm256_max_epi16(words, _mm256_setzero_si256()),
+                                                   WeightScaleBitsLocal);
+            _mm256_store_si256(reinterpret_cast<__m256i*>(squared), _mm256_packs_epi16(sqr, clip));
+    #endif
+            return;
+        }
 
     #if defined(USE_AVX512)
         const auto in      = reinterpret_cast<const __m512i*>(input);

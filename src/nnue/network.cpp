@@ -156,7 +156,8 @@ Value Network::evaluate(const Position&    pos,
     const int   bucket      = pcBucket * 4 + queenBucket;
 
     featureTransformer.transform(pos, accumulatorStack, cache, transformedFeatures, nnzInfo);
-    const auto positional = network[bucket].propagate(transformedFeatures, nnzInfo);
+    const auto positional = network.visit(
+      bucket, [&](const auto& stack) { return stack.propagate(transformedFeatures, nnzInfo); });
     return static_cast<Value>(positional / OutputScale);
 }
 
@@ -193,13 +194,12 @@ void Network::verify(const std::function<void(std::string_view)>& f,
 
     if (f)
     {
-        usize size = sizeof(featureTransformer) + sizeof(NetworkArchitecture) * LayerStacks;
+        usize size = sizeof(featureTransformer) + sizeof(network);
         f("NNUE evaluation using " + evalfilePath.string() + " ("
           + std::to_string(size / (1024 * 1024)) + "MiB, ("
-          + std::to_string(featureTransformer.InputDimensions) + ", "
-          + std::to_string(network[0].TransformedFeatureDimensions) + ", "
-          + std::to_string(network[0].FC_0_OUTPUTS) + ", " + std::to_string(network[0].FC_1_OUTPUTS)
-          + ", 1))");
+          + std::to_string(featureTransformer.InputDimensions) + ", " + std::to_string(L1) + ", "
+          + std::to_string(L2Wide) + "/" + std::to_string(L2Mid) + "/" + std::to_string(L2Narrow)
+          + ", " + std::to_string(L3) + ", 1))");
     }
 }
 
@@ -227,8 +227,9 @@ NnueEvalTrace Network::trace_evaluate(const Position&    pos,
 
     for (IndexType b = 0; b < LayerStacks; ++b)
     {
-        const auto positional = network[b].propagate(transformedFeatures, nnzInfo);
-        t.positional[b]       = static_cast<Value>(positional / OutputScale);
+        const auto positional = network.visit(
+          b, [&](const auto& stack) { return stack.propagate(transformedFeatures, nnzInfo); });
+        t.positional[b] = static_cast<Value>(positional / OutputScale);
     }
 
     return t;
@@ -298,8 +299,8 @@ usize Network::get_content_hash() const {
 
     usize h = 0;
     hash_combine(h, featureTransformer);
-    for (auto&& layerstack : network)
-        hash_combine(h, layerstack);
+    for (IndexType b = 0; b < LayerStacks; ++b)
+        network.visit(b, [&](const auto& stack) { hash_combine(h, stack); });
     return h;
 }
 
@@ -349,9 +350,9 @@ bool Network::read_parameters(std::istream& stream, std::string& netDescription)
         return false;
     if (!Detail::read_parameters(stream, featureTransformer))
         return false;
-    for (usize i = 0; i < LayerStacks; ++i)
+    for (IndexType b = 0; b < LayerStacks; ++b)
     {
-        if (!Detail::read_parameters(stream, network[i]))
+        if (!network.visit(b, [&](auto& stack) { return Detail::read_parameters(stream, stack); }))
             return false;
     }
     return stream && stream.peek() == std::ios::traits_type::eof();
@@ -363,9 +364,10 @@ bool Network::write_parameters(std::ostream& stream, const std::string& netDescr
         return false;
     if (!Detail::write_parameters(stream, featureTransformer))
         return false;
-    for (usize i = 0; i < LayerStacks; ++i)
+    for (IndexType b = 0; b < LayerStacks; ++b)
     {
-        if (!Detail::write_parameters(stream, network[i]))
+        if (!network.visit(b,
+                           [&](const auto& stack) { return Detail::write_parameters(stream, stack); }))
             return false;
     }
     return bool(stream);

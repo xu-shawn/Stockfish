@@ -22,6 +22,7 @@
 #define NNUE_ARCHITECTURE_H_INCLUDED
 
 #include <cstdint>
+#include <array>
 #include <iosfwd>
 
 #include "features/k32q2.h"
@@ -43,11 +44,21 @@ using PSQFeatureSet    = Features::K32Q2;
 
 // Number of input feature dimensions after conversion
 constexpr IndexType L1 = 1024;
-constexpr int       L2 = 32;
 constexpr int       L3 = 32;
 
 constexpr IndexType LayerStacks = 32;
 
+// The width of fc_0 (L2, the two skip outputs included) depends on the layer stack. Stacks are
+// ordered by piece count (stack = (pieces - 1) / 4 * 4 + queen bucket), so each width covers a
+// contiguous range: the stacks with at most 20 pieces are wide and those with 25 or more narrow.
+constexpr int       L2Wide       = 64;
+constexpr int       L2Mid        = 32;
+constexpr int       L2Narrow     = 16;
+constexpr IndexType WideStacks   = 20;
+constexpr IndexType MidStacks    = 4;
+constexpr IndexType NarrowStacks = LayerStacks - WideStacks - MidStacks;
+
+template<int L2>
 struct NetworkArchitecture {
     static constexpr IndexType TransformedFeatureDimensions = L1;
     static constexpr int       FC_0_OUTPUTS                 = L2;
@@ -154,12 +165,38 @@ struct NetworkArchitecture {
     }
 };
 
+// All layer stacks, grouped by fc_0 width
+struct LayerStackSet {
+    std::array<NetworkArchitecture<L2Wide>, WideStacks>     wide;
+    std::array<NetworkArchitecture<L2Mid>, MidStacks>       mid;
+    std::array<NetworkArchitecture<L2Narrow>, NarrowStacks> narrow;
+
+    // Calls f with layer stack b
+    template<typename F>
+    decltype(auto) visit(IndexType b, F&& f) const {
+        if (b < WideStacks)
+            return f(wide[b]);
+        if (b < WideStacks + MidStacks)
+            return f(mid[b - WideStacks]);
+        return f(narrow[b - WideStacks - MidStacks]);
+    }
+
+    template<typename F>
+    decltype(auto) visit(IndexType b, F&& f) {
+        if (b < WideStacks)
+            return f(wide[b]);
+        if (b < WideStacks + MidStacks)
+            return f(mid[b - WideStacks]);
+        return f(narrow[b - WideStacks - MidStacks]);
+    }
+};
+
 }  // namespace Stockfish::Eval::NNUE
 
-template<>
-struct std::hash<Stockfish::Eval::NNUE::NetworkArchitecture> {
+template<int L2>
+struct std::hash<Stockfish::Eval::NNUE::NetworkArchitecture<L2>> {
     Stockfish::usize
-    operator()(const Stockfish::Eval::NNUE::NetworkArchitecture& arch) const noexcept {
+    operator()(const Stockfish::Eval::NNUE::NetworkArchitecture<L2>& arch) const noexcept {
         return arch.get_content_hash();
     }
 };
