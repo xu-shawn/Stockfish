@@ -85,6 +85,9 @@ sf_always_inline IndexType StopThreats::make_index(
 }
 
 void StopThreats::append_active_indices(Color perspective, const Position& pos, IndexList& active) {
+    if (pos.count<ALL_PIECES>() - pos.count<PAWN>() - 2 > PassStopMaxPieces)
+        return;
+
     const Square   ksq      = pos.square<KING>(perspective);
     const Bitboard occupied = pos.pieces();
     const Bitboard nonPawns = occupied ^ pos.pieces(PAWN);
