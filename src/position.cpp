@@ -774,6 +774,28 @@ bool Position::gives_check(Move m) const {
 }
 
 
+// Writes the raw Stop_Threats features of the passed pawns, with the given add flag, to
+// list and returns their number (at most 288: 18 attackers for each of 16 pawns)
+static int stop_features(const Position& pos, bool add, u32* list) {
+    const Bitboard occupied = pos.pieces();
+    const Bitboard nonPawns = occupied ^ pos.pieces(PAWN);
+    const Bitboard passed   = passed_pawns_bb(pos.pieces(WHITE, PAWN), pos.pieces(BLACK, PAWN));
+    int            n        = 0;
+
+    for (Color c : {WHITE, BLACK})
+        for (Bitboard stops = shift(pos.pieces(c) & passed, pawn_push(c)) & ~occupied; stops;)
+        {
+            const Square stop = pop_lsb(stops);
+            for (Bitboard b = pos.attackers_to(stop, occupied) & nonPawns; b;)
+            {
+                const Square from = pop_lsb(b);
+                list[n++] = DirtyThreat(pos.piece_on(from), make_piece(c, PAWN), from, stop, add).raw();
+            }
+        }
+
+    return n;
+}
+
 // Makes a move, and saves all information necessary
 // to a StateInfo object. The move is assumed to be legal.
 // If a pointer to the TT table is passed, the entry for the new position
@@ -825,6 +847,21 @@ void Position::do_move(Move                      m,
     assert(color_of(pc) == us);
     assert(captured == NO_PIECE || color_of(captured) == (m.type_of() != CASTLING ? them : us));
     assert(type_of(captured) != KING);
+
+    // A move of or onto a pawn can change which pawns are passed. Its Stop_Threats features
+    // are the difference between the full lists before and after it; other moves record
+    // them piece by piece for the passed pawns.
+    const bool pawnsChange = type_of(pc) == PAWN || type_of(captured) == PAWN;
+    u32        stopsBefore[288];
+    int        stopsBeforeCount = 0;
+
+    if (pawnsChange)
+    {
+        dts.stopPawns    = 0;
+        stopsBeforeCount = stop_features(*this, false, stopsBefore);
+    }
+    else
+        dts.stopPawns = passed_pawns_bb(dpps.before[WHITE], dpps.before[BLACK]);
 
     if (m.type_of() == CASTLING)
     {
@@ -1003,6 +1040,29 @@ void Position::do_move(Move                      m,
         }
     }
 
+    if (pawnsChange)
+    {
+        u32       stopsAfter[288];
+        const int stopsAfterCount = stop_features(*this, true, stopsAfter);
+
+        // Features in both lists stay
+        for (int i = 0; i < stopsAfterCount; ++i)
+        {
+            const u32 kept = stopsAfter[i] ^ (1u << 31);
+            int       j    = 0;
+            while (j < stopsBeforeCount && stopsBefore[j] != kept)
+                ++j;
+
+            if (j < stopsBeforeCount)
+                stopsBefore[j] = stopsBefore[--stopsBeforeCount];
+            else
+                dts.stops.push_back(DirtyThreat(stopsAfter[i]));
+        }
+
+        for (int i = 0; i < stopsBeforeCount; ++i)
+            dts.stops.push_back(DirtyThreat(stopsBefore[i]));
+    }
+
     // Set capture piece
     st->capturedPiece = captured;
 
@@ -1155,12 +1215,13 @@ constexpr bool can_slider_threat(Piece pc, Piece slider) {
 }
 
 // Records the Stop_Threats features (a knight, bishop, rook, queen or king attacking the
-// empty square in front of a pawn) that differ between the board with pc on s and the
-// board without it, given the bishop and rook attacks from s. Four cases cover them:
-// pc is a pawn (the attackers of its stop square), pc is another piece (its attacks on
-// empty stop squares), s is a stop square (its attackers, for the pawns behind it) and
-// sliders attacking s (the empty stop squares behind s on their rays). The last two depend
-// only on the occupancy of s, which does not change when ComputeRay is false.
+// empty square in front of a passed pawn) that differ between the board with pc on s and
+// the board without it, given the bishop and rook attacks from s. Only moves that leave the
+// pawns in place record features this way, so pc is not a pawn and the passed pawns
+// (dts->stopPawns) stay the same. Three cases cover them: pc's attacks on empty stop
+// squares, the attackers of s if it is a stop square and the empty stop squares behind s on
+// slider rays. The last two depend only on the occupancy of s, which does not change when
+// ComputeRay is false.
 template<bool ComputeRay>
 inline void add_stop_threats(const Position&     pos,
                              Piece               pc,
@@ -1169,11 +1230,15 @@ inline void add_stop_threats(const Position&     pos,
                              Bitboard            bAttacks,
                              Bitboard            rAttacks,
                              DirtyThreats* const dts) {
-    // A piece being replaced (ComputeRay is false) has already left the board. The pawns
-    // whose stop squares matter are the others: pc's own features are those of the first case.
+    if (!dts->stopPawns)
+        return;
+
+    assert(type_of(pc) != PAWN);
+
+    // A piece being replaced (ComputeRay is false) has already left the board
     const Bitboard  occupied      = pos.pieces() | s;
-    const Bitboard  wFront        = shift(pos.pieces(WHITE, PAWN) & ~square_bb(s), NORTH);
-    const Bitboard  bFront        = shift(pos.pieces(BLACK, PAWN) & ~square_bb(s), SOUTH);
+    const Bitboard  wFront        = shift(pos.pieces(WHITE) & dts->stopPawns, NORTH);
+    const Bitboard  bFront        = shift(pos.pieces(BLACK) & dts->stopPawns, SOUTH);
     const Bitboard  wStops        = wFront & ~occupied;
     const Bitboard  bStops        = bFront & ~occupied;
     const Bitboard  sliderAttacks = bAttacks | rAttacks;
@@ -1185,41 +1250,20 @@ inline void add_stop_threats(const Position&     pos,
              | (PseudoAttacks[KING][sq] & pos.pieces(KING));
     };
 
-    if (pt == PAWN)
-    {
-        const Color c = color_of(pc);
-        // A pawn on its last rank only exists transiently during a promotion
-        if (relative_rank(c, s) != RANK_8)
-        {
-            const Square stop = s + pawn_push(c);
-            if (!(occupied & stop))
-            {
-                const auto [bA, rA] = both_attacks_bb(stop, occupied);
-                for (Bitboard b = non_pawn_attackers(stop, bA, rA); b;)
-                {
-                    const Square from = pop_lsb(b);
-                    dts->stops.push_back({pos.piece_on(from), pc, from, stop, putPiece});
-                }
-            }
-        }
-    }
-    else
-    {
-        const Bitboard attacks = pt == BISHOP ? bAttacks
-                               : pt == ROOK   ? rAttacks
-                               : pt == QUEEN  ? sliderAttacks
-                                              : PseudoAttacks[pt][s];
+    const Bitboard attacks = pt == BISHOP ? bAttacks
+                           : pt == ROOK   ? rAttacks
+                           : pt == QUEEN  ? sliderAttacks
+                                          : PseudoAttacks[pt][s];
 
-        // Most placements touch no stop square
-        if (!((wStops | bStops) & (ComputeRay ? attacks | sliderAttacks : attacks))
-            && !(ComputeRay && ((wFront | bFront) & s)))
-            return;
+    // Most placements touch no stop square
+    if (!((wStops | bStops) & (ComputeRay ? attacks | sliderAttacks : attacks))
+        && !(ComputeRay && ((wFront | bFront) & s)))
+        return;
 
-        for (Bitboard b = attacks & wStops; b;)
-            dts->stops.push_back({pc, W_PAWN, s, pop_lsb(b), putPiece});
-        for (Bitboard b = attacks & bStops; b;)
-            dts->stops.push_back({pc, B_PAWN, s, pop_lsb(b), putPiece});
-    }
+    for (Bitboard b = attacks & wStops; b;)
+        dts->stops.push_back({pc, W_PAWN, s, pop_lsb(b), putPiece});
+    for (Bitboard b = attacks & bStops; b;)
+        dts->stops.push_back({pc, B_PAWN, s, pop_lsb(b), putPiece});
 
     if constexpr (ComputeRay)
     {

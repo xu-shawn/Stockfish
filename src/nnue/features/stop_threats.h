@@ -16,11 +16,13 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// Definition of input features Stop_Threats of NNUE evaluation function: threats on
-// the empty square in front of every pawn (its stop square). Every knight, bishop, rook,
-// queen or king attacking it is a feature of its own, indexed by pawn color, pawn
-// square, attacker kind and attacker square. Pawn attackers are covered by PP_3Wide,
-// attacks on an occupied stop square by the threat features.
+// Definition of input features PassStop_Threats of NNUE evaluation function: threats on
+// the empty square in front of every passed pawn (its stop square), where a passed pawn
+// has no enemy pawn ahead of it on its own or an adjacent file. Every knight, bishop, rook,
+// queen or king attacking the square is a feature of its own, indexed by pawn color, pawn
+// square, attacker kind and attacker square like Stop_Threats, which has them for every
+// pawn. Pawn attackers are covered by PP_3Wide, attacks on an occupied stop square by the
+// threat features.
 
 #ifndef NNUE_FEATURES_STOP_THREATS_INCLUDED
 #define NNUE_FEATURES_STOP_THREATS_INCLUDED
@@ -39,7 +41,7 @@ namespace Stockfish::Eval::NNUE::Features {
 
 class StopThreats {
    public:
-    static constexpr u32 HashValue = 0x7d29a4f1u;
+    static constexpr u32 HashValue = 0x7d29a4f7u;
 
     // Pawn color, pawn square, attacker kind (own knight, bishop, rook, queen, king, then
     // the enemy's) and the squares from which that kind reaches the stop square
@@ -51,7 +53,7 @@ class StopThreats {
 
     // A square has at most 18 non-pawn attackers (8 knights, a slider on each of its 8
     // rays and 2 kings) and there are at most 16 pawns, so at most 288 features are
-    // active; a move changes at most 280 (see DirtyStopList).
+    // active, and a move removes or adds at most 288 (see DirtyStopList).
     using IndexList = ValueList<u16, 288>;
     using DiffType  = DirtyThreats;
 

@@ -88,11 +88,12 @@ void StopThreats::append_active_indices(Color perspective, const Position& pos, 
     const Square   ksq      = pos.square<KING>(perspective);
     const Bitboard occupied = pos.pieces();
     const Bitboard nonPawns = occupied ^ pos.pieces(PAWN);
+    const Bitboard passed   = passed_pawns_bb(pos.pieces(WHITE, PAWN), pos.pieces(BLACK, PAWN));
 
     for (Color c : {WHITE, BLACK})
     {
         const Piece pawn = make_piece(c, PAWN);
-        for (Bitboard stops = shift(pos.pieces(c, PAWN), pawn_push(c)) & ~occupied; stops;)
+        for (Bitboard stops = shift(pos.pieces(c) & passed, pawn_push(c)) & ~occupied; stops;)
         {
             const Square stop = pop_lsb(stops);
             for (Bitboard b = pos.attackers_to(stop, occupied) & nonPawns; b;)
@@ -106,7 +107,7 @@ void StopThreats::append_active_indices(Color perspective, const Position& pos, 
 }
 
 // Changed features are recorded as attacker -> pawn threats with the stop square as the
-// threatened square (see Position::update_piece_threats)
+// threatened square (see Position::update_piece_threats and Position::do_move)
 
 void StopThreats::append_changed_indices(Color                   perspective,
                                          Square                  ksq,
