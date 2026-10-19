@@ -50,10 +50,10 @@ constexpr IndexType LayerStacks = 32;
 
 // The width of fc_0 (L2, the two skip outputs included) depends on the layer stack. Stacks are
 // ordered by piece count (stack = (pieces - 1) / 4 * 4 + queen bucket), so each width covers a
-// contiguous range: the stacks with at most 20 pieces are wide and those with 25 or more narrow.
+// contiguous range: the stacks with at most 20 pieces are wide, the others keep 32.
 constexpr int       L2Wide       = 64;
 constexpr int       L2Mid        = 32;
-constexpr int       L2Narrow     = 16;
+constexpr int       L2Narrow     = 32;
 constexpr IndexType WideStacks   = 20;
 constexpr IndexType MidStacks    = 4;
 constexpr IndexType NarrowStacks = LayerStacks - WideStacks - MidStacks;
