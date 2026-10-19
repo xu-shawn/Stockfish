@@ -126,6 +126,16 @@ constexpr Bitboard pawn_single_push_bb(Color c, Bitboard b) {
     return shift(b, c == WHITE ? NORTH : SOUTH);
 }
 
+// Returns the pawns of both colors with no enemy pawn ahead of them on their own
+// or an adjacent file
+constexpr Bitboard passed_pawns_bb(Bitboard white, Bitboard black) {
+    Bitboard bSpan = black | shift(black, EAST) | shift(black, WEST);
+    Bitboard wSpan = white | shift(white, EAST) | shift(white, WEST);
+    bSpan >>= 8, bSpan |= bSpan >> 8, bSpan |= bSpan >> 16, bSpan |= bSpan >> 32;
+    wSpan <<= 8, wSpan |= wSpan << 8, wSpan |= wSpan << 16, wSpan |= wSpan << 32;
+    return (white & ~bSpan) | (black & ~wSpan);
+}
+
 inline constexpr auto PawnPairBB = []() {
     std::array<Bitboard, SQUARE_NB> result{};
     for (Square s = SQ_A1; s <= SQ_H8; ++s)
