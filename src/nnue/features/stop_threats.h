@@ -16,13 +16,14 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// Definition of input features PassStop_Threats of NNUE evaluation function: threats on
+// Definition of input features PassStop_Threats_N8 of NNUE evaluation function: threats on
 // the empty square in front of every passed pawn (its stop square), where a passed pawn
-// has no enemy pawn ahead of it on its own or an adjacent file. Every knight, bishop, rook,
-// queen or king attacking the square is a feature of its own, indexed by pawn color, pawn
-// square, attacker kind and attacker square like Stop_Threats, which has them for every
-// pawn. Pawn attackers are covered by PP_3Wide, attacks on an occupied stop square by the
-// threat features.
+// has no enemy pawn ahead of it on its own or an adjacent file, while there are at most
+// eight knights, bishops, rooks and queens on the board (PassStopMaxPieces). Every knight,
+// bishop, rook, queen or king attacking the square is a feature of its own, indexed by pawn
+// color, pawn square, attacker kind and attacker square like Stop_Threats, which has them
+// for every pawn. Pawn attackers are covered by PP_3Wide, attacks on an occupied stop
+// square by the threat features.
 
 #ifndef NNUE_FEATURES_STOP_THREATS_INCLUDED
 #define NNUE_FEATURES_STOP_THREATS_INCLUDED
@@ -41,7 +42,7 @@ namespace Stockfish::Eval::NNUE::Features {
 
 class StopThreats {
    public:
-    static constexpr u32 HashValue = 0x7d29a4f7u;
+    static constexpr u32 HashValue = 0x7d29a4f9u;
 
     // Pawn color, pawn square, attacker kind (own knight, bishop, rook, queen, king, then
     // the enemy's) and the squares from which that kind reaches the stop square
