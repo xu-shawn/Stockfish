@@ -128,7 +128,7 @@ void K32Q2::append_changed_indices(Color           perspective,
 }
 
 bool K32Q2::requires_refresh(const DiffType& diff, Color perspective) {
-    if (diff.pc == make_piece(perspective, KING))
+    if (diff.pc == make_piece(perspective, KING) || diff.pcBucketChange)
         return true;
 
     Color opponent = ~perspective;

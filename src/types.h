@@ -305,6 +305,9 @@ struct DirtyPiece {
     // castling uses add_sq and remove_sq to remove and add the rook
     Square remove_sq, add_sq;
     Piece  remove_pc, add_pc;
+
+    // The move is a capture that changes the piece-count bucket of the piece-square features
+    bool pcBucketChange;
 };
 
 // Keep track of what threats change on the board (used by NNUE)
