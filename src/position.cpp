@@ -822,9 +822,9 @@ void Position::do_move(Move                      m,
     dp.to     = to;
     dp.add_sq = SQ_NONE;
 
-    // Piece-count buckets are (pieces - 1) / 8, so a capture changes the bucket from 9, 17 or 25
-    // pieces (castling is encoded as capturing the own rook)
-    dp.pcBucketChange = captured && m.type_of() != CASTLING && (count<ALL_PIECES>() - 1) % 8 == 0;
+    // Piece-count buckets split at 16 pieces, so a capture changes the bucket from 17 pieces
+    // (castling is encoded as capturing the own rook)
+    dp.pcBucketChange = captured && m.type_of() != CASTLING && count<ALL_PIECES>() == 17;
 
     assert(color_of(pc) == us);
     assert(captured == NO_PIECE || color_of(captured) == (m.type_of() != CASTLING ? them : us));
