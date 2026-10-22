@@ -48,6 +48,10 @@ constexpr int       L3 = 32;
 
 constexpr IndexType LayerStacks = 32;
 
+// Layer stacks for at most this many pieces are chosen by material class instead of the
+// queen bucket (see layer_stack_bucket() in network.cpp)
+constexpr int LayerStackClassMax = 12;
+
 struct NetworkArchitecture {
     static constexpr IndexType TransformedFeatureDimensions = L1;
     static constexpr int       FC_0_OUTPUTS                 = L2;
@@ -74,6 +78,9 @@ struct NetworkArchitecture {
         hashValue = decltype(fc_1)::get_hash_value(hashValue);
         hashValue = decltype(ac_1)::get_hash_value(hashValue);
         hashValue = decltype(fc_2)::get_hash_value(hashValue);
+
+        // Same layers, different stack selection
+        hashValue ^= 0xC1A55000u + LayerStackClassMax;
 
         return hashValue;
     }

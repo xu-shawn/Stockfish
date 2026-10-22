@@ -63,6 +63,27 @@ const unsigned int  gEmbeddedNNUESize    = 1;
 
 namespace Stockfish::Eval::NNUE {
 
+namespace {
+
+// Layer stack: the piece-count group (4 counts each, kings and pawns included) times 4, plus
+// the queen bucket. With at most LayerStackClassMax pieces the material class replaces the
+// queen bucket: 3 with any queen on the board, else 2 with any rook, else 1 with any minor
+// piece, else 0.
+int layer_stack_bucket(const Position& pos) {
+    const int pieces   = pos.count<ALL_PIECES>();
+    const int pcBucket = (pieces - 1) / 4;
+    if (pieces <= LayerStackClassMax)
+        return pcBucket * 4
+             + (pos.pieces(QUEEN)            ? 3
+                : pos.pieces(ROOK)           ? 2
+                : pos.pieces(KNIGHT, BISHOP) ? 1
+                                             : 0);
+    const Color stm = pos.side_to_move();
+    return pcBucket * 4 + ((pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0));
+}
+
+}  // namespace
+
 namespace fs = std::filesystem;
 
 namespace Detail {
@@ -150,10 +171,7 @@ Value Network::evaluate(const Position&    pos,
 
     NNZInfo<L1> nnzInfo;
 
-    const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
-    const Color stm         = pos.side_to_move();
-    const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
-    const int   bucket      = pcBucket * 4 + queenBucket;
+    const int bucket = layer_stack_bucket(pos);
 
     featureTransformer.transform(pos, accumulatorStack, cache, transformedFeatures, nnzInfo);
     const auto positional = network[bucket].propagate(transformedFeatures, nnzInfo);
@@ -214,10 +232,7 @@ NnueEvalTrace Network::trace_evaluate(const Position&    pos,
 
     ASSERT_ALIGNED(transformedFeatures, alignment);
 
-    const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
-    const Color stm         = pos.side_to_move();
-    const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
-    const int   bucket      = pcBucket * 4 + queenBucket;
+    const int bucket = layer_stack_bucket(pos);
 
     NnueEvalTrace t{};
     t.correctBucket = bucket;
