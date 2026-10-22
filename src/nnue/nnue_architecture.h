@@ -28,6 +28,7 @@
 #include "features/full_threats.h"
 #include "features/pp_3wide.h"
 #include "layers/affine_transform.h"
+#include "layers/affine_transform_mix.h"
 #include "layers/affine_transform_sparse_input.h"
 #include "layers/clipped_relu.h"
 #include "layers/sqr_clipped_relu.h"
@@ -42,24 +43,27 @@ using PairFeatureSet   = Features::PP_3Wide;
 using PSQFeatureSet    = Features::K32Q2;
 
 // Number of input feature dimensions after conversion
-constexpr IndexType L1 = 1024;
-constexpr int       L2 = 32;
-constexpr int       L3 = 32;
+constexpr IndexType L1  = 1024;
+constexpr int       L2  = 64;
+constexpr int       L2R = 32;  // factorised L2: sparse layer outputs, mixed densely into L2
+constexpr int       L3  = 32;
 
 constexpr IndexType LayerStacks = 32;
 
 struct NetworkArchitecture {
     static constexpr IndexType TransformedFeatureDimensions = L1;
+    static constexpr int       FC_0_RANK                    = L2R;
     static constexpr int       FC_0_OUTPUTS                 = L2;
     static constexpr int       FC_1_OUTPUTS                 = L3;
 
-    Layers::AffineTransformSparseInput<TransformedFeatureDimensions, FC_0_OUTPUTS> fc_0;
-    Layers::SqrClippedReLU<FC_0_OUTPUTS, WeightScaleBits + 1>                      ac_sqr_0;
-    Layers::ClippedReLU<FC_0_OUTPUTS, WeightScaleBits + 1>                         ac_0;
-    Layers::AffineTransform<FC_0_OUTPUTS * 2, FC_1_OUTPUTS>                        fc_1;
-    Layers::SqrClippedReLU<FC_1_OUTPUTS, WeightScaleBits>                          ac_sqr_1;
-    Layers::ClippedReLU<FC_1_OUTPUTS, WeightScaleBits>                             ac_1;
-    Layers::AffineTransform<FC_0_OUTPUTS * 2 + FC_1_OUTPUTS * 2, 1>                fc_2;
+    Layers::AffineTransformSparseInput<TransformedFeatureDimensions, FC_0_RANK> fc_0;
+    Layers::AffineTransformMix<FC_0_RANK, FC_0_OUTPUTS>                         fc_0_mix;
+    Layers::SqrClippedReLU<FC_0_OUTPUTS, WeightScaleBits + 1>                   ac_sqr_0;
+    Layers::ClippedReLU<FC_0_OUTPUTS, WeightScaleBits + 1>                      ac_0;
+    Layers::AffineTransform<FC_0_OUTPUTS * 2, FC_1_OUTPUTS>                     fc_1;
+    Layers::SqrClippedReLU<FC_1_OUTPUTS, WeightScaleBits>                       ac_sqr_1;
+    Layers::ClippedReLU<FC_1_OUTPUTS, WeightScaleBits>                          ac_1;
+    Layers::AffineTransform<FC_0_OUTPUTS * 2 + FC_1_OUTPUTS * 2, 1>             fc_2;
 
     // Hash value embedded in the evaluation file
     static constexpr u32 get_hash_value() {
@@ -68,6 +72,7 @@ struct NetworkArchitecture {
         hashValue ^= TransformedFeatureDimensions * 2;
 
         hashValue = decltype(fc_0)::get_hash_value(hashValue);
+        hashValue = decltype(fc_0_mix)::get_hash_value(hashValue);
         // TODO: consider including hash value of ac_sqr_0 in the overall hash value.
         // For now omitted on purpose because hash value is not written by trainer (yet)
         hashValue = decltype(ac_0)::get_hash_value(hashValue);
@@ -80,22 +85,23 @@ struct NetworkArchitecture {
 
     // Read network parameters
     bool read_parameters(std::istream& stream) {
-        return fc_0.read_parameters(stream) && ac_0.read_parameters(stream)
-            && fc_1.read_parameters(stream) && ac_1.read_parameters(stream)
-            && fc_2.read_parameters(stream);
+        return fc_0.read_parameters(stream) && fc_0_mix.read_parameters(stream)
+            && ac_0.read_parameters(stream) && fc_1.read_parameters(stream)
+            && ac_1.read_parameters(stream) && fc_2.read_parameters(stream);
     }
 
     // Write network parameters
     bool write_parameters(std::ostream& stream) const {
-        return fc_0.write_parameters(stream) && ac_0.write_parameters(stream)
-            && fc_1.write_parameters(stream) && ac_1.write_parameters(stream)
-            && fc_2.write_parameters(stream);
+        return fc_0.write_parameters(stream) && fc_0_mix.write_parameters(stream)
+            && ac_0.write_parameters(stream) && fc_1.write_parameters(stream)
+            && ac_1.write_parameters(stream) && fc_2.write_parameters(stream);
     }
 
     i32 propagate(const TransformedFeatureType* transformedFeatures,
                   const NNZInfo<L1>&            nnzInfo) const {
         struct alignas(CacheLineSize) Buffer {
             alignas(CacheLineSize) typename decltype(fc_0)::OutputBuffer fc_0_out;
+            alignas(CacheLineSize) typename decltype(fc_0_mix)::OutputBuffer fc_0_mix_out;
             alignas(CacheLineSize) typename decltype(ac_sqr_0)::OutputType
               concat_buffer[ceil_to_multiple<IndexType>(FC_0_OUTPUTS * 2 + FC_1_OUTPUTS * 2, 32)];
             alignas(CacheLineSize) typename decltype(fc_1)::OutputBuffer fc_1_out;
@@ -105,12 +111,13 @@ struct NetworkArchitecture {
         Buffer buffer;
 
         fc_0.propagate(transformedFeatures, buffer.fc_0_out, nnzInfo);
+        fc_0_mix.propagate(buffer.fc_0_out, buffer.fc_0_mix_out);
 #if defined(USE_PAIR_ACTIVATIONS)
-        ac_sqr_0.propagate_pair(buffer.fc_0_out, buffer.concat_buffer,
+        ac_sqr_0.propagate_pair(buffer.fc_0_mix_out, buffer.concat_buffer,
                                 buffer.concat_buffer + FC_0_OUTPUTS);
 #else
-        ac_sqr_0.propagate(buffer.fc_0_out, buffer.concat_buffer);
-        ac_0.propagate(buffer.fc_0_out, buffer.concat_buffer + FC_0_OUTPUTS);
+        ac_sqr_0.propagate(buffer.fc_0_mix_out, buffer.concat_buffer);
+        ac_0.propagate(buffer.fc_0_mix_out, buffer.concat_buffer + FC_0_OUTPUTS);
 #endif
 
         fc_1.propagate(buffer.concat_buffer, buffer.fc_1_out);
@@ -126,7 +133,7 @@ struct NetworkArchitecture {
 
         static_assert(FC_0_OUTPUTS >= 2);
         i32 fwdOut = buffer.fc_2_out[0];
-        i32 skip_0 = buffer.fc_0_out[FC_0_OUTPUTS - 2] - buffer.fc_0_out[FC_0_OUTPUTS - 1];
+        i32 skip_0 = buffer.fc_0_mix_out[FC_0_OUTPUTS - 2] - buffer.fc_0_mix_out[FC_0_OUTPUTS - 1];
         fwdOut += skip_0;
 
         // fwdOut is such that 1.0 is equal to HiddenOneVal*(1<<WeightScaleBits)*2 in
@@ -143,6 +150,7 @@ struct NetworkArchitecture {
     usize get_content_hash() const {
         usize h = 0;
         hash_combine(h, fc_0.get_content_hash());
+        hash_combine(h, fc_0_mix.get_content_hash());
         hash_combine(h, ac_sqr_0.get_content_hash());
         hash_combine(h, ac_0.get_content_hash());
         hash_combine(h, fc_1.get_content_hash());
