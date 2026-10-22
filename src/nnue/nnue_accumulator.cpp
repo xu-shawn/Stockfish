@@ -413,6 +413,59 @@ sf_always_inline Tile apply_psq_features(IndexType                       j,
     return acc;
 }
 
+// Net material change of a piece-square update: every piece-square feature also activates the
+// int16 material row of its plane (piece type and side), so only planes whose count changes need
+// a row; quiet moves cancel out. Planes count from the PS_* offsets; kings have no row.
+struct MaterialDelta {
+    static constexpr int MaxRows = 2 * PSQFeatureSet::MaxActiveDimensions;
+    int                  size    = 0;
+    int                  sign[MaxRows];
+    const i16*           row[MaxRows];
+};
+
+MaterialDelta material_delta(const PSQFeatureSet::IndexList& added,
+                             const PSQFeatureSet::IndexList& removed,
+                             const FeatureTransformer&       ft) {
+    constexpr IndexType PlaneSize = SQUARE_NB;
+    constexpr IndexType BlockSize = PSQFeatureSet::BucketDimensions / SQUARE_NB;  // PS_NB
+
+    MaterialDelta d;
+    // Fast path: one piece moved, nothing captured or promoted
+    if (added.size() == 1 && removed.size() == 1
+        && (added[0] % BlockSize) / PlaneSize == (removed[0] % BlockSize) / PlaneSize)
+        return d;
+
+    int count[FeatureTransformer::MaterialPlanes + 1] = {};
+    for (int i = 0; i < added.ssize(); ++i)
+        ++count[(added[i] % BlockSize) / PlaneSize];
+    for (int i = 0; i < removed.ssize(); ++i)
+        --count[(removed[i] % BlockSize) / PlaneSize];
+
+    for (int p = 0; p < FeatureTransformer::MaterialPlanes; ++p)
+        for (int k = 0; k < std::abs(count[p]); ++k)
+        {
+            d.sign[d.size] = count[p] > 0 ? 1 : -1;
+            d.row[d.size]  = &ft.materialWeights[p * Dimensions];
+            ++d.size;
+        }
+    return d;
+}
+
+// Adds the material rows to an accumulation in a separate pass, so the main update loops keep
+// their tiles in registers; material changes only on captures, promotions and refreshes.
+void apply_material(i16* data, const MaterialDelta& d) {
+    if (!d.size)
+        return;
+    Tile acc;
+    for (IndexType j = 0; j < Dimensions; increment_index(j))
+    {
+        acc = load_tile(j, data);
+        for (int i = 0; i < d.size; ++i)
+            acc = d.sign[i] > 0 ? apply<1>(j, acc, d.row[i]) : apply<-1>(j, acc, d.row[i]);
+        store_tile(j, data, acc);
+    }
+}
+
 template<int sign>
 sf_always_inline Tile apply_threat_features(IndexType                          j,
                                             Tile                               acc,
@@ -425,15 +478,20 @@ sf_always_inline Tile apply_threat_features(IndexType                          j
     return acc;
 }
 
-void apply_combined(Color                              perspective,
-                    const FeatureTransformer&          featureTransformer,
-                    const AccumulatorState&            from,
-                    AccumulatorState&                  to,
-                    const PSQFeatureSet::IndexList&    psqAdded,
-                    const PSQFeatureSet::IndexList&    psqRemoved,
-                    const ThreatFeatureSet::IndexList& thrAdded,
-                    const ThreatFeatureSet::IndexList& thrRemoved,
-                    const WeightType*                  psqWeights) {
+// NSub / NAdd: number of material rows to subtract / add (captures, promotions); fixed at compile
+// time so the tiles stay in registers.
+template<int NSub, int NAdd>
+void apply_combined_impl(Color                              perspective,
+                         const FeatureTransformer&          featureTransformer,
+                         const AccumulatorState&            from,
+                         AccumulatorState&                  to,
+                         const PSQFeatureSet::IndexList&    psqAdded,
+                         const PSQFeatureSet::IndexList&    psqRemoved,
+                         const ThreatFeatureSet::IndexList& thrAdded,
+                         const ThreatFeatureSet::IndexList& thrRemoved,
+                         const WeightType*                  psqWeights,
+                         const i16* const*                  subRows,
+                         const i16* const*                  addRows) {
 
     const auto& fromAcc = from.accumulation[perspective];
     auto&       toAcc   = to.accumulation[perspective];
@@ -447,11 +505,118 @@ void apply_combined(Color                              perspective,
         acc = apply_psq_features<-1, true>(j, acc, psqRemoved, psqWeights);
         acc = apply_psq_features<+1, true>(j, acc, psqAdded, psqWeights);
 
+        if constexpr (NSub > 0)
+            acc = apply<-1>(j, acc, subRows[0]);
+        if constexpr (NSub > 1)
+            acc = apply<-1>(j, acc, subRows[1]);
+        if constexpr (NAdd > 0)
+            acc = apply<1>(j, acc, addRows[0]);
+
         acc = apply_threat_features<-1>(j, acc, thrRemoved, featureTransformer);
         acc = apply_threat_features<+1>(j, acc, thrAdded, featureTransformer);
 
         store_tile(j, toAcc.data(), acc);
     }
+}
+
+void apply_combined(Color                              perspective,
+                    const FeatureTransformer&          featureTransformer,
+                    const AccumulatorState&            from,
+                    AccumulatorState&                  to,
+                    const PSQFeatureSet::IndexList&    psqAdded,
+                    const PSQFeatureSet::IndexList&    psqRemoved,
+                    const ThreatFeatureSet::IndexList& thrAdded,
+                    const ThreatFeatureSet::IndexList& thrRemoved,
+                    const WeightType*                  psqWeights) {
+
+    // Material change of an incremental update (at most 3 changed pieces): a removed and an
+    // added piece of the same plane cancel; the rest are captured or promoted pieces
+    constexpr IndexType PlaneSize = SQUARE_NB;
+    constexpr IndexType BlockSize = PSQFeatureSet::BucketDimensions / SQUARE_NB;  // PS_NB
+    constexpr int       KingPlane = FeatureTransformer::MaterialPlanes;
+
+    const i16* subRows[2];
+    const i16* addRows[1];
+
+    // One piece moved: same plane (quiet move) or a promotion
+    if (psqAdded.size() == 1 && psqRemoved.size() == 1)
+    {
+        const IndexType pa = (psqAdded[0] % BlockSize) / PlaneSize;
+        const IndexType pr = (psqRemoved[0] % BlockSize) / PlaneSize;
+        if (pa == pr)
+            apply_combined_impl<0, 0>(perspective, featureTransformer, from, to, psqAdded,
+                                      psqRemoved, thrAdded, thrRemoved, psqWeights, subRows,
+                                      addRows);
+        else
+        {
+            subRows[0] = &featureTransformer.materialWeights[pr * Dimensions];
+            addRows[0] = &featureTransformer.materialWeights[pa * Dimensions];
+            apply_combined_impl<1, 1>(perspective, featureTransformer, from, to, psqAdded,
+                                      psqRemoved, thrAdded, thrRemoved, psqWeights, subRows,
+                                      addRows);
+        }
+        return;
+    }
+
+    int planeAdded[2], planeRemoved[2];
+    int nAddedPlanes = 0, nRemovedPlanes = 0;
+    for (int i = 0; i < psqAdded.ssize() && nAddedPlanes < 2; ++i)
+        planeAdded[nAddedPlanes++] = (psqAdded[i] % BlockSize) / PlaneSize;
+    for (int i = 0; i < psqRemoved.ssize() && nRemovedPlanes < 2; ++i)
+        planeRemoved[nRemovedPlanes++] = (psqRemoved[i] % BlockSize) / PlaneSize;
+
+    bool fits = psqAdded.size() <= 2 && psqRemoved.size() <= 2;
+    for (int a = 0; a < nAddedPlanes; ++a)
+        for (int r = 0; r < nRemovedPlanes; ++r)
+            if (planeAdded[a] == planeRemoved[r])
+            {
+                planeAdded[a] = planeRemoved[r] = KingPlane;
+                break;
+            }
+
+    int nSub = 0, nAdd = 0;
+    for (int r = 0; r < nRemovedPlanes; ++r)
+        if (planeRemoved[r] != KingPlane)
+            subRows[nSub++] = &featureTransformer.materialWeights[planeRemoved[r] * Dimensions];
+    for (int a = 0; a < nAddedPlanes; ++a)
+        if (planeAdded[a] != KingPlane)
+        {
+            if (nAdd < 1)
+                addRows[nAdd++] = &featureTransformer.materialWeights[planeAdded[a] * Dimensions];
+            else
+                fits = false;
+        }
+
+#define APPLY_COMBINED(S, A) \
+    apply_combined_impl<S, A>(perspective, featureTransformer, from, to, psqAdded, psqRemoved, \
+                              thrAdded, thrRemoved, psqWeights, subRows, addRows)
+
+    if (!fits)
+    {
+        APPLY_COMBINED(0, 0);
+        apply_material(to.accumulation[perspective].data(),
+                       material_delta(psqAdded, psqRemoved, featureTransformer));
+    }
+    else if (nAdd == 0)
+    {
+        if (nSub == 0)
+            APPLY_COMBINED(0, 0);
+        else if (nSub == 1)
+            APPLY_COMBINED(1, 0);
+        else
+            APPLY_COMBINED(2, 0);
+    }
+    else
+    {
+        if (nSub == 0)
+            APPLY_COMBINED(0, 1);
+        else if (nSub == 1)
+            APPLY_COMBINED(1, 1);
+        else
+            APPLY_COMBINED(2, 1);
+    }
+
+#undef APPLY_COMBINED
 }
 
 template<bool Forward>
@@ -750,8 +915,10 @@ void update_accumulator_hybrid(Color                     perspective,
     PairFeatureSet::append_changed_indices(perspective, newKsq, target.dirtyPawnPairs, thrRemoved,
                                            thrAdded, threatPpBase, pfStride);
 
-    const auto& fromAcc = computed.accumulation[perspective];
-    auto&       toAcc   = target.accumulation[perspective];
+    const auto& fromAcc     = computed.accumulation[perspective];
+    auto&       toAcc       = target.accumulation[perspective];
+    const auto  newMaterial = material_delta(newAdd, newRemove, featureTransformer);
+    const auto  oldMaterial = material_delta(oldRemove, oldAdd, featureTransformer);
 
     Tile acc;
 
@@ -780,6 +947,10 @@ void update_accumulator_hybrid(Color                     perspective,
 
         store_tile(j, toAcc.data(), acc);
     }
+
+    apply_material(newEntry.accumulation.data(), newMaterial);
+    apply_material(toAcc.data(), newMaterial);
+    apply_material(toAcc.data(), oldMaterial);
 
     newEntry.pieces  = currentPieces;
     newEntry.pieceBB = pos.pieces();
@@ -833,6 +1004,8 @@ void update_accumulator_refresh_cache(Color                     perspective,
 
     accumulator.computed[perspective] = true;
 
+    const auto material = material_delta(added, removed, featureTransformer);
+
     Tile acc;
 
     for (IndexType j = 0; j < Dimensions; increment_index(j))
@@ -841,6 +1014,9 @@ void update_accumulator_refresh_cache(Color                     perspective,
 
         acc = apply_psq_features<-1>(j, acc, removed, psqWeights);
         acc = apply_psq_features<+1>(j, acc, added, psqWeights);
+        for (int m = 0; m < material.size; ++m)
+            acc = material.sign[m] > 0 ? apply<1>(j, acc, material.row[m])
+                                       : apply<-1>(j, acc, material.row[m]);
 
         store_tile(j, &entry.accumulation[0], acc);
 

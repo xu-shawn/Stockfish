@@ -140,11 +140,12 @@ class FeatureTransformer {
     static constexpr u32 get_hash_value() {
         return combine_hash(
                  {ThreatFeatureSet::HashValue, PairFeatureSet::HashValue, PSQFeatureSet::HashValue})
-             ^ (OutputDimensions * 2);
+             ^ (OutputDimensions * 2) ^ MaterialHash;
     }
 
     void permute_weights() {
         permute<16>(biases, PackusEpi16Order);
+        permute<16>(materialWeights, PackusEpi16Order);
         permute<8>(weights, PackusEpi16Order);
 
         permute<8>(threatAndPpWeights, PackusEpi16Order);
@@ -152,6 +153,7 @@ class FeatureTransformer {
 
     void unpermute_weights() {
         permute<16>(biases, InversePackusEpi16Order);
+        permute<16>(materialWeights, InversePackusEpi16Order);
         permute<8>(weights, InversePackusEpi16Order);
         permute<8>(threatAndPpWeights, InversePackusEpi16Order);
     }
@@ -167,6 +169,7 @@ class FeatureTransformer {
         read_little_endian(stream, pawnPairWeightData(), PairWeightSize);
 
         read_little_endian(stream, weights.data(), weights.size());
+        read_little_endian(stream, materialWeights.data(), materialWeights.size());
 
         permute_weights();
 
@@ -185,6 +188,7 @@ class FeatureTransformer {
         write_little_endian(stream, copy->pawnPairWeightData(), PairWeightSize);
 
         write_little_endian(stream, copy->weights.data(), copy->weights.size());
+        write_little_endian(stream, copy->materialWeights.data(), copy->materialWeights.size());
 
         return !stream.fail();
     }
@@ -196,6 +200,7 @@ class FeatureTransformer {
         hash_combine(h, get_raw_data_hash(weights));
 
         hash_combine(h, get_raw_data_hash(threatAndPpWeights));
+        hash_combine(h, get_raw_data_hash(materialWeights));
 
         hash_combine(h, get_hash_value());
 
@@ -398,6 +403,13 @@ class FeatureTransformer {
     static_assert(PairFeatureSet::IndexBase == ThreatFeatureSet::Dimensions);
 
     alignas(CacheLineSize) ThreatAndPpWeightArray threatAndPpWeights;
+
+    // Material rows: one int16 row per piece type (pawn to queen) and side, relative to the
+    // perspective, in piece-square plane order. Every piece-square feature also adds the row of
+    // its plane; the kings' rows are constant and folded into the biases by the trainer.
+    static constexpr int MaterialPlanes = 10;
+    static constexpr u32 MaterialHash   = 0x4D41540Au;
+    alignas(CacheLineSize) std::array<BiasType, MaterialPlanes * HalfDimensions> materialWeights;
 };
 
 }  // namespace Stockfish::Eval::NNUE
