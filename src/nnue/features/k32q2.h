@@ -27,10 +27,10 @@
 
 namespace Stockfish::Eval::NNUE::Features {
 
-// Feature K32Q2P2: Combination of the position of own king (32 buckets), opponent queen presence (2 states),
-// the piece count (2 buckets: up to 16 pieces and 17 or more, kings and pawns included) and
+// Feature K32Q2H2: Combination of the position of own king (32 buckets), opponent queen presence (2 states),
+// a heavy-piece bucket (2 buckets: no rook or queen on the board, or at least one of either side) and
 // piece-square positions. Position mirrored such that king is always on e..h files. Indices are those
-// of K32Q2, within the block of weights of the piece-count bucket (see PieceCountBuckets).
+// of K32Q2, within the block of weights of the bucket (see PieceCountBuckets, psq_bucket()).
 class K32Q2 {
 
     // Unique number for each piece type on each square
@@ -60,16 +60,17 @@ class K32Q2 {
 
    public:
     // Hash value embedded in the evaluation file
-    static constexpr u32 HashValue = 0x32b5e2c2u;
+    static constexpr u32 HashValue = 0x32b5e28au;
 
-    // Number of feature dimensions of one piece-count bucket (45,056 piece-squares)
+    // Number of feature dimensions of one bucket (45,056 piece-squares)
     static constexpr IndexType BucketDimensions =
       static_cast<IndexType>(SQUARE_NB) * static_cast<IndexType>(PS_NB);
 
-    // Piece-count buckets, each with its own block of BucketDimensions weights
+    // Buckets (here by heavy pieces, not piece count), each with its own block of BucketDimensions
+    // weights. Bucket 1: any rook or queen on the board (either side); bucket 0: none.
     static constexpr int       PieceCountBuckets = 2;
     static constexpr IndexType Dimensions        = BucketDimensions * PieceCountBuckets;
-    static constexpr int       piece_count_bucket(int pieceCount) { return pieceCount > 16; }
+    static constexpr int       psq_bucket(Bitboard rooksAndQueens) { return rooksAndQueens != 0; }
 
 #define B(v) (v * 2 * PS_NB)
     // clang-format off

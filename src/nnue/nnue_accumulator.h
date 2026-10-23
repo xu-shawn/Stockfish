@@ -80,7 +80,7 @@ struct AccumulatorCaches {
                     entry.clear(network.featureTransformer.biases);
     }
 
-    // One set of entries per piece-count bucket and opponent queen presence
+    // One set of entries per piece-square bucket and opponent queen presence
     auto& operator()(int pcBucket, bool opponentHasQueen) {
         return entries[pcBucket * 2 + opponentHasQueen];
     }

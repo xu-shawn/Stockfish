@@ -822,9 +822,17 @@ void Position::do_move(Move                      m,
     dp.to     = to;
     dp.add_sq = SQ_NONE;
 
-    // Piece-count buckets split at 16 pieces, so a capture changes the bucket from 17 pieces
-    // (castling is encoded as capturing the own rook)
-    dp.pcBucketChange = captured && m.type_of() != CASTLING && count<ALL_PIECES>() == 17;
+    // The piece-square bucket is whether any rook or queen is on the board. It changes when the
+    // last one is captured (castling is encoded as capturing the own rook) or when a pawn promotes
+    // to the first one.
+    {
+        const Bitboard heavy         = pieces(ROOK, QUEEN);
+        const bool     promotesHeavy = m.type_of() == PROMOTION && m.promotion_type() >= ROOK;
+        const bool     capturesHeavy = captured && m.type_of() != CASTLING
+                                  && (type_of(captured) == ROOK || type_of(captured) == QUEEN);
+        dp.pcBucketChange =
+          heavy ? capturesHeavy && !more_than_one(heavy) && !promotesHeavy : promotesHeavy;
+    }
 
     assert(color_of(pc) == us);
     assert(captured == NO_PIECE || color_of(captured) == (m.type_of() != CASTLING ? them : us));

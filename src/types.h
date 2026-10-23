@@ -306,7 +306,7 @@ struct DirtyPiece {
     Square remove_sq, add_sq;
     Piece  remove_pc, add_pc;
 
-    // The move is a capture that changes the piece-count bucket of the piece-square features
+    // The move changes the bucket of the piece-square features (rooks or queens on the board)
     bool pcBucketChange;
 };
 

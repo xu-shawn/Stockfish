@@ -173,7 +173,7 @@ void AccumulatorStack::forward_update_incremental(Color                     pers
 
     const Square ksq              = pos.square<KING>(perspective);
     const bool   opponentHasQueen = bool(pos.pieces(~perspective, QUEEN));
-    const int    pcBucket         = PSQFeatureSet::piece_count_bucket(pos.count<ALL_PIECES>());
+    const int    pcBucket         = PSQFeatureSet::psq_bucket(pos.pieces(ROOK, QUEEN));
 
     for (usize next = begin + 1; next < size; next++)
         update_accumulator_incremental<true>(perspective, featureTransformer, ksq, opponentHasQueen,
@@ -193,7 +193,7 @@ void AccumulatorStack::backward_update_incremental(Color                     per
 
     const Square ksq              = pos.square<KING>(perspective);
     const bool   opponentHasQueen = bool(pos.pieces(~perspective, QUEEN));
-    const int    pcBucket         = PSQFeatureSet::piece_count_bucket(pos.count<ALL_PIECES>());
+    const int    pcBucket         = PSQFeatureSet::psq_bucket(pos.pieces(ROOK, QUEEN));
 
     for (i64 next = i64(size) - 2; next >= i64(end); next--)
         update_accumulator_incremental<false>(perspective, featureTransformer, ksq,
@@ -217,7 +217,7 @@ void AccumulatorStack::forward_update_incremental_both(const Position&          
     const Square black_ksq     = pos.square<KING>(BLACK);
     const bool   whiteOppQueen = bool(pos.pieces(BLACK, QUEEN));
     const bool   blackOppQueen = bool(pos.pieces(WHITE, QUEEN));
-    const int    pcBucket      = PSQFeatureSet::piece_count_bucket(pos.count<ALL_PIECES>());
+    const int    pcBucket      = PSQFeatureSet::psq_bucket(pos.pieces(ROOK, QUEEN));
     const usize  shared_begin  = std::max(white_begin, black_begin);
 
     // Catch up the lagging perspective, then traverse the common suffix once.
@@ -241,7 +241,7 @@ namespace {
 
 constexpr IndexType Dimensions = FeatureTransformer::OutputDimensions;
 
-// Piece-square weights of a piece-count bucket
+// Piece-square weights of a bucket (see PSQFeatureSet::psq_bucket())
 const WeightType* psq_weights(const FeatureTransformer& ft, int pcBucket) {
     return &ft.weights[pcBucket * PSQFeatureSet::BucketDimensions * Dimensions];
 }
@@ -693,7 +693,7 @@ void update_accumulator_hybrid(Color                     perspective,
     previousPieceBB |= square_bb(oldKsq);
 
     const bool  opponentHasQueen = bool(pos.pieces(~perspective, QUEEN));
-    const int   pcBucket         = PSQFeatureSet::piece_count_bucket(pos.count<ALL_PIECES>());
+    const int   pcBucket         = PSQFeatureSet::psq_bucket(pos.pieces(ROOK, QUEEN));
     const auto& oldEntry         = cache(pcBucket, opponentHasQueen)[oldKsq][perspective];
     auto&       newEntry         = cache(pcBucket, opponentHasQueen)[newKsq][perspective];
     const auto* psqWeights       = psq_weights(featureTransformer, pcBucket);
@@ -797,7 +797,7 @@ void update_accumulator_refresh_cache(Color                     perspective,
 
     const bool               opponentHasQueen = bool(pos.pieces(~perspective, QUEEN));
     const Square             ksq              = pos.square<KING>(perspective);
-    const int                pcBucket = PSQFeatureSet::piece_count_bucket(pos.count<ALL_PIECES>());
+    const int                pcBucket = PSQFeatureSet::psq_bucket(pos.pieces(ROOK, QUEEN));
     auto&                    entry    = cache(pcBucket, opponentHasQueen)[ksq][perspective];
     const auto*              psqWeights = psq_weights(featureTransformer, pcBucket);
     PSQFeatureSet::IndexList removed, added;
