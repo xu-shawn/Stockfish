@@ -1028,7 +1028,7 @@ Value Search::Worker::search(
                              + std::abs(correctionValue) / 198435;
 
         if (eval - futilityMargin >= beta)
-            return (661 * beta + 363 * eval) / 1024;
+            return beta + (eval - beta) * std::min(363 + 40 * std::max(depth - 2, 0), 614) / 1024;
     }
 
     // Step 10. Null move search with verification search
