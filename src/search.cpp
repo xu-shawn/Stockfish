@@ -1778,7 +1778,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         if (bestValue >= beta)
         {
             assert(!is_decisive(bestValue));
-            bestValue = (441 * bestValue + 583 * beta) / 1024;
+            bestValue = beta + std::max(0, bestValue - beta - 100);
 
             if (!ss->ttHit)
                 ttWriter.write(posKey, VALUE_NONE, false, BOUND_LOWER, DEPTH_UNSEARCHED,
