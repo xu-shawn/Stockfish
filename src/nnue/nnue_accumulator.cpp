@@ -85,7 +85,7 @@ Dirties& AccumulatorStack::push() noexcept {
     st.computed.fill(false);
     new (&st.dirtyThreats) DirtyThreats;
     new (&st.dirtyPawnPairs) DirtyPawnPairs;
-    new (&st.dirtyXRays) DirtyXRays;
+    new (&st.dirtyAttacked) DirtyAttacked;
     size++;
     return st;
 }

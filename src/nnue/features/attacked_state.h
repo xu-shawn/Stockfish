@@ -13,14 +13,14 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// Definition of input features XRay_Threats_N4 of NNUE evaluation function: slider x-rays.
-// Every bishop, rook or queen whose line, past exactly one piece (the blocker), reaches a
-// second piece (the target), while there are at most XRayMaxPieces knights, bishops, rooks
-// and queens on the board. Covers pins, skewers, discovered attacks and batteries, which the
-// threat features (direct attacks only) do not.
+// Definition of input features Attacked_State of NNUE evaluation function: every non-king piece
+// attacked by at least one enemy piece, with its attacker and defender counts (direct attacks,
+// kings and pawns included), while there are at most AttackedMaxPieces knights, bishops, rooks
+// and queens on the board. Index: ((piece color relative to the perspective * 5 + piece type)
+// * 64 + oriented square) * 6 + (min(attackers, 2) - 1) * 3 + min(defenders, 2).
 
-#ifndef NNUE_FEATURES_XRAY_THREATS_INCLUDED
-#define NNUE_FEATURES_XRAY_THREATS_INCLUDED
+#ifndef NNUE_FEATURES_ATTACKED_STATE_INCLUDED
+#define NNUE_FEATURES_ATTACKED_STATE_INCLUDED
 
 #include "../../misc.h"
 #include "../../types.h"
@@ -34,16 +34,12 @@ class Position;
 
 namespace Stockfish::Eval::NNUE::Features {
 
-class XRayThreats {
+class AttackedState {
    public:
-    static constexpr u32 HashValue = 0x58a40004u;
+    static constexpr u32 HashValue =
+      AttackedMaxPieces >= 30 ? 0xa77ac456u : 0xa77ac400u + u32(AttackedMaxPieces);
 
-    // Attacker kind (bishop, rook, queen of the perspective, then of the opponent), the
-    // (attacker, target) square pair among the lines of that piece type at distance at
-    // least 2, target kind (pawn ... king of the perspective, then of the opponent) and
-    // whether the blocker belongs to the other side than the attacker
-    static constexpr IndexType LinePairs[3] = {364, 672, 1036};
-    static constexpr IndexType Dimensions   = 2 * (LinePairs[0] + LinePairs[1] + LinePairs[2]) * 24;
+    static constexpr IndexType Dimensions = 10 * 64 * 6;
 
     // Concatenated to threats and pawn pairs; see nnue_feature_transformer.h
     static constexpr IndexType IndexBase = FullThreats::Dimensions + PP_3Wide::Dimensions;
@@ -58,10 +54,10 @@ class XRayThreats {
                                        IndexList&              added,
                                        const ThreatWeightType* prefetchBase   = nullptr,
                                        IndexType               prefetchStride = 0) {
-        const DirtyXRays& x = diff.dirtyXRays;
-        if (x.removed.size() || x.added.size())
-            append_xray_changes(perspective, ksq, x, removed, added, prefetchBase,
-                                prefetchStride);
+        const DirtyAttacked& a = diff.dirtyAttacked;
+        if (a.removed.size() || a.added.size())
+            append_attacked_changes(perspective, ksq, a, removed, added, prefetchBase,
+                                    prefetchStride);
     }
 
     static void append_changed_indices_both(Square                  white_ksq,
@@ -73,26 +69,26 @@ class XRayThreats {
                                             IndexList&              black_added,
                                             const ThreatWeightType* prefetchBase,
                                             IndexType               prefetchStride) {
-        const DirtyXRays& x = diff.dirtyXRays;
-        if (x.removed.size() || x.added.size())
+        const DirtyAttacked& a = diff.dirtyAttacked;
+        if (a.removed.size() || a.added.size())
         {
-            append_xray_changes(WHITE, white_ksq, x, white_removed, white_added, prefetchBase,
-                                prefetchStride);
-            append_xray_changes(BLACK, black_ksq, x, black_removed, black_added, prefetchBase,
-                                prefetchStride);
+            append_attacked_changes(WHITE, white_ksq, a, white_removed, white_added, prefetchBase,
+                                    prefetchStride);
+            append_attacked_changes(BLACK, black_ksq, a, black_removed, black_added, prefetchBase,
+                                    prefetchStride);
         }
     }
 
    private:
-    static void append_xray_changes(Color                   perspective,
-                                    Square                  ksq,
-                                    const DirtyXRays&       x,
-                                    IndexList&              removed,
-                                    IndexList&              added,
-                                    const ThreatWeightType* prefetchBase,
-                                    IndexType               prefetchStride);
+    static void append_attacked_changes(Color                   perspective,
+                                        Square                  ksq,
+                                        const DirtyAttacked&    a,
+                                        IndexList&              removed,
+                                        IndexList&              added,
+                                        const ThreatWeightType* prefetchBase,
+                                        IndexType               prefetchStride);
 };
 
 }  // namespace Stockfish::Eval::NNUE::Features
 
-#endif  // #ifndef NNUE_FEATURES_XRAY_THREATS_INCLUDED
+#endif  // #ifndef NNUE_FEATURES_ATTACKED_STATE_INCLUDED

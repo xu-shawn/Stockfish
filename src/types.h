@@ -351,22 +351,25 @@ struct DirtyPawnPairs {
     Bitboard after[COLOR_NB];
 };
 
-// The XRay_Threats_N4 features exist only while there are at most this many knights, bishops,
-// rooks and queens on the board. With so few sliders do_move records them as the difference of
-// the full lists before and after the move: raw records from | to << 6 | slider << 12 |
-// target << 16 | (blocker of the other side than the slider) << 20.
-constexpr int XRayMaxPieces = 4;
+// The Attacked_State features exist only while there are at most this many knights, bishops,
+// rooks and queens on the board (99: always). do_move records the features that change as raw
+// records square | piece << 6 | state << 10, where state = (min(attackers, 2) - 1) * 3
+// + min(defenders, 2) of an attacked non-king piece.
+#ifndef ATTACKED_MAX_PIECES
+    #define ATTACKED_MAX_PIECES 8
+#endif
+constexpr int AttackedMaxPieces = ATTACKED_MAX_PIECES;
 
-struct DirtyXRays {
-    static constexpr int MaxSize = 32;  // at most 4 sliders, 8 lines each
-    ValueList<u32, MaxSize> removed, added;
+struct DirtyAttacked {
+    static constexpr int MaxSize = 32;  // at most 30 non-king pieces
+    ValueList<u16, MaxSize> removed, added;
 };
 
 struct Dirties {
     DirtyPiece     dirtyPiece;
     DirtyThreats   dirtyThreats;
     DirtyPawnPairs dirtyPawnPairs;
-    DirtyXRays     dirtyXRays;
+    DirtyAttacked  dirtyAttacked;
 };
 
     #define ENABLE_INCR_OPERATORS_ON(T) \

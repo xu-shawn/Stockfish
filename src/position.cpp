@@ -500,6 +500,10 @@ void Position::compute_threats() const {
 // The function is only used when a new position is set up
 void Position::set_state() const {
 
+    for (Square s = SQ_A1; s <= SQ_H8; ++s)
+        st->attacked[s] = attacked_code(s, pieces());
+
+
     st->key               = 0;
     st->minorPieceKey     = 0;
     st->nonPawnKey[WHITE] = st->nonPawnKey[BLACK] = 0;
@@ -784,28 +788,20 @@ bool Position::gives_check(Move m) const {
 // to a StateInfo object. The move is assumed to be legal.
 // If a pointer to the shared histories is passed, their entries for the
 // new position will be prefetched.
-// Every bishop, rook or queen whose line, past exactly one piece, reaches a second piece, as
-// raw DirtyXRays records
-int Position::xray_list(u32* out) const {
-    const Bitboard occupied = pieces();
-    int            n        = 0;
+// Attacked_State code of the piece on s: piece | (state + 1) << 4 if it is a non-king piece with
+// at least one enemy attacker, else 0
+u8 Position::attacked_code(Square s, Bitboard occupied) const {
+    const Piece pc = piece_on(s);
+    if (pc == NO_PIECE || type_of(pc) == KING)
+        return 0;
 
-    for (Bitboard sliders = pieces(BISHOP, ROOK, QUEEN); sliders;)
-    {
-        const Square    a     = pop_lsb(sliders);
-        const Piece     sp    = piece_on(a);
-        const Bitboard  first = attacks_bb(type_of(sp), a, occupied) & occupied;
+    const Bitboard attackers = attackers_to(s, occupied);
+    const int      na        = popcount(attackers & pieces(~color_of(pc)));
+    if (!na)
+        return 0;
 
-        for (Bitboard second = attacks_bb(type_of(sp), a, occupied ^ first) & occupied & ~first;
-             second;)
-        {
-            const Square t       = pop_lsb(second);
-            const Square blocker = lsb((between_bb(a, t) ^ t) & occupied);
-            out[n++] = u32(a) | u32(t) << 6 | u32(sp) << 12 | u32(piece_on(t)) << 16
-                     | u32(color_of(piece_on(blocker)) != color_of(sp)) << 20;
-        }
-    }
-    return n;
+    const int nd = popcount(attackers & pieces(color_of(pc)));
+    return u8(pc | ((std::min(na, 2) - 1) * 3 + std::min(nd, 2) + 1) << 4);
 }
 
 void Position::do_move(
@@ -852,16 +848,36 @@ void Position::do_move(
     assert(captured == NO_PIECE || color_of(captured) == (m.type_of() != CASTLING ? them : us));
     assert(type_of(captured) != KING);
 
-    // The x-ray features exist only with at most XRayMaxPieces knights, bishops, rooks and
-    // queens on the board (a capture or a promotion can switch them on or off); then the move
-    // records the difference of the full lists before and after it
+    // The Attacked_State features exist only with at most AttackedMaxPieces knights, bishops,
+    // rooks and queens on the board (a capture or a promotion can switch them on or off). The
+    // pieces whose attackers can change are those the moving pieces attack before or after the
+    // move, and the first pieces on the lines through each square that is emptied or filled.
     const int  officers = count<ALL_PIECES>() - count<PAWN>() - 2;
-    const bool xrBefore = officers <= XRayMaxPieces;
-    const bool xrAfter  = officers - (m.type_of() != CASTLING && captured && type_of(captured) != PAWN)
+    const bool atBefore = officers <= AttackedMaxPieces;
+    const bool atAfter  = officers - (m.type_of() != CASTLING && captured && type_of(captured) != PAWN)
                          + (m.type_of() == PROMOTION)
-                       <= XRayMaxPieces;
-    u32 xraysBefore[DirtyXRays::MaxSize];
-    const int nXraysBefore = xrBefore ? xray_list(xraysBefore) : 0;
+                       <= AttackedMaxPieces;
+    Bitboard   affected = 0;
+    if (atBefore && atAfter)
+    {
+        const Bitboard occ = pieces();
+        affected = attacks_bb(pc, from, occ) | from | to;
+        if (m.type_of() == CASTLING)
+        {
+            const Square rto = relative_square(us, to > from ? SQ_F1 : SQ_D1);
+            const Square kto = relative_square(us, to > from ? SQ_G1 : SQ_C1);
+            affected |= attacks_bb(captured, to, occ) | attacks_bb(QUEEN, rto, occ)
+                      | attacks_bb(QUEEN, kto, occ) | rto | kto;
+        }
+        else
+        {
+            const Square capsq = m.type_of() == EN_PASSANT ? to - pawn_push(us) : to;
+            if (captured)
+                affected |= attacks_bb(captured, capsq, occ) | capsq;
+            if (!captured || m.type_of() == EN_PASSANT)
+                affected |= attacks_bb(QUEEN, to, occ);
+        }
+    }
 
     if (m.type_of() == CASTLING)
     {
@@ -1073,26 +1089,54 @@ void Position::do_move(
     dpps.after[WHITE] = pieces(WHITE, PAWN);
     dpps.after[BLACK] = pieces(BLACK, PAWN);
 
-    if (xrBefore || xrAfter)
+    if (atBefore || atAfter)
     {
-        auto&     dxr = dirties.dirtyXRays;
-        u32       xraysAfter[DirtyXRays::MaxSize];
-        const int nXraysAfter = xrAfter ? xray_list(xraysAfter) : 0;
-        u32       kept        = 0;  // x-rays of the after list that were there before
+        auto&          da  = dirties.dirtyAttacked;
+        const Bitboard occ = pieces();
+        auto emit = [](ValueList<u16, DirtyAttacked::MaxSize>& list, Square s, u8 code) {
+            list.push_back(u16(u32(s) | u32(code & 15) << 6 | u32((code >> 4) - 1) << 10));
+        };
 
-        for (int i = 0; i < nXraysBefore; ++i)
+        if (atBefore && atAfter)
         {
-            int j = 0;
-            while (j < nXraysAfter && xraysAfter[j] != xraysBefore[i])
-                ++j;
-            if (j < nXraysAfter)
-                kept |= 1u << j;
-            else
-                dxr.removed.push_back(xraysBefore[i]);
+            affected |= attacks_bb(piece_on(to), to, occ) | attacks_bb(QUEEN, from, occ);
+            if (m.type_of() == CASTLING)
+            {
+                const Square rto = relative_square(us, to > from ? SQ_F1 : SQ_D1);
+                const Square kto = relative_square(us, to > from ? SQ_G1 : SQ_C1);
+                affected |= attacks_bb(piece_on(rto), rto, occ) | attacks_bb(piece_on(kto), kto, occ)
+                          | attacks_bb(QUEEN, to, occ);
+            }
+            else if (m.type_of() == EN_PASSANT)
+                affected |= attacks_bb(QUEEN, to - pawn_push(us), occ);
+
+            for (Bitboard b = affected; b;)
+            {
+                const Square s    = pop_lsb(b);
+                const u8     prev = st->attacked[s];
+                const u8     now  = attacked_code(s, occ);
+                if (prev != now)
+                {
+                    if (prev)
+                        emit(da.removed, s, prev);
+                    if (now)
+                        emit(da.added, s, now);
+                    st->attacked[s] = now;
+                }
+            }
         }
-        for (int j = 0; j < nXraysAfter; ++j)
-            if (!(kept >> j & 1))
-                dxr.added.push_back(xraysAfter[j]);
+        else if (atAfter)
+        {
+            for (Square s = SQ_A1; s <= SQ_H8; ++s)
+                if ((st->attacked[s] = attacked_code(s, occ)))
+                    emit(da.added, s, st->attacked[s]);
+        }
+        else
+        {
+            for (Square s = SQ_A1; s <= SQ_H8; ++s)
+                if (st->attacked[s])
+                    emit(da.removed, s, st->attacked[s]);
+        }
     }
 
     assert(dp.pc != NO_PIECE);
