@@ -85,6 +85,7 @@ Dirties& AccumulatorStack::push() noexcept {
     st.computed.fill(false);
     new (&st.dirtyThreats) DirtyThreats;
     new (&st.dirtyPawnPairs) DirtyPawnPairs;
+    new (&st.dirtyXRays) DirtyXRays;
     size++;
     return st;
 }
@@ -440,9 +441,9 @@ sf_always_inline Tile apply_feature_pair(Tile acc, const i8* data0, const i8* da
 #endif
 
 // The weight-table base already includes the tile offset.
-template<int sign, bool Incremental = false>
+template<int sign, bool Incremental = false, typename Index>
 sf_always_inline Tile
-apply_features(IndexType j, Tile acc, const u16* indices, int count, const i8* weights) {
+apply_features(IndexType j, Tile acc, const Index* indices, int count, const i8* weights) {
     static_assert(sign == 1 || sign == -1);
     if constexpr (Incremental)
     {

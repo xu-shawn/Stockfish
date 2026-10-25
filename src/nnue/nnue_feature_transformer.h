@@ -438,11 +438,10 @@ class FeatureTransformer {
 
     // Threats, pawn-pair and extra features are concatenated into one array to allow for a single index to address
     // any of them. The first pawn-pair feature is at index ThreatFeatureSet::Dimensions, the first extra feature
-    // right after the pawn pairs. Indices are stored as u16.
+    // right after the pawn pairs. Indices are stored as u32.
     static_assert(PairFeatureSet::IndexBase == ThreatFeatureSet::Dimensions);
     static_assert(ExtraFeatureSet::IndexBase
                   == PairFeatureSet::IndexBase + PairFeatureSet::Dimensions);
-    static_assert(ThreatAndPpDimensions <= 65535);
 
     alignas(CacheLineSize) ThreatAndPpWeightArray threatAndPpWeights;
 };

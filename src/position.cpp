@@ -784,6 +784,30 @@ bool Position::gives_check(Move m) const {
 // to a StateInfo object. The move is assumed to be legal.
 // If a pointer to the shared histories is passed, their entries for the
 // new position will be prefetched.
+// Every bishop, rook or queen whose line, past exactly one piece, reaches a second piece, as
+// raw DirtyXRays records
+int Position::xray_list(u32* out) const {
+    const Bitboard occupied = pieces();
+    int            n        = 0;
+
+    for (Bitboard sliders = pieces(BISHOP, ROOK, QUEEN); sliders;)
+    {
+        const Square    a     = pop_lsb(sliders);
+        const Piece     sp    = piece_on(a);
+        const Bitboard  first = attacks_bb(type_of(sp), a, occupied) & occupied;
+
+        for (Bitboard second = attacks_bb(type_of(sp), a, occupied ^ first) & occupied & ~first;
+             second;)
+        {
+            const Square t       = pop_lsb(second);
+            const Square blocker = lsb((between_bb(a, t) ^ t) & occupied);
+            out[n++] = u32(a) | u32(t) << 6 | u32(sp) << 12 | u32(piece_on(t)) << 16
+                     | u32(color_of(piece_on(blocker)) != color_of(sp)) << 20;
+        }
+    }
+    return n;
+}
+
 void Position::do_move(
   Move m, StateInfo& newSt, bool givesCheck, Dirties& dirties, const SharedHistories* history) {
 
@@ -827,6 +851,17 @@ void Position::do_move(
     assert(color_of(pc) == us);
     assert(captured == NO_PIECE || color_of(captured) == (m.type_of() != CASTLING ? them : us));
     assert(type_of(captured) != KING);
+
+    // The x-ray features exist only with at most XRayMaxPieces knights, bishops, rooks and
+    // queens on the board (a capture or a promotion can switch them on or off); then the move
+    // records the difference of the full lists before and after it
+    const int  officers = count<ALL_PIECES>() - count<PAWN>() - 2;
+    const bool xrBefore = officers <= XRayMaxPieces;
+    const bool xrAfter  = officers - (m.type_of() != CASTLING && captured && type_of(captured) != PAWN)
+                         + (m.type_of() == PROMOTION)
+                       <= XRayMaxPieces;
+    u32 xraysBefore[DirtyXRays::MaxSize];
+    const int nXraysBefore = xrBefore ? xray_list(xraysBefore) : 0;
 
     if (m.type_of() == CASTLING)
     {
@@ -1037,6 +1072,28 @@ void Position::do_move(
 
     dpps.after[WHITE] = pieces(WHITE, PAWN);
     dpps.after[BLACK] = pieces(BLACK, PAWN);
+
+    if (xrBefore || xrAfter)
+    {
+        auto&     dxr = dirties.dirtyXRays;
+        u32       xraysAfter[DirtyXRays::MaxSize];
+        const int nXraysAfter = xrAfter ? xray_list(xraysAfter) : 0;
+        u32       kept        = 0;  // x-rays of the after list that were there before
+
+        for (int i = 0; i < nXraysBefore; ++i)
+        {
+            int j = 0;
+            while (j < nXraysAfter && xraysAfter[j] != xraysBefore[i])
+                ++j;
+            if (j < nXraysAfter)
+                kept |= 1u << j;
+            else
+                dxr.removed.push_back(xraysBefore[i]);
+        }
+        for (int j = 0; j < nXraysAfter; ++j)
+            if (!(kept >> j & 1))
+                dxr.added.push_back(xraysAfter[j]);
+    }
 
     assert(dp.pc != NO_PIECE);
     assert(!(bool(captured) || m.type_of() == CASTLING) ^ (dp.remove_sq != SQ_NONE));

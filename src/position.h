@@ -171,6 +171,8 @@ class Position {
     bool  upcoming_repetition(int ply) const;
     bool  has_repeated() const;
     int   rule50_count() const;
+    // Slider x-rays (see DirtyXRays) in a fixed order; returns their number
+    int xray_list(u32* out) const;
     Value non_pawn_material(Color c) const;
     Value non_pawn_material() const;
     bool  dtz_is_dtm() const;  // Pawnless && (3-men || 4-men-minors-only)
@@ -441,6 +443,7 @@ inline void Position::swap_piece(Square s, Piece pc, DirtyThreats* const dts) {
 inline void Position::do_move(Move m, StateInfo& newSt) {
     new (&scratchDirties.dirtyThreats) DirtyThreats;
     new (&scratchDirties.dirtyPawnPairs) DirtyPawnPairs;
+    new (&scratchDirties.dirtyXRays) DirtyXRays;
     do_move(m, newSt, gives_check(m), scratchDirties, nullptr);
 }
 
