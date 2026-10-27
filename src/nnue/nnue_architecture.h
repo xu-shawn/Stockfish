@@ -38,10 +38,11 @@
 namespace Stockfish::Eval::NNUE {
 
 // Input features used in evaluation function
-using ThreatFeatureSet = Features::FullThreats;
-using PairFeatureSet   = Features::PP_3Wide;
-using ExtraFeatureSet  = Features::RamRam;
-using PSQFeatureSet    = Features::K32Q2;
+using ThreatFeatureSet  = Features::FullThreats;
+using PairFeatureSet    = Features::PP_3Wide;
+using ExtraFeatureSet   = Features::RamRam;
+using RamPawnFeatureSet = Features::RamPawnNear;
+using PSQFeatureSet     = Features::K32Q2;
 
 // Number of input feature dimensions after conversion
 constexpr IndexType L1 = 1024;

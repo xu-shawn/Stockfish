@@ -489,21 +489,55 @@ sf_always_inline Tile apply_psq_features(IndexType                       j,
     return apply_features<sign>(j, acc, list.begin(), list.ssize(), &psqWeights[j]);
 }
 
+// Ram_Pawn_Near weights of the tile (see nnue_feature_transformer.h)
+sf_always_inline const ThreatWeightType* ram_pawn_weights(IndexType                 j,
+                                                          const FeatureTransformer& ft) {
+    return &ft.threatAndPpWeights[usize(RamPawnFeatureSet::WeightRow) * Dimensions + j];
+}
+
+// Applies the rows of two index lists with their own weight bases. With paired widening adds the
+// last row of an odd first list is paired with the first row of the second.
 template<int sign>
-sf_always_inline Tile apply_threat_features(IndexType                          j,
-                                            Tile                               acc,
-                                            const ThreatFeatureSet::IndexList& list,
-                                            const FeatureTransformer&          ft) {
-    return apply_features<sign>(j, acc, list.begin(), list.ssize(), &ft.threatAndPpWeights[j]);
+sf_always_inline Tile apply_two_lists(IndexType  j,
+                                      Tile       acc,
+                                      const u16* first,
+                                      int        firstCount,
+                                      const i8*  firstWeights,
+                                      const u16* second,
+                                      int        secondCount,
+                                      const i8*  secondWeights) {
+#if defined(USE_PAIRED_WIDENING_ADD)
+    if (firstCount % 2 != 0 && secondCount > 0)
+    {
+        acc = apply_features<sign>(j, acc, first, firstCount - 1, firstWeights);
+        acc =
+          apply_feature_pair<sign>(acc, &firstWeights[usize(first[firstCount - 1]) * Dimensions],
+                                   &secondWeights[usize(second[0]) * Dimensions]);
+        return apply_features<sign>(j, acc, second + 1, secondCount - 1, secondWeights);
+    }
+#endif
+    acc = apply_features<sign>(j, acc, first, firstCount, firstWeights);
+    return apply_features<sign>(j, acc, second, secondCount, secondWeights);
+}
+
+template<int sign>
+sf_always_inline Tile apply_threat_features(IndexType                           j,
+                                            Tile                                acc,
+                                            const ThreatFeatureSet::IndexList&  list,
+                                            const RamPawnFeatureSet::IndexList& ramPawns,
+                                            const FeatureTransformer&           ft) {
+    return apply_two_lists<sign>(j, acc, list.begin(), list.ssize(), &ft.threatAndPpWeights[j],
+                                 ramPawns.begin(), ramPawns.ssize(), ram_pawn_weights(j, ft));
 }
 
 template<int sign, bool Incremental = false>
-sf_always_inline Tile apply_combined_features(IndexType                          j,
-                                              Tile                               acc,
-                                              const PSQFeatureSet::IndexList&    psq,
-                                              const ThreatFeatureSet::IndexList& thr,
-                                              const FeatureTransformer&          ft,
-                                              const WeightType*                  psqBase) {
+sf_always_inline Tile apply_combined_features(IndexType                           j,
+                                              Tile                                acc,
+                                              const PSQFeatureSet::IndexList&     psq,
+                                              const ThreatFeatureSet::IndexList&  thr,
+                                              const RamPawnFeatureSet::IndexList& ramPawns,
+                                              const FeatureTransformer&           ft,
+                                              const WeightType*                   psqBase) {
     if constexpr (Incremental)
         assert(psq.size() == 1 || psq.size() == 2);
 
@@ -526,18 +560,21 @@ sf_always_inline Tile apply_combined_features(IndexType                         
         acc = apply_feature_pair<sign>(acc, &psqWeights[usize(psq[psqCount]) * Dimensions],
                                        &thrWeights[usize(thr[0]) * Dimensions]);
 #endif
-    return apply_features<sign>(j, acc, thr.begin() + thrBegin, thr.ssize() - thrBegin, thrWeights);
+    return apply_two_lists<sign>(j, acc, thr.begin() + thrBegin, thr.ssize() - thrBegin, thrWeights,
+                                 ramPawns.begin(), ramPawns.ssize(), ram_pawn_weights(j, ft));
 }
 
-void apply_combined(Color                              perspective,
-                    const FeatureTransformer&          featureTransformer,
-                    const AccumulatorState&            from,
-                    AccumulatorState&                  to,
-                    const PSQFeatureSet::IndexList&    psqAdded,
-                    const PSQFeatureSet::IndexList&    psqRemoved,
-                    const ThreatFeatureSet::IndexList& thrAdded,
-                    const ThreatFeatureSet::IndexList& thrRemoved,
-                    const WeightType*                  psqWeights) {
+void apply_combined(Color                               perspective,
+                    const FeatureTransformer&           featureTransformer,
+                    const AccumulatorState&             from,
+                    AccumulatorState&                   to,
+                    const PSQFeatureSet::IndexList&     psqAdded,
+                    const PSQFeatureSet::IndexList&     psqRemoved,
+                    const ThreatFeatureSet::IndexList&  thrAdded,
+                    const ThreatFeatureSet::IndexList&  thrRemoved,
+                    const RamPawnFeatureSet::IndexList& rpAdded,
+                    const RamPawnFeatureSet::IndexList& rpRemoved,
+                    const WeightType*                   psqWeights) {
 
     const auto& fromAcc = from.accumulation[perspective];
     auto&       toAcc   = to.accumulation[perspective];
@@ -548,10 +585,10 @@ void apply_combined(Color                              perspective,
     {
         acc = load_tile(j, fromAcc.data());
 
-        acc = apply_combined_features<-1, true>(j, acc, psqRemoved, thrRemoved, featureTransformer,
-                                                psqWeights);
-        acc = apply_combined_features<+1, true>(j, acc, psqAdded, thrAdded, featureTransformer,
-                                                psqWeights);
+        acc = apply_combined_features<-1, true>(j, acc, psqRemoved, thrRemoved, rpRemoved,
+                                                featureTransformer, psqWeights);
+        acc = apply_combined_features<+1, true>(j, acc, psqAdded, thrAdded, rpAdded,
+                                                featureTransformer, psqWeights);
 
         store_tile(j, toAcc.data(), acc);
     }
@@ -572,8 +609,9 @@ void update_accumulator_incremental(Color                     perspective,
     // That might depend on the feature set and generally relies on the
     // feature set's update cost calculation to be correct and never allow
     // updates with more added/removed features than MaxActiveDimensions.
-    PSQFeatureSet::IndexList    psqRemoved, psqAdded;
-    ThreatFeatureSet::IndexList thrRemoved, thrAdded;
+    PSQFeatureSet::IndexList     psqRemoved, psqAdded;
+    ThreatFeatureSet::IndexList  thrRemoved, thrAdded;
+    RamPawnFeatureSet::IndexList rpRemoved, rpAdded;
 
     const auto& dirtyPiece     = Forward ? target_state.dirtyPiece : computed.dirtyPiece;
     const auto& dirtyThreats   = Forward ? target_state.dirtyThreats : computed.dirtyThreats;
@@ -582,8 +620,9 @@ void update_accumulator_incremental(Color                     perspective,
     const Dirties& dirties = Forward ? static_cast<const Dirties&>(target_state) : computed;
 
     // Used solely for prefetching
-    const auto* threatPpBase = &featureTransformer.threatAndPpWeights[0];
-    IndexType   pfStride     = FeatureTransformer::OutputDimensions;
+    const auto* threatPpBase  = &featureTransformer.threatAndPpWeights[0];
+    const auto* ramPawnPfBase = ram_pawn_weights(0, featureTransformer);
+    IndexType   pfStride      = FeatureTransformer::OutputDimensions;
 
     if constexpr (Forward)
     {
@@ -593,6 +632,8 @@ void update_accumulator_incremental(Color                     perspective,
                                                thrAdded, threatPpBase, pfStride);
         ExtraFeatureSet::append_changed_indices(perspective, ksq, dirties, thrRemoved, thrAdded,
                                                 threatPpBase, pfStride);
+        RamPawnFeatureSet::append_changed_indices(perspective, ksq, dirtyPawnPairs, rpRemoved,
+                                                  rpAdded, ramPawnPfBase, pfStride);
         PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, psqBucket, psqRemoved,
                                               psqAdded);
     }
@@ -604,12 +645,15 @@ void update_accumulator_incremental(Color                     perspective,
                                                thrRemoved, threatPpBase, pfStride);
         ExtraFeatureSet::append_changed_indices(perspective, ksq, dirties, thrAdded, thrRemoved,
                                                 threatPpBase, pfStride);
+        RamPawnFeatureSet::append_changed_indices(perspective, ksq, dirtyPawnPairs, rpAdded,
+                                                  rpRemoved, ramPawnPfBase, pfStride);
         PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, psqBucket, psqAdded,
                                               psqRemoved);
     }
 
     apply_combined(perspective, featureTransformer, computed, target_state, psqAdded, psqRemoved,
-                   thrAdded, thrRemoved, psq_weights(featureTransformer, psqBucket));
+                   thrAdded, thrRemoved, rpAdded, rpRemoved,
+                   psq_weights(featureTransformer, psqBucket));
 
     target_state.computed[perspective] = true;
 }
@@ -627,11 +671,13 @@ void update_accumulator_incremental_both(const FeatureTransformer& featureTransf
     assert(!target_state.computed[WHITE]);
     assert(!target_state.computed[BLACK]);
 
-    PSQFeatureSet::IndexList    psq_removed[COLOR_NB], psq_added[COLOR_NB];
-    ThreatFeatureSet::IndexList thr_removed[COLOR_NB], thr_added[COLOR_NB];
+    PSQFeatureSet::IndexList     psq_removed[COLOR_NB], psq_added[COLOR_NB];
+    ThreatFeatureSet::IndexList  thr_removed[COLOR_NB], thr_added[COLOR_NB];
+    RamPawnFeatureSet::IndexList rp_removed[COLOR_NB], rp_added[COLOR_NB];
 
-    const auto* threat_pp_base = &featureTransformer.threatAndPpWeights[0];
-    const auto  pf_stride      = FeatureTransformer::OutputDimensions;
+    const auto* threat_pp_base   = &featureTransformer.threatAndPpWeights[0];
+    const auto* ram_pawn_pf_base = ram_pawn_weights(0, featureTransformer);
+    const auto  pf_stride        = FeatureTransformer::OutputDimensions;
 
     ThreatFeatureSet::append_changed_indices_both(
       white_ksq, black_ksq, target_state.dirtyThreats, thr_removed[WHITE], thr_added[WHITE],
@@ -642,6 +688,9 @@ void update_accumulator_incremental_both(const FeatureTransformer& featureTransf
     ExtraFeatureSet::append_changed_indices_both(
       white_ksq, black_ksq, target_state, thr_removed[WHITE], thr_added[WHITE], thr_removed[BLACK],
       thr_added[BLACK], threat_pp_base, pf_stride);
+    RamPawnFeatureSet::append_changed_indices_both(
+      white_ksq, black_ksq, target_state.dirtyPawnPairs, rp_removed[WHITE], rp_added[WHITE],
+      rp_removed[BLACK], rp_added[BLACK], ram_pawn_pf_base, pf_stride);
     PSQFeatureSet::append_changed_indices(WHITE, white_ksq, target_state.dirtyPiece, whiteBucket,
                                           psq_removed[WHITE], psq_added[WHITE]);
     PSQFeatureSet::append_changed_indices(BLACK, black_ksq, target_state.dirtyPiece, blackBucket,
@@ -651,9 +700,11 @@ void update_accumulator_incremental_both(const FeatureTransformer& featureTransf
     assert((whiteBucket == 0) == (blackBucket == 0));
     const WeightType* psqWeights = psq_weights(featureTransformer, whiteBucket);
     apply_combined(WHITE, featureTransformer, computed, target_state, psq_added[WHITE],
-                   psq_removed[WHITE], thr_added[WHITE], thr_removed[WHITE], psqWeights);
+                   psq_removed[WHITE], thr_added[WHITE], thr_removed[WHITE], rp_added[WHITE],
+                   rp_removed[WHITE], psqWeights);
     apply_combined(BLACK, featureTransformer, computed, target_state, psq_added[BLACK],
-                   psq_removed[BLACK], thr_added[BLACK], thr_removed[BLACK], psqWeights);
+                   psq_removed[BLACK], thr_added[BLACK], thr_removed[BLACK], rp_added[BLACK],
+                   rp_removed[BLACK], psqWeights);
 
     target_state.computed[WHITE] = true;
     target_state.computed[BLACK] = true;
@@ -863,6 +914,10 @@ void update_accumulator_hybrid(Color                     perspective,
                                            thrAdded, threatPpBase, pfStride);
     ExtraFeatureSet::append_changed_indices(perspective, newKsq, target, thrRemoved, thrAdded,
                                             threatPpBase, pfStride);
+    RamPawnFeatureSet::IndexList rpRemoved, rpAdded;
+    RamPawnFeatureSet::append_changed_indices(perspective, newKsq, target.dirtyPawnPairs, rpRemoved,
+                                              rpAdded, ram_pawn_weights(0, featureTransformer),
+                                              pfStride);
 
     const auto& fromAcc = computed.accumulation[perspective];
     auto&       toAcc   = target.accumulation[perspective];
@@ -887,10 +942,10 @@ void update_accumulator_hybrid(Color                     perspective,
 
         // ... then we adjust
         // The old entry's removed psq features have to be added back, its added ones removed
-        acc =
-          apply_combined_features<-1>(j, acc, oldAdd, thrRemoved, featureTransformer, psqWeights);
-        acc =
-          apply_combined_features<+1>(j, acc, oldRemove, thrAdded, featureTransformer, psqWeights);
+        acc = apply_combined_features<-1>(j, acc, oldAdd, thrRemoved, rpRemoved, featureTransformer,
+                                          psqWeights);
+        acc = apply_combined_features<+1>(j, acc, oldRemove, thrAdded, rpAdded, featureTransformer,
+                                          psqWeights);
 
         store_tile(j, toAcc.data(), acc);
     }
@@ -925,6 +980,8 @@ void update_accumulator_refresh_cache(Color                     perspective,
     ThreatFeatureSet::append_active_indices(perspective, pos, active);
     PairFeatureSet::append_active_indices(perspective, pos, active);
     ExtraFeatureSet::append_active_indices(perspective, pos, active);
+    RamPawnFeatureSet::IndexList ramPawnActive;
+    RamPawnFeatureSet::append_active_indices(perspective, pos, ramPawnActive);
 
     accumulator.computed[perspective] = true;
 
@@ -939,7 +996,7 @@ void update_accumulator_refresh_cache(Color                     perspective,
 
         store_tile(j, &entry.accumulation[0], acc);
 
-        acc = apply_threat_features<+1>(j, acc, active, featureTransformer);
+        acc = apply_threat_features<+1>(j, acc, active, ramPawnActive, featureTransformer);
 
         store_tile(j, accumulator.accumulation[perspective].data(), acc);
     }
