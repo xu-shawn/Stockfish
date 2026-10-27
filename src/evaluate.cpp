@@ -45,6 +45,59 @@ static int simple_eval(const Position& pos) {
 
 Value scale_evaluation(Value nnue, int optimism, const Position& pos);
 
+namespace {
+
+constexpr int EndgameMapStep                  = 50;
+constexpr int EndgameMapKnots                 = 13;
+constexpr int EndgameMap[15][EndgameMapKnots] = {
+  {0, 25, 51, 82, 116, 158, 205, 260, 322, 390, 463, 541, 623},    // 2 pieces
+  {0, 25, 51, 82, 116, 158, 205, 260, 322, 390, 463, 541, 623},    // 3 pieces
+  {0, 25, 51, 82, 116, 158, 205, 260, 322, 390, 463, 541, 623},    // 4 pieces
+  {0, 26, 54, 85, 121, 164, 213, 269, 333, 402, 477, 556, 639},    // 5 pieces
+  {0, 28, 58, 91, 130, 176, 228, 288, 354, 427, 505, 586, 672},    // 6 pieces
+  {0, 30, 62, 98, 139, 188, 243, 306, 376, 452, 532, 617, 704},    // 7 pieces
+  {0, 32, 65, 103, 147, 197, 254, 318, 389, 465, 546, 631, 718},   // 8 pieces
+  {0, 33, 69, 108, 152, 202, 260, 323, 393, 468, 547, 629, 715},   // 9 pieces
+  {0, 36, 74, 115, 160, 212, 269, 332, 400, 473, 550, 629, 712},   // 10 pieces
+  {0, 39, 80, 124, 171, 224, 281, 343, 410, 481, 554, 631, 710},   // 11 pieces
+  {0, 43, 87, 133, 182, 236, 293, 354, 419, 486, 557, 629, 704},   // 12 pieces
+  {0, 46, 93, 142, 194, 247, 304, 364, 426, 490, 556, 624, 694},   // 13 pieces
+  {0, 50, 100, 152, 205, 259, 315, 373, 433, 494, 556, 619, 684},  // 14 pieces
+  {0, 52, 104, 156, 210, 265, 321, 378, 436, 496, 556, 617, 679},  // 15 pieces
+  {0, 52, 104, 156, 210, 265, 321, 378, 436, 496, 556, 617, 679},  // 16 pieces
+};
+
+int material_scale(int v, int material) { return v + int(i64(material) * v / 90649); }
+
+int scale_by_material(int v, int material, int pieces) {
+    const int scaled = material_scale(v, material);
+
+    if (pieces > 20)
+        return scaled;
+
+    const auto& row  = EndgameMap[std::min(pieces, 16) - 2];
+    const int   a    = std::abs(v);
+    const int   last = EndgameMapStep * (EndgameMapKnots - 1);
+    int         m;
+
+    if (a <= last)
+    {
+        const int i = std::min(a / EndgameMapStep, EndgameMapKnots - 2);
+        m           = row[i] + (row[i + 1] - row[i]) * (a - i * EndgameMapStep) / EndgameMapStep;
+    }
+    else
+    {
+        m = row[EndgameMapKnots - 1] + std::abs(scaled) - material_scale(last, material);
+    }
+
+    const int t = std::clamp(pieces - 16, 0, 5);
+    const int r = (m * (5 - t) + std::abs(scaled) * t) / 5;
+
+    return v < 0 ? -r : r;
+}
+
+}  // namespace
+
 Value Eval::evaluate(const Eval::NNUE::Network&     network,
                      const Position&                pos,
                      Eval::NNUE::AccumulatorStack&  accumulators,
@@ -71,9 +124,9 @@ Value scale_evaluation(Value nnue, int optimism, const Position& pos) {
     // When winning, we boost easy positions, and vice versa
     int v = nnue + (nnue + optimism) * correl / 65536;
 
-    // Scale the combined evaluation by total material
+    // Scale the combined evaluation by total material, and reshape it in endgames
     int material = 521 * pos.count<PAWN>() + pos.non_pawn_material();
-    v += i64(material) * v / 90649;
+    v            = scale_by_material(v, material, pos.count<ALL_PIECES>());
 
     // Damp down the evaluation linearly when shuffling
     v -= v * pos.rule50_count() / 189;
