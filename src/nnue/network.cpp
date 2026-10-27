@@ -63,6 +63,26 @@ const unsigned int  gEmbeddedNNUESize    = 1;
 
 namespace Stockfish::Eval::NNUE {
 
+// Pawn-layout and officer keys of the layer stacks, as half * 2 + officers:
+// half 0 if pawns stand on both board halves (files a-d and e-h), 1 if on one half only, 2 if there are no pawns;
+// officers 1 if some side has two or more officers (knights, bishops, rooks, queens), else 0
+static int imbalance_class(const Position& pos) {
+    const Color us = pos.side_to_move(), them = ~us;
+    const int   d  = (pos.count<PAWN>(us) - pos.count<PAWN>(them))
+                + 3 * (pos.count<KNIGHT>(us) + pos.count<BISHOP>(us) - pos.count<KNIGHT>(them) - pos.count<BISHOP>(them))
+                + 5 * (pos.count<ROOK>(us) - pos.count<ROOK>(them)) + 9 * (pos.count<QUEEN>(us) - pos.count<QUEEN>(them));
+    return d >= -1 && d <= 1 ? 0 : (d > 0 ? 1 : 2);
+}
+
+static int stack_key(const Position& pos) {
+    constexpr Bitboard QueenSide = FileABB | FileBBB | FileCBB | FileDBB;
+    const Bitboard     pawns     = pos.pieces(PAWN);
+    const int          half = (pawns & QueenSide) && (pawns & ~QueenSide) ? 0 : (pawns ? 1 : 2);
+    const Bitboard     officers  = pos.pieces() & ~pos.pieces(PAWN, KING);
+    const int          offi      = popcount(officers & pos.pieces(WHITE)) >= 2 || popcount(officers & pos.pieces(BLACK)) >= 2;
+    return half * 2 + offi;
+}
+
 namespace fs = std::filesystem;
 
 namespace Detail {
@@ -153,7 +173,7 @@ Value Network::evaluate(const Position&    pos,
     const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
     const Color stm         = pos.side_to_move();
     const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
-    const int   bucket      = pcBucket * 4 + queenBucket;
+    const int   bucket      = ((pcBucket * 4 + queenBucket) * 3 + imbalance_class(pos)) * 6 + stack_key(pos);
 
     featureTransformer.transform(pos, accumulatorStack, cache, transformedFeatures, nnzInfo);
     const auto positional = network[bucket].propagate(transformedFeatures, nnzInfo);
@@ -217,7 +237,7 @@ NnueEvalTrace Network::trace_evaluate(const Position&    pos,
     const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
     const Color stm         = pos.side_to_move();
     const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
-    const int   bucket      = pcBucket * 4 + queenBucket;
+    const int   bucket      = ((pcBucket * 4 + queenBucket) * 3 + imbalance_class(pos)) * 6 + stack_key(pos);
 
     NnueEvalTrace t{};
     t.correctBucket = bucket;
