@@ -544,6 +544,21 @@ void apply_combined(Color                              perspective,
 
     Tile acc;
 
+    // Passed-pawn status changes of pawns that did not move add piece-square changes
+    if (psqRemoved.size() > 2 || psqAdded.size() > 2) [[unlikely]]
+    {
+        for (IndexType j = 0; j < Dimensions; increment_index(j))
+        {
+            acc = load_tile(j, fromAcc.data());
+            acc = apply_combined_features<-1>(j, acc, psqRemoved, thrRemoved, featureTransformer,
+                                              psqWeights);
+            acc = apply_combined_features<+1>(j, acc, psqAdded, thrAdded, featureTransformer,
+                                              psqWeights);
+            store_tile(j, toAcc.data(), acc);
+        }
+        return;
+    }
+
     for (IndexType j = 0; j < Dimensions; increment_index(j))
     {
         acc = load_tile(j, fromAcc.data());
@@ -593,8 +608,8 @@ void update_accumulator_incremental(Color                     perspective,
                                                thrAdded, threatPpBase, pfStride);
         ExtraFeatureSet::append_changed_indices(perspective, ksq, dirties, thrRemoved, thrAdded,
                                                 threatPpBase, pfStride);
-        PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, psqBucket, psqRemoved,
-                                              psqAdded);
+        PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, dirtyPawnPairs,
+                                              psqBucket, psqRemoved, psqAdded);
     }
     else
     {
@@ -604,8 +619,8 @@ void update_accumulator_incremental(Color                     perspective,
                                                thrRemoved, threatPpBase, pfStride);
         ExtraFeatureSet::append_changed_indices(perspective, ksq, dirties, thrAdded, thrRemoved,
                                                 threatPpBase, pfStride);
-        PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, psqBucket, psqAdded,
-                                              psqRemoved);
+        PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, dirtyPawnPairs,
+                                              psqBucket, psqAdded, psqRemoved);
     }
 
     apply_combined(perspective, featureTransformer, computed, target_state, psqAdded, psqRemoved,
@@ -642,9 +657,11 @@ void update_accumulator_incremental_both(const FeatureTransformer& featureTransf
     ExtraFeatureSet::append_changed_indices_both(
       white_ksq, black_ksq, target_state, thr_removed[WHITE], thr_added[WHITE], thr_removed[BLACK],
       thr_added[BLACK], threat_pp_base, pf_stride);
-    PSQFeatureSet::append_changed_indices(WHITE, white_ksq, target_state.dirtyPiece, whiteBucket,
+    PSQFeatureSet::append_changed_indices(WHITE, white_ksq, target_state.dirtyPiece,
+                                          target_state.dirtyPawnPairs, whiteBucket,
                                           psq_removed[WHITE], psq_added[WHITE]);
-    PSQFeatureSet::append_changed_indices(BLACK, black_ksq, target_state.dirtyPiece, blackBucket,
+    PSQFeatureSet::append_changed_indices(BLACK, black_ksq, target_state.dirtyPiece,
+                                          target_state.dirtyPawnPairs, blackBucket,
                                           psq_removed[BLACK], psq_added[BLACK]);
 
     // Both perspectives have rooks or queens on the board, or neither does
@@ -657,6 +674,15 @@ void update_accumulator_incremental_both(const FeatureTransformer& featureTransf
 
     target_state.computed[WHITE] = true;
     target_state.computed[BLACK] = true;
+}
+
+// The board with passed pawns recoded (see PSQFeatureSet::passer_code()), for the given pawns
+sf_always_inline void
+code_passers(std::array<Piece, SQUARE_NB>& pieces, Bitboard white, Bitboard black) {
+    for (Bitboard b = PSQFeatureSet::passed(WHITE, white, black); b;)
+        pieces[pop_lsb(b)] = PSQFeatureSet::passer_code(W_PAWN);
+    for (Bitboard b = PSQFeatureSet::passed(BLACK, white, black); b;)
+        pieces[pop_lsb(b)] = PSQFeatureSet::passer_code(B_PAWN);
 }
 
 Bitboard get_changed_pieces(const std::array<Piece, SQUARE_NB>& oldPieces,
@@ -818,8 +844,9 @@ void update_accumulator_hybrid(Color                     perspective,
     const Square newKsq = dirtyPiece.to;
     assert(oldKsq != newKsq);
 
-    const auto& currentPieces  = pos.piece_array();
-    auto        previousPieces = currentPieces;  // copies 64 bytes!
+    auto currentPieces  = pos.piece_array();
+    auto previousPieces = currentPieces;  // copies 64 bytes!
+    code_passers(currentPieces, pos.pieces(WHITE, PAWN), pos.pieces(BLACK, PAWN));
 
     Bitboard previousPieceBB = pos.pieces();
 
@@ -839,6 +866,8 @@ void update_accumulator_hybrid(Color                     perspective,
     assert(previousPieces[oldKsq] == NO_PIECE);
     previousPieces[oldKsq] = make_piece(perspective, KING);
     previousPieceBB |= square_bb(oldKsq);
+    code_passers(previousPieces, target.dirtyPawnPairs.before[WHITE],
+                 target.dirtyPawnPairs.before[BLACK]);
 
     const int   psqBucket  = psq_bucket(pos, perspective);
     const auto& oldEntry   = cache[psqBucket][oldKsq][perspective];
@@ -915,11 +944,14 @@ void update_accumulator_refresh_cache(Color                     perspective,
     const auto*              psqWeights = psq_weights(featureTransformer, psqBucket);
     PSQFeatureSet::IndexList removed, added;
 
-    append_changed_psq_indices(perspective, ksq, psqBucket, entry.pieces, entry.pieceBB,
-                               pos.piece_array(), pos.pieces(), removed, added);
+    auto pieces = pos.piece_array();
+    code_passers(pieces, pos.pieces(WHITE, PAWN), pos.pieces(BLACK, PAWN));
+
+    append_changed_psq_indices(perspective, ksq, psqBucket, entry.pieces, entry.pieceBB, pieces,
+                               pos.pieces(), removed, added);
 
     entry.pieceBB = pos.pieces();
-    entry.pieces  = pos.piece_array();
+    entry.pieces  = pieces;
 
     ThreatFeatureSet::IndexList active;
     ThreatFeatureSet::append_active_indices(perspective, pos, active);

@@ -26,6 +26,7 @@
 #include <cstring>
 #include <iosfwd>
 #include <iterator>
+#include <vector>
 
 #include "../position.h"
 #include "../types.h"
@@ -161,8 +162,10 @@ class FeatureTransformer {
 
     // Hash value embedded in the evaluation file
     static constexpr u32 get_hash_value() {
+        // Reads Passer_K32H3 nets (hash 0x9a55e2e3) and folds the passer rows into the
+        // piece-square passer planes
         return combine_hash({ThreatFeatureSet::HashValue, PairFeatureSet::HashValue,
-                             ExtraFeatureSet::HashValue, PSQFeatureSet::HashValue})
+                             ExtraFeatureSet::HashValue, PasserFileHash, PSQFeatureSet::HashValue})
              ^ (OutputDimensions * 2);
     }
 
@@ -200,6 +203,10 @@ class FeatureTransformer {
     ThreatWeightType* pawnPairWeightData() { return threatWeightData() + ThreatWeightSize; }
     ThreatWeightType* extraWeightData() { return pawnPairWeightData() + PairWeightSize; }
 
+    static constexpr u32       PasserFileHash   = 0x9a55e2e3u;
+    static constexpr IndexType PasserFileRows   = 96 * 96;
+    static constexpr IndexType PsqBucketsInFile = 96;
+
     // Read network parameters
     bool read_parameters(std::istream& stream) {
         read_little_endian(stream, biases.data(), HalfDimensions);
@@ -208,7 +215,36 @@ class FeatureTransformer {
         read_little_endian(stream, pawnPairWeightData(), PairWeightSize);
         read_little_endian(stream, extraWeightData(), ExtraWeightSize);
 
-        read_little_endian(stream, weights.data(), weights.size());
+        // Passer_K32H3 rows: bucket * 96 + (colour != perspective) * 48 + square - 8
+        std::vector<i8> passers(usize(PasserFileRows) * HalfDimensions);
+        read_little_endian(stream, passers.data(), passers.size());
+
+        // Piece-square rows: 96 buckets of 11 planes in the file, 13 in memory. The passer planes
+        // are the pawn planes plus the passer rows of the bucket.
+        static_assert(PSQFeatureSet::Dimensions == PsqBucketsInFile * PSQFeatureSet::Planes);
+        for (IndexType b = 0; b < PsqBucketsInFile; ++b)
+        {
+            WeightType* block = &weights[usize(b) * PSQFeatureSet::Planes * HalfDimensions];
+            read_little_endian(stream, block, usize(PSQFeatureSet::FilePlanes) * HalfDimensions);
+            for (IndexType side = 0; side < 2; ++side)
+            {
+                const IndexType pawnPlane =
+                  side ? PSQFeatureSet::OppPawnPlane : PSQFeatureSet::OwnPawnPlane;
+                const IndexType passerPlane =
+                  side ? PSQFeatureSet::OppPasserPlane : PSQFeatureSet::OwnPasserPlane;
+                for (IndexType s = 0; s < SQUARE_NB; ++s)
+                {
+                    const WeightType* pawn = &block[usize(pawnPlane + s) * HalfDimensions];
+                    WeightType*       out  = &block[usize(passerPlane + s) * HalfDimensions];
+                    const bool        used = s >= SQ_A2 && s <= SQ_H7;
+                    const i8*         extra =
+                      used ? &passers[usize(b * 96 + side * 48 + s - 8) * HalfDimensions] : nullptr;
+                    for (IndexType k = 0; k < HalfDimensions; ++k)
+                        out[k] = WeightType(
+                          std::clamp(int(pawn[k]) + (used ? int(extra[k]) : 0), -128, 127));
+                }
+            }
+        }
 
         permute_weights();
 
@@ -227,7 +263,32 @@ class FeatureTransformer {
         write_little_endian(stream, copy->pawnPairWeightData(), PairWeightSize);
         write_little_endian(stream, copy->extraWeightData(), ExtraWeightSize);
 
-        write_little_endian(stream, copy->weights.data(), copy->weights.size());
+        // Unfold (exact unless folding clamped)
+        std::vector<i8> passers(usize(PasserFileRows) * HalfDimensions);
+        for (IndexType b = 0; b < PsqBucketsInFile; ++b)
+        {
+            const WeightType* block =
+              &copy->weights[usize(b) * PSQFeatureSet::Planes * HalfDimensions];
+            for (IndexType side = 0; side < 2; ++side)
+                for (IndexType s = SQ_A2; s <= SQ_H7; ++s)
+                    for (IndexType k = 0; k < HalfDimensions; ++k)
+                        passers[usize(b * 96 + side * 48 + s - 8) * HalfDimensions + k] =
+                          i8(block[usize((side ? PSQFeatureSet::OppPasserPlane
+                                               : PSQFeatureSet::OwnPasserPlane)
+                                         + s)
+                                     * HalfDimensions
+                                   + k]
+                             - block[usize((side ? PSQFeatureSet::OppPawnPlane
+                                                 : PSQFeatureSet::OwnPawnPlane)
+                                           + s)
+                                       * HalfDimensions
+                                     + k]);
+        }
+        write_little_endian(stream, passers.data(), passers.size());
+        for (IndexType b = 0; b < PsqBucketsInFile; ++b)
+            write_little_endian(stream,
+                                &copy->weights[usize(b) * PSQFeatureSet::Planes * HalfDimensions],
+                                usize(PSQFeatureSet::FilePlanes) * HalfDimensions);
 
         return !stream.fail();
     }

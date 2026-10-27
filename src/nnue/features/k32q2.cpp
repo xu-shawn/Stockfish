@@ -109,21 +109,65 @@ IndexType K32Q2::make_index(Color perspective, Square s, Piece pc, Square ksq, i
 
 // Get a list of indices for recently changed features
 
-void K32Q2::append_changed_indices(Color           perspective,
-                                   Square          ksq,
-                                   const DiffType& diff,
-                                   int             bucket,
-                                   IndexList&      removed,
-                                   IndexList&      added) {
-    removed.push_back(make_index(perspective, diff.from, diff.pc, ksq, bucket));
+void K32Q2::append_changed_indices(Color                 perspective,
+                                   Square                ksq,
+                                   const DiffType&       diff,
+                                   const DirtyPawnPairs& pawns,
+                                   int                   bucket,
+                                   IndexList&            removed,
+                                   IndexList&            added) {
+    if (pawns.before[WHITE] == pawns.after[WHITE] && pawns.before[BLACK] == pawns.after[BLACK])
+    {
+        // No pawn moved, was captured or promoted: no pawn changes its passed status
+        removed.push_back(make_index(perspective, diff.from, diff.pc, ksq, bucket));
+        if (diff.to != SQ_NONE)
+            added.push_back(make_index(perspective, diff.to, diff.pc, ksq, bucket));
+
+        if (diff.remove_sq != SQ_NONE)
+            removed.push_back(make_index(perspective, diff.remove_sq, diff.remove_pc, ksq, bucket));
+
+        if (diff.add_sq != SQ_NONE)
+            added.push_back(make_index(perspective, diff.add_sq, diff.add_pc, ksq, bucket));
+        return;
+    }
+
+    const Bitboard before = passed(pawns.before[WHITE], pawns.before[BLACK]);
+    const Bitboard after  = passed(pawns.after[WHITE], pawns.after[BLACK]);
+    auto           code   = [](Piece pc, Square s, Bitboard passers) {
+        return type_of(pc) == PAWN && (passers & s) ? passer_code(pc) : pc;
+    };
+
+    Bitboard moved = square_bb(diff.from);
+    removed.push_back(
+      make_index(perspective, diff.from, code(diff.pc, diff.from, before), ksq, bucket));
     if (diff.to != SQ_NONE)
-        added.push_back(make_index(perspective, diff.to, diff.pc, ksq, bucket));
+    {
+        moved |= diff.to;
+        added.push_back(
+          make_index(perspective, diff.to, code(diff.pc, diff.to, after), ksq, bucket));
+    }
 
     if (diff.remove_sq != SQ_NONE)
-        removed.push_back(make_index(perspective, diff.remove_sq, diff.remove_pc, ksq, bucket));
+    {
+        moved |= diff.remove_sq;
+        removed.push_back(make_index(perspective, diff.remove_sq,
+                                     code(diff.remove_pc, diff.remove_sq, before), ksq, bucket));
+    }
 
+    // A promotion piece or a castling rook
     if (diff.add_sq != SQ_NONE)
         added.push_back(make_index(perspective, diff.add_sq, diff.add_pc, ksq, bucket));
+
+    // Pawns that stay on their squares but change their passed status
+    for (Bitboard b = (before ^ after) & ~moved; b;)
+    {
+        const Square s      = pop_lsb(b);
+        const Piece  pawn   = (pawns.after[WHITE] & s) ? W_PAWN : B_PAWN;
+        const Piece  passer = passer_code(pawn);
+        const bool   was    = before & s;
+        removed.push_back(make_index(perspective, s, was ? passer : pawn, ksq, bucket));
+        added.push_back(make_index(perspective, s, was ? pawn : passer, ksq, bucket));
+    }
 }
 
 bool K32Q2::requires_refresh(const DiffType& diff, Color perspective) {

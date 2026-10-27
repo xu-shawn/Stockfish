@@ -21,6 +21,7 @@
 #ifndef NNUE_FEATURES_K32Q2_H_INCLUDED
 #define NNUE_FEATURES_K32Q2_H_INCLUDED
 
+#include "../../bitboard.h"
 #include "../../misc.h"
 #include "../../types.h"
 #include "../nnue_common.h"
@@ -47,20 +48,46 @@ class K32Q2 {
         PS_W_QUEEN  = 8 * SQUARE_NB,
         PS_B_QUEEN  = 9 * SQUARE_NB,
         PS_KING     = 10 * SQUARE_NB,
-        PS_NB       = 11 * SQUARE_NB
+        // Passed pawns (folded Passer_K32H3, speed prototype): own and opponent's
+        PS_W_PASSER = 11 * SQUARE_NB,
+        PS_B_PASSER = 12 * SQUARE_NB,
+        PS_NB       = 13 * SQUARE_NB
     };
 
     alignas(64) static constexpr u16 PieceSquareIndex[COLOR_NB][PIECE_NB] = {
       // Convention: W - us, B - them
       // Viewed from other side, W and B are reversed
-      {PS_NONE, PS_W_PAWN, PS_W_KNIGHT, PS_W_BISHOP, PS_W_ROOK, PS_W_QUEEN, PS_KING, PS_NONE,
-       PS_NONE, PS_B_PAWN, PS_B_KNIGHT, PS_B_BISHOP, PS_B_ROOK, PS_B_QUEEN, PS_KING, PS_NONE},
-      {PS_NONE, PS_B_PAWN, PS_B_KNIGHT, PS_B_BISHOP, PS_B_ROOK, PS_B_QUEEN, PS_KING, PS_NONE,
-       PS_NONE, PS_W_PAWN, PS_W_KNIGHT, PS_W_BISHOP, PS_W_ROOK, PS_W_QUEEN, PS_KING, PS_NONE}};
+      // Codes 7 and 15 (unused by Piece) are passed white and black pawns in NNUE piece arrays
+      {PS_NONE, PS_W_PAWN, PS_W_KNIGHT, PS_W_BISHOP, PS_W_ROOK, PS_W_QUEEN, PS_KING, PS_W_PASSER,
+       PS_NONE, PS_B_PAWN, PS_B_KNIGHT, PS_B_BISHOP, PS_B_ROOK, PS_B_QUEEN, PS_KING, PS_B_PASSER},
+      {PS_NONE, PS_B_PAWN, PS_B_KNIGHT, PS_B_BISHOP, PS_B_ROOK, PS_B_QUEEN, PS_KING, PS_B_PASSER,
+       PS_NONE, PS_W_PAWN, PS_W_KNIGHT, PS_W_BISHOP, PS_W_ROOK, PS_W_QUEEN, PS_KING, PS_W_PASSER}};
 
    public:
     // Hash value embedded in the evaluation file
     static constexpr u32 HashValue = 0x32b5e2e3u;
+
+    // Planes per bucket in the net file (11 piece types) and in memory (with the 2 passer planes)
+    static constexpr IndexType FilePlanes   = 11 * SQUARE_NB;
+    static constexpr IndexType Planes       = PS_NB;
+    static constexpr IndexType OwnPawnPlane = PS_W_PAWN, OppPawnPlane = PS_B_PAWN;
+    static constexpr IndexType OwnPasserPlane = PS_W_PASSER, OppPasserPlane = PS_B_PASSER;
+
+    // The NNUE code of a passed pawn
+    static constexpr Piece passer_code(Piece pawn) { return Piece(int(pawn) + 6); }
+
+    // Passed pawns of colour c (no enemy pawn ahead on its own or an adjacent file)
+    static Bitboard passed(Color c, Bitboard white, Bitboard black) {
+        Bitboard front = c == WHITE ? black >> 8 : white << 8;
+        front |= c == WHITE ? front >> 8 : front << 8;
+        front |= c == WHITE ? front >> 16 : front << 16;
+        front |= c == WHITE ? front >> 32 : front << 32;
+        front |= ((front & ~FileHBB) << 1) | ((front & ~FileABB) >> 1);
+        return (c == WHITE ? white : black) & ~front;
+    }
+    static Bitboard passed(Bitboard white, Bitboard black) {
+        return passed(WHITE, white, black) | passed(BLACK, white, black);
+    }
 
     // Piece-square bucket of a perspective: 2 if the opponent has a queen, otherwise 1 if any rook
     // or queen is on the board (either side), otherwise 0. Buckets 1 and 2 use the K32Q2 layout
@@ -126,12 +153,13 @@ class K32Q2 {
     static IndexType make_index(Color perspective, Square s, Piece pc, Square ksq, int bucket);
 
     // Get a list of indices for recently changed features
-    static void append_changed_indices(Color           perspective,
-                                       Square          ksq,
-                                       const DiffType& diff,
-                                       int             bucket,
-                                       IndexList&      removed,
-                                       IndexList&      added);
+    static void append_changed_indices(Color                 perspective,
+                                       Square                ksq,
+                                       const DiffType&       diff,
+                                       const DirtyPawnPairs& pawns,
+                                       int                   bucket,
+                                       IndexList&            removed,
+                                       IndexList&            added);
 
     // Returns whether the change stored in this DirtyPiece means
     // that a full accumulator refresh is required.
