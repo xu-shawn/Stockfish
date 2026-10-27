@@ -48,7 +48,8 @@ constexpr IndexType L1 = 1024;
 constexpr int       L2 = 32;
 constexpr int       L3 = 32;
 
-constexpr IndexType LayerStacks = 32;
+// 32 (piece-count band x queen bucket) x 3 material-balance classes of the side to move
+constexpr IndexType LayerStacks = 96;
 
 struct NetworkArchitecture {
     static constexpr IndexType TransformedFeatureDimensions = L1;
