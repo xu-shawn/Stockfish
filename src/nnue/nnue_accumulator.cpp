@@ -580,6 +580,8 @@ void update_accumulator_incremental(Color                     perspective,
     const auto& dirtyThreats   = Forward ? target_state.dirtyThreats : computed.dirtyThreats;
     const auto& dirtyPawnPairs = Forward ? target_state.dirtyPawnPairs : computed.dirtyPawnPairs;
 
+    const Dirties& dirties = Forward ? static_cast<const Dirties&>(target_state) : computed;
+
     // Used solely for prefetching
     const auto* threatPpBase = &featureTransformer.threatAndPpWeights[0];
     IndexType   pfStride     = FeatureTransformer::OutputDimensions;
@@ -590,6 +592,8 @@ void update_accumulator_incremental(Color                     perspective,
                                                  thrAdded, threatPpBase, pfStride);
         PairFeatureSet::append_changed_indices(perspective, ksq, dirtyPawnPairs, thrRemoved,
                                                thrAdded, threatPpBase, pfStride);
+        ExtraFeatureSet::append_changed_indices(perspective, ksq, dirties, thrRemoved, thrAdded,
+                                                threatPpBase, pfStride);
         PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, psqRemoved, psqAdded);
     }
     else
@@ -598,6 +602,8 @@ void update_accumulator_incremental(Color                     perspective,
                                                  thrRemoved, threatPpBase, pfStride);
         PairFeatureSet::append_changed_indices(perspective, ksq, dirtyPawnPairs, thrAdded,
                                                thrRemoved, threatPpBase, pfStride);
+        ExtraFeatureSet::append_changed_indices(perspective, ksq, dirties, thrAdded, thrRemoved,
+                                                threatPpBase, pfStride);
         PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, psqAdded, psqRemoved);
     }
 
@@ -632,6 +638,9 @@ void update_accumulator_incremental_both(const FeatureTransformer& featureTransf
     PairFeatureSet::append_changed_indices_both(
       white_ksq, black_ksq, target_state.dirtyPawnPairs, thr_removed[WHITE], thr_added[WHITE],
       thr_removed[BLACK], thr_added[BLACK], threat_pp_base, pf_stride);
+    ExtraFeatureSet::append_changed_indices_both(
+      white_ksq, black_ksq, target_state, thr_removed[WHITE], thr_added[WHITE], thr_removed[BLACK],
+      thr_added[BLACK], threat_pp_base, pf_stride);
     PSQFeatureSet::append_changed_indices(WHITE, white_ksq, target_state.dirtyPiece,
                                           psq_removed[WHITE], psq_added[WHITE]);
     PSQFeatureSet::append_changed_indices(BLACK, black_ksq, target_state.dirtyPiece,
@@ -848,6 +857,8 @@ void update_accumulator_hybrid(Color                     perspective,
                                              thrAdded, threatPpBase, pfStride);
     PairFeatureSet::append_changed_indices(perspective, newKsq, target.dirtyPawnPairs, thrRemoved,
                                            thrAdded, threatPpBase, pfStride);
+    ExtraFeatureSet::append_changed_indices(perspective, newKsq, target, thrRemoved, thrAdded,
+                                            threatPpBase, pfStride);
 
     const auto& fromAcc = computed.accumulation[perspective];
     auto&       toAcc   = target.accumulation[perspective];
@@ -909,6 +920,7 @@ void update_accumulator_refresh_cache(Color                     perspective,
     ThreatFeatureSet::IndexList active;
     ThreatFeatureSet::append_active_indices(perspective, pos, active);
     PairFeatureSet::append_active_indices(perspective, pos, active);
+    ExtraFeatureSet::append_active_indices(perspective, pos, active);
 
     accumulator.computed[perspective] = true;
 
