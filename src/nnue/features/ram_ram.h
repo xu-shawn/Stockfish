@@ -17,9 +17,8 @@
 */
 
 
-// Definition of input features Ram_Ram of NNUE evaluation function: every pair of rams
-// on the board, where a ram is a pawn blocked head-on by an enemy pawn. The features
-// depend only on the pawns and change only when a ram forms or breaks.
+// Definition of input features Ram_Ram of NNUE evaluation function: pairs of rams,
+// a ram being a pawn blocked head-on by an enemy pawn
 
 #ifndef NNUE_FEATURES_RAM_RAM_INCLUDED
 #define NNUE_FEATURES_RAM_RAM_INCLUDED
@@ -27,8 +26,6 @@
 #include "../../misc.h"
 #include "../../types.h"
 #include "../nnue_common.h"
-#include "full_threats.h"
-#include "pp_3wide.h"
 
 namespace Stockfish {
 class Position;
@@ -40,64 +37,53 @@ class RamRam {
    public:
     static constexpr u32 HashValue = 0x5e9fcac8u;
 
-    // Both ram ids (the oriented square of the ram's lower pawn, ranks 2 to 6), as a
-    // triangular index over the pair
+    // A ram is identified by the oriented square of its lower pawn (ranks 2 to 6)
     static constexpr IndexType RamIds     = 40;
     static constexpr IndexType Dimensions = RamIds * (RamIds - 1) / 2;
 
-    // Concatenated to threats and pawn pairs; see nnue_feature_transformer.h
-    static constexpr IndexType IndexBase = FullThreats::Dimensions + PP_3Wide::Dimensions;
+    // Ram pair feature indices follow the pawn pairs; see nnue_feature_transformer.h
+    static constexpr IndexType IndexBase = 64368;
     using IndexList                      = ValueList<u16, 256>;
+    using DiffType                       = DirtyPawnPairs;
 
     static void append_active_indices(Color perspective, const Position& pos, IndexList& active);
 
-    // Most moves leave the rams unchanged
     static void append_changed_indices(Color                   perspective,
                                        Square                  ksq,
-                                       const Dirties&          diff,
+                                       const DiffType&         diff,
                                        IndexList&              removed,
                                        IndexList&              added,
                                        const ThreatWeightType* prefetchBase   = nullptr,
                                        IndexType               prefetchStride = 0) {
-        const DirtyPawnPairs& pawns = diff.dirtyPawnPairs;
-        if (rams_changed(pawns))
-            append_ram_changes(perspective, ksq, pawns, removed, added, prefetchBase,
+        if (rams(diff.before) != rams(diff.after))
+            append_ram_changes(perspective, ksq, diff, removed, added, prefetchBase,
                                prefetchStride);
     }
 
     static void append_changed_indices_both(Square                  white_ksq,
                                             Square                  black_ksq,
-                                            const Dirties&          diff,
+                                            const DiffType&         diff,
                                             IndexList&              white_removed,
                                             IndexList&              white_added,
                                             IndexList&              black_removed,
                                             IndexList&              black_added,
-                                            const ThreatWeightType* prefetchBase,
-                                            IndexType               prefetchStride) {
-        const DirtyPawnPairs& pawns = diff.dirtyPawnPairs;
-        if (rams_changed(pawns))
-        {
-            append_ram_changes(WHITE, white_ksq, pawns, white_removed, white_added, prefetchBase,
+                                            const ThreatWeightType* prefetchBase   = nullptr,
+                                            IndexType               prefetchStride = 0) {
+        append_changed_indices(WHITE, white_ksq, diff, white_removed, white_added, prefetchBase,
                                prefetchStride);
-            append_ram_changes(BLACK, black_ksq, pawns, black_removed, black_added, prefetchBase,
+        append_changed_indices(BLACK, black_ksq, diff, black_removed, black_added, prefetchBase,
                                prefetchStride);
-        }
-    }
-
-    // White pawns with a black pawn directly in front
-    static constexpr Bitboard rams_of(Bitboard white, Bitboard black) {
-        return white & (black >> 8);
     }
 
    private:
-    static bool rams_changed(const DirtyPawnPairs& pawns) {
-        return rams_of(pawns.before[WHITE], pawns.before[BLACK])
-            != rams_of(pawns.after[WHITE], pawns.after[BLACK]);
+    // White pawns with a black pawn directly in front
+    static constexpr Bitboard rams(const Bitboard pawns[COLOR_NB]) {
+        return pawns[WHITE] & (pawns[BLACK] >> 8);
     }
 
     static void append_ram_changes(Color                   perspective,
                                    Square                  ksq,
-                                   const DirtyPawnPairs&   pawns,
+                                   const DiffType&         diff,
                                    IndexList&              removed,
                                    IndexList&              added,
                                    const ThreatWeightType* prefetchBase,
