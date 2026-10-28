@@ -93,8 +93,10 @@ class Network {
     // Input feature converter
     FeatureTransformer featureTransformer;
 
-    // Evaluation function: the stored layer stacks, and the stored stack used for each raw bucket
+    // Evaluation function: the stored layer stacks; for each raw bucket the raw bucket whose stack it uses
+    // (stored stacks are the raw buckets that use their own, in raw order) and that stored stack
     NetworkArchitecture network[LayerStacks];
+    u16                 layerStackFallback[RawLayerStacks];
     u16                 layerStackIndex[RawLayerStacks];
     IndexType           storedLayerStacks = 0;
 

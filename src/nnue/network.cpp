@@ -312,8 +312,8 @@ usize Network::get_content_hash() const {
 
     usize h = 0;
     hash_combine(h, featureTransformer);
-    for (const u16 s : layerStackIndex)
-        hash_combine(h, s);
+    for (const u16 f : layerStackFallback)
+        hash_combine(h, f);
     for (usize i = 0; i < storedLayerStacks; ++i)
         hash_combine(h, network[i]);
     return h;
@@ -363,18 +363,31 @@ bool Network::read_parameters(std::istream& stream, std::string& netDescription)
         return false;
     if (hashValue != Network::hash)
         return false;
-    if (!Detail::read_parameters(stream, featureTransformer))
-        return false;
-    // Layer-stack table: marker, raw bucket count, stored stack count, then the stored stack of each raw bucket
+    // Layer-stack table: marker, raw bucket count, stored stack count, then the fallback of each raw bucket
     if (read_little_endian<u32>(stream) != LayerStackTableHash
         || read_little_endian<u32>(stream) != RawLayerStacks)
         return false;
     storedLayerStacks = read_little_endian<u32>(stream);
     if (storedLayerStacks == 0 || storedLayerStacks > LayerStacks)
         return false;
-    for (u16& s : layerStackIndex)
-        if ((s = read_little_endian<u16>(stream)) >= storedLayerStacks)
+    for (u16& f : layerStackFallback)
+        if ((f = read_little_endian<u16>(stream)) >= RawLayerStacks)
             return false;
+    IndexType stored = 0;
+    for (IndexType s = 0; s < RawLayerStacks; ++s)
+        if (layerStackFallback[s] == s)
+            layerStackIndex[s] = u16(stored++);
+    if (stored != storedLayerStacks)
+        return false;
+    for (IndexType s = 0; s < RawLayerStacks; ++s)
+    {
+        const u16 f = layerStackFallback[s];
+        if (layerStackFallback[f] != f)
+            return false;
+        layerStackIndex[s] = layerStackIndex[f];
+    }
+    if (!Detail::read_parameters(stream, featureTransformer))
+        return false;
     for (usize i = 0; i < storedLayerStacks; ++i)
     {
         if (!Detail::read_parameters(stream, network[i]))
@@ -387,13 +400,13 @@ bool Network::read_parameters(std::istream& stream, std::string& netDescription)
 bool Network::write_parameters(std::ostream& stream, const std::string& netDescription) const {
     if (!write_header(stream, Network::hash, netDescription))
         return false;
-    if (!Detail::write_parameters(stream, featureTransformer))
-        return false;
     write_little_endian<u32>(stream, LayerStackTableHash);
     write_little_endian<u32>(stream, RawLayerStacks);
     write_little_endian<u32>(stream, storedLayerStacks);
-    for (const u16 s : layerStackIndex)
-        write_little_endian<u16>(stream, s);
+    for (const u16 f : layerStackFallback)
+        write_little_endian<u16>(stream, f);
+    if (!Detail::write_parameters(stream, featureTransformer))
+        return false;
     for (usize i = 0; i < storedLayerStacks; ++i)
     {
         if (!Detail::write_parameters(stream, network[i]))
