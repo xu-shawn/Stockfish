@@ -63,6 +63,19 @@ const unsigned int  gEmbeddedNNUESize    = 1;
 
 namespace Stockfish::Eval::NNUE {
 
+// Pawn layout times two plus officers. Pawn layout: 0 if pawns stand on both board halves (files
+// a-d and e-h), 1 if on one half only, 2 if there are no pawns. Officers: 1 if some side has at
+// least two pieces other than pawns and its king, else 0.
+static int pawn_officer_class(const Position& pos) {
+    constexpr Bitboard QueenSide = FileABB | FileBBB | FileCBB | FileDBB;
+    const Bitboard     pawns     = pos.pieces(PAWN);
+    const int          layout    = !pawns ? 2 : (pawns & QueenSide) && (pawns & ~QueenSide) ? 0 : 1;
+    const Bitboard     officers  = pos.pieces() ^ pos.pieces(PAWN, KING);
+    const bool         many =
+      popcount(officers & pos.pieces(WHITE)) >= 2 || popcount(officers & pos.pieces(BLACK)) >= 2;
+    return layout * 2 + many;
+}
+
 namespace fs = std::filesystem;
 
 namespace Detail {
@@ -153,7 +166,7 @@ Value Network::evaluate(const Position&    pos,
     const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
     const Color stm         = pos.side_to_move();
     const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
-    const int   bucket      = pcBucket * 4 + queenBucket;
+    const int   bucket      = (pcBucket * 4 + queenBucket) * 6 + pawn_officer_class(pos);
 
     featureTransformer.transform(pos, accumulatorStack, cache, transformedFeatures, nnzInfo);
     const auto positional = network[bucket].propagate(transformedFeatures, nnzInfo);
@@ -217,7 +230,7 @@ NnueEvalTrace Network::trace_evaluate(const Position&    pos,
     const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
     const Color stm         = pos.side_to_move();
     const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
-    const int   bucket      = pcBucket * 4 + queenBucket;
+    const int   bucket      = (pcBucket * 4 + queenBucket) * 6 + pawn_officer_class(pos);
 
     NnueEvalTrace t{};
     t.correctBucket = bucket;

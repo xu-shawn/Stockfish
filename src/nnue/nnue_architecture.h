@@ -48,7 +48,8 @@ constexpr IndexType L1 = 1024;
 constexpr int       L2 = 32;
 constexpr int       L3 = 32;
 
-constexpr IndexType LayerStacks = 32;
+// Piece-count band x queen bucket x pawn layout x officers
+constexpr IndexType LayerStacks = 192;
 
 struct NetworkArchitecture {
     static constexpr IndexType TransformedFeatureDimensions = L1;
