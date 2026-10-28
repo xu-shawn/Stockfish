@@ -166,7 +166,7 @@ Value Network::evaluate(const Position&    pos,
     const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
     const Color stm         = pos.side_to_move();
     const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
-    const int   bucket      = (pcBucket * 4 + queenBucket) * 6 + pawn_officer_class(pos);
+    const int   bucket = LayerStackIndex[(pcBucket * 4 + queenBucket) * 6 + pawn_officer_class(pos)];
 
     featureTransformer.transform(pos, accumulatorStack, cache, transformedFeatures, nnzInfo);
     const auto positional = network[bucket].propagate(transformedFeatures, nnzInfo);
@@ -230,7 +230,7 @@ NnueEvalTrace Network::trace_evaluate(const Position&    pos,
     const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
     const Color stm         = pos.side_to_move();
     const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
-    const int   bucket      = (pcBucket * 4 + queenBucket) * 6 + pawn_officer_class(pos);
+    const int   bucket = LayerStackIndex[(pcBucket * 4 + queenBucket) * 6 + pawn_officer_class(pos)];
 
     NnueEvalTrace t{};
     t.correctBucket = bucket;
