@@ -63,6 +63,18 @@ const unsigned int  gEmbeddedNNUESize    = 1;
 
 namespace Stockfish::Eval::NNUE {
 
+// Material balance of the side to move in pawns (P 1, N 3, B 3, R 5, Q 9): 0 if within one pawn,
+// 1 if ahead by two or more, 2 if behind by two or more
+static int imbalance_class(const Position& pos) {
+    const Color us = pos.side_to_move();
+    const int   d  = pos.count<PAWN>(us) - pos.count<PAWN>(~us)
+                + 3 * (pos.count<KNIGHT>(us) + pos.count<BISHOP>(us))
+                - 3 * (pos.count<KNIGHT>(~us) + pos.count<BISHOP>(~us))
+                + 5 * (pos.count<ROOK>(us) - pos.count<ROOK>(~us))
+                + 9 * (pos.count<QUEEN>(us) - pos.count<QUEEN>(~us));
+    return d > 1 ? 1 : d < -1 ? 2 : 0;
+}
+
 namespace fs = std::filesystem;
 
 namespace Detail {
@@ -153,7 +165,7 @@ Value Network::evaluate(const Position&    pos,
     const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
     const Color stm         = pos.side_to_move();
     const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
-    const int   bucket      = pcBucket * 4 + queenBucket;
+    const int   bucket      = (pcBucket * 4 + queenBucket) * 3 + imbalance_class(pos);
 
     featureTransformer.transform(pos, accumulatorStack, cache, transformedFeatures, nnzInfo);
     const auto positional = network[bucket].propagate(transformedFeatures, nnzInfo);
@@ -217,7 +229,7 @@ NnueEvalTrace Network::trace_evaluate(const Position&    pos,
     const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
     const Color stm         = pos.side_to_move();
     const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
-    const int   bucket      = pcBucket * 4 + queenBucket;
+    const int   bucket      = (pcBucket * 4 + queenBucket) * 3 + imbalance_class(pos);
 
     NnueEvalTrace t{};
     t.correctBucket = bucket;
