@@ -48,22 +48,10 @@ constexpr IndexType L1 = 1024;
 constexpr int       L2 = 32;
 constexpr int       L3 = 32;
 
-// Layer stacks stored in the net. The raw bucket (piece-count band x queen bucket x pawn layout x officers, 192)
-// maps to a stored stack; combinations without training data share the stack of a similar one.
-constexpr IndexType LayerStacks = 87;
-
-// clang-format off
-constexpr u8 LayerStackIndex[192] = {
-   0,  0,  1,  1,  2,  3,  4,  6,  4,  4,  5,  6,  7,  7,  7,  7,  8,  8,  9,  9,  9,  9,  9,  9,
-  10, 11, 12, 13, 12, 14, 15, 16, 17, 18, 17, 19, 20, 21, 22, 23, 22, 24, 25, 26, 27, 28, 27, 29,
-  30, 31, 32, 33, 32, 34, 35, 36, 37, 38, 37, 38, 39, 40, 41, 42, 41, 42, 43, 44, 45, 46, 45, 47,
-  48, 49, 50, 51, 50, 51, 52, 53, 54, 54, 52, 54, 55, 56, 57, 57, 55, 57, 58, 59, 60, 61, 60, 61,
-  62, 63, 62, 64, 62, 64, 65, 66, 67, 67, 65, 67, 68, 68, 69, 69, 69, 69, 70, 71, 72, 72, 70, 72,
-  73, 73, 74, 74, 74, 74, 75, 75, 75, 75, 75, 75, 76, 76, 76, 76, 76, 76, 77, 77, 78, 78, 78, 78,
-  79, 79, 79, 79, 79, 79, 80, 80, 80, 80, 80, 80, 81, 81, 81, 81, 81, 81, 82, 82, 82, 82, 82, 82,
-  83, 83, 83, 83, 83, 83, 84, 84, 84, 84, 84, 84, 85, 85, 85, 85, 85, 85, 86, 86, 86, 86, 86, 86
-};
-// clang-format on
+// Raw layer-stack buckets: piece-count band x queen bucket x pawn layout x officers. The net stores up to
+// LayerStacks stacks and a table mapping each raw bucket to a stored stack.
+constexpr IndexType RawLayerStacks = 192;
+constexpr IndexType LayerStacks    = RawLayerStacks;
 
 struct NetworkArchitecture {
     static constexpr IndexType TransformedFeatureDimensions = L1;

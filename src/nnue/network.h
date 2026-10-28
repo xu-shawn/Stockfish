@@ -93,14 +93,19 @@ class Network {
     // Input feature converter
     FeatureTransformer featureTransformer;
 
-    // Evaluation function
+    // Evaluation function: the stored layer stacks, and the stored stack used for each raw bucket
     NetworkArchitecture network[LayerStacks];
+    u16                 layerStackIndex[RawLayerStacks];
+    IndexType           storedLayerStacks = 0;
 
     bool initialized = false;
 
+    // Marks the layer-stack table section, and nets that have one
+    static constexpr u32 LayerStackTableHash = 0x5A7AB1E5u;
+
     // Hash value of evaluation function structure
-    static constexpr u32 hash =
-      FeatureTransformer::get_hash_value() ^ NetworkArchitecture::get_hash_value();
+    static constexpr u32 hash = FeatureTransformer::get_hash_value()
+                              ^ NetworkArchitecture::get_hash_value() ^ LayerStackTableHash;
 
     friend struct AccumulatorCaches;
 };

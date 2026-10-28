@@ -166,7 +166,7 @@ Value Network::evaluate(const Position&    pos,
     const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
     const Color stm         = pos.side_to_move();
     const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
-    const int   bucket = LayerStackIndex[(pcBucket * 4 + queenBucket) * 6 + pawn_officer_class(pos)];
+    const int bucket = layerStackIndex[(pcBucket * 4 + queenBucket) * 6 + pawn_officer_class(pos)];
 
     featureTransformer.transform(pos, accumulatorStack, cache, transformedFeatures, nnzInfo);
     const auto positional = network[bucket].propagate(transformedFeatures, nnzInfo);
@@ -206,7 +206,7 @@ void Network::verify(const std::function<void(std::string_view)>& f,
 
     if (f)
     {
-        usize size = sizeof(featureTransformer) + sizeof(NetworkArchitecture) * LayerStacks;
+        usize size = sizeof(featureTransformer) + sizeof(NetworkArchitecture) * storedLayerStacks;
         f("NNUE evaluation using " + evalfilePath.string() + " ("
           + std::to_string(size / (1024 * 1024)) + "MiB, ("
           + std::to_string(featureTransformer.InputDimensions) + ", "
@@ -230,15 +230,16 @@ NnueEvalTrace Network::trace_evaluate(const Position&    pos,
     const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
     const Color stm         = pos.side_to_move();
     const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
-    const int   bucket = LayerStackIndex[(pcBucket * 4 + queenBucket) * 6 + pawn_officer_class(pos)];
+    const int bucket = layerStackIndex[(pcBucket * 4 + queenBucket) * 6 + pawn_officer_class(pos)];
 
     NnueEvalTrace t{};
     t.correctBucket = bucket;
+    t.layerStacks   = storedLayerStacks;
 
     NNZInfo<L1> nnzInfo;
     featureTransformer.transform(pos, accumulatorStack, cache, transformedFeatures, nnzInfo);
 
-    for (IndexType b = 0; b < LayerStacks; ++b)
+    for (IndexType b = 0; b < storedLayerStacks; ++b)
     {
         const auto positional = network[b].propagate(transformedFeatures, nnzInfo);
         t.positional[b]       = static_cast<Value>(positional / OutputScale);
@@ -311,8 +312,10 @@ usize Network::get_content_hash() const {
 
     usize h = 0;
     hash_combine(h, featureTransformer);
-    for (auto&& layerstack : network)
-        hash_combine(h, layerstack);
+    for (const u16 s : layerStackIndex)
+        hash_combine(h, s);
+    for (usize i = 0; i < storedLayerStacks; ++i)
+        hash_combine(h, network[i]);
     return h;
 }
 
@@ -362,7 +365,17 @@ bool Network::read_parameters(std::istream& stream, std::string& netDescription)
         return false;
     if (!Detail::read_parameters(stream, featureTransformer))
         return false;
-    for (usize i = 0; i < LayerStacks; ++i)
+    // Layer-stack table: marker, raw bucket count, stored stack count, then the stored stack of each raw bucket
+    if (read_little_endian<u32>(stream) != LayerStackTableHash
+        || read_little_endian<u32>(stream) != RawLayerStacks)
+        return false;
+    storedLayerStacks = read_little_endian<u32>(stream);
+    if (storedLayerStacks == 0 || storedLayerStacks > LayerStacks)
+        return false;
+    for (u16& s : layerStackIndex)
+        if ((s = read_little_endian<u16>(stream)) >= storedLayerStacks)
+            return false;
+    for (usize i = 0; i < storedLayerStacks; ++i)
     {
         if (!Detail::read_parameters(stream, network[i]))
             return false;
@@ -376,7 +389,12 @@ bool Network::write_parameters(std::ostream& stream, const std::string& netDescr
         return false;
     if (!Detail::write_parameters(stream, featureTransformer))
         return false;
-    for (usize i = 0; i < LayerStacks; ++i)
+    write_little_endian<u32>(stream, LayerStackTableHash);
+    write_little_endian<u32>(stream, RawLayerStacks);
+    write_little_endian<u32>(stream, storedLayerStacks);
+    for (const u16 s : layerStackIndex)
+        write_little_endian<u16>(stream, s);
+    for (usize i = 0; i < storedLayerStacks; ++i)
     {
         if (!Detail::write_parameters(stream, network[i]))
             return false;
