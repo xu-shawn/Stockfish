@@ -28,44 +28,40 @@
 #include "../../position.h"
 #include "../../types.h"
 #include "../nnue_common.h"
-#include "full_threats.h"
 
 namespace Stockfish::Eval::NNUE::Features {
 
 namespace {
 
-// The ram given by its white pawn w, numbered by the oriented square of its lower pawn
-sf_always_inline IndexType ram_id(Color perspective, u8 orientation, Square w) {
+// w is the ram's white pawn
+sf_always_inline IndexType make_ram_id(Color perspective, u8 orientation, Square w) {
     const Square lower = perspective == WHITE ? w : w + NORTH;
     assert((u8(lower) ^ orientation) >= SQ_A2 && (u8(lower) ^ orientation) <= SQ_H6);
-    return (u8(lower) ^ orientation) - 8;
+    return (u8(lower) ^ orientation) - SQ_A2;
 }
 
-sf_always_inline IndexType pair_index(IndexType a, IndexType b) {
-    const IndexType hi = std::max(a, b);
-    const IndexType lo = std::min(a, b);
-    return RamRam::IndexBase + hi * (hi - 1) / 2 + lo;
-}
+// Pairs each ram in newRams with every ram in oldRams and with every other ram in newRams
+void append_pairs(Color                   perspective,
+                  Square                  ksq,
+                  Bitboard                newRams,
+                  Bitboard                oldRams,
+                  RamRam::IndexList&      list,
+                  const ThreatWeightType* prefetchBase   = nullptr,
+                  IndexType               prefetchStride = 0) {
+    const u8 orientation = OrientTBL[ksq] ^ (56 * perspective);
 
-// Pairs every ram of first with every ram of others, and with the rams of first after it,
-// so that each pair within first appears once
-template<bool Prefetch>
-sf_always_inline void append_pairs(Color                   perspective,
-                                   u8                      orientation,
-                                   Bitboard                first,
-                                   Bitboard                others,
-                                   RamRam::IndexList&      list,
-                                   const ThreatWeightType* prefetchBase   = nullptr,
-                                   IndexType               prefetchStride = 0) {
-    while (first)
+    while (newRams)
     {
-        const Square    w  = pop_lsb(first);
-        const IndexType id = ram_id(perspective, orientation, w);
+        const IndexType a = make_ram_id(perspective, orientation, pop_lsb(newRams));
 
-        for (Bitboard b = others | first; b;)
+        for (Bitboard others = oldRams | newRams; others;)
         {
-            const IndexType index = pair_index(id, ram_id(perspective, orientation, pop_lsb(b)));
-            if constexpr (Prefetch)
+            const IndexType b     = make_ram_id(perspective, orientation, pop_lsb(others));
+            const IndexType hi    = std::max(a, b);
+            const IndexType lo    = std::min(a, b);
+            const IndexType index = RamRam::IndexBase + hi * (hi - 1) / 2 + lo;
+
+            if (prefetchBase)
                 prefetch<PrefetchRw::READ, PrefetchLoc::LOW>(reinterpret_cast<const void*>(
                   reinterpret_cast<uintptr_t>(prefetchBase) + uintptr_t(index) * prefetchStride));
             list.push_back(index);
@@ -76,38 +72,23 @@ sf_always_inline void append_pairs(Color                   perspective,
 }  // namespace
 
 void RamRam::append_active_indices(Color perspective, const Position& pos, IndexList& active) {
-    const Square ksq         = pos.square<KING>(perspective);
-    const u8     orientation = u8(OrientTBL[ksq]) ^ u8(56 * perspective);
-
-    append_pairs<false>(perspective, orientation,
-                        rams_of(pos.pieces(WHITE, PAWN), pos.pieces(BLACK, PAWN)), 0, active);
+    const Bitboard pawns[COLOR_NB] = {pos.pieces(WHITE, PAWN), pos.pieces(BLACK, PAWN)};
+    append_pairs(perspective, pos.square<KING>(perspective), rams(pawns), 0, active);
 }
 
 void RamRam::append_ram_changes(Color                   perspective,
                                 Square                  ksq,
-                                const DirtyPawnPairs&   pawns,
+                                const DiffType&         diff,
                                 IndexList&              removed,
                                 IndexList&              added,
                                 const ThreatWeightType* prefetchBase,
                                 IndexType               prefetchStride) {
-    const u8       orientation = u8(OrientTBL[ksq]) ^ u8(56 * perspective);
-    const Bitboard before      = rams_of(pawns.before[WHITE], pawns.before[BLACK]);
-    const Bitboard after       = rams_of(pawns.after[WHITE], pawns.after[BLACK]);
-    const Bitboard kept        = before & after;
+    const Bitboard before = rams(diff.before);
+    const Bitboard after  = rams(diff.after);
+    const Bitboard kept   = before & after;
 
-    // The pairs that involve a broken ram, and those that involve a formed one
-    if (prefetchBase)
-    {
-        append_pairs<true>(perspective, orientation, before & ~after, kept, removed, prefetchBase,
-                           prefetchStride);
-        append_pairs<true>(perspective, orientation, after & ~before, kept, added, prefetchBase,
-                           prefetchStride);
-    }
-    else
-    {
-        append_pairs<false>(perspective, orientation, before & ~after, kept, removed);
-        append_pairs<false>(perspective, orientation, after & ~before, kept, added);
-    }
+    append_pairs(perspective, ksq, before & ~after, kept, removed, prefetchBase, prefetchStride);
+    append_pairs(perspective, ksq, after & ~before, kept, added, prefetchBase, prefetchStride);
 }
 
 }  // namespace Stockfish::Eval::NNUE::Features
