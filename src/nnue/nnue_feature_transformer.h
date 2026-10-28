@@ -88,12 +88,15 @@ class FeatureTransformer {
     // Number of input/output dimensions
     static constexpr IndexType ThreatInputDimensions = ThreatFeatureSet::Dimensions;
     static constexpr IndexType PairInputDimensions   = PairFeatureSet::Dimensions;
+    static constexpr IndexType RamInputDimensions    = RamFeatureSet::Dimensions;
     static constexpr IndexType PsqDimensions         = PSQFeatureSet::Dimensions;
-    static constexpr IndexType ThreatAndPpDimensions = ThreatInputDimensions + PairInputDimensions;
+    static constexpr IndexType ThreatAndPpDimensions =
+      ThreatInputDimensions + PairInputDimensions + RamInputDimensions;
     static constexpr IndexType InputDimensions       = PsqDimensions + ThreatAndPpDimensions;
     static constexpr IndexType OutputDimensions      = HalfDimensions;
     static constexpr IndexType ThreatWeightSize      = ThreatInputDimensions * HalfDimensions;
     static constexpr IndexType PairWeightSize        = PairInputDimensions * HalfDimensions;
+    static constexpr IndexType RamWeightSize         = RamInputDimensions * HalfDimensions;
     static constexpr IndexType ThreatAndPpWeightSize = ThreatAndPpDimensions * HalfDimensions;
 
     using BiasesArray            = std::array<BiasType, HalfDimensions>;
@@ -158,8 +161,8 @@ class FeatureTransformer {
 
     // Hash value embedded in the evaluation file
     static constexpr u32 get_hash_value() {
-        return combine_hash(
-                 {ThreatFeatureSet::HashValue, PairFeatureSet::HashValue, PSQFeatureSet::HashValue})
+        return combine_hash({ThreatFeatureSet::HashValue, PairFeatureSet::HashValue,
+                             RamFeatureSet::HashValue, PSQFeatureSet::HashValue})
              ^ (OutputDimensions * 2);
     }
 
@@ -195,6 +198,7 @@ class FeatureTransformer {
 
     ThreatWeightType* threatWeightData() { return threatAndPpWeights.data(); }
     ThreatWeightType* pawnPairWeightData() { return threatWeightData() + ThreatWeightSize; }
+    ThreatWeightType* ramWeightData() { return pawnPairWeightData() + PairWeightSize; }
 
     // Read network parameters
     bool read_parameters(std::istream& stream) {
@@ -202,6 +206,7 @@ class FeatureTransformer {
 
         read_little_endian(stream, threatWeightData(), ThreatWeightSize);
         read_little_endian(stream, pawnPairWeightData(), PairWeightSize);
+        read_little_endian(stream, ramWeightData(), RamWeightSize);
 
         read_little_endian(stream, weights.data(), weights.size());
 
@@ -220,6 +225,7 @@ class FeatureTransformer {
 
         write_little_endian(stream, copy->threatWeightData(), ThreatWeightSize);
         write_little_endian(stream, copy->pawnPairWeightData(), PairWeightSize);
+        write_little_endian(stream, copy->ramWeightData(), RamWeightSize);
 
         write_little_endian(stream, copy->weights.data(), copy->weights.size());
 
@@ -434,9 +440,13 @@ class FeatureTransformer {
     alignas(CacheLineSize) BiasesArray biases;
     alignas(CacheLineSize) WeightArray weights;
 
-    // Threats and pawn-pair features are concatenated into one array to allow for a single index to address either.
-    // The first pawn-pair feature is at index ThreatFeatureSet::Dimensions.
+    // Threat, pawn-pair and ram-pair features are concatenated into one array to allow for a single
+    // index to address any of them. The pawn pairs start at index ThreatFeatureSet::Dimensions and
+    // the ram pairs follow them.
     static_assert(PairFeatureSet::IndexBase == ThreatFeatureSet::Dimensions);
+    static_assert(RamFeatureSet::IndexBase
+                  == PairFeatureSet::IndexBase + PairFeatureSet::Dimensions);
+    static_assert(ThreatAndPpDimensions <= 65536);  // u16 indices
 
     alignas(CacheLineSize) ThreatAndPpWeightArray threatAndPpWeights;
 };
