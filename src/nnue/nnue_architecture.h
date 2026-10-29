@@ -48,9 +48,9 @@ constexpr IndexType L1 = 1024;
 constexpr int       L2 = 32;
 constexpr int       L3 = 32;
 
-// Raw layer-stack buckets: piece-count band x queen bucket x pawn layout x officers. The net stores up to
-// LayerStacks stacks and a table mapping each raw bucket to a stored stack.
-constexpr IndexType RawLayerStacks = 192;
+// Raw layer-stack buckets: piece-count band x queen bucket x material balance x pawn layout x officers. The
+// net stores up to LayerStacks stacks and a table mapping each raw bucket to a stored stack.
+constexpr IndexType RawLayerStacks = 576;
 constexpr IndexType LayerStacks    = RawLayerStacks;
 
 struct NetworkArchitecture {

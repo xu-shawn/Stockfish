@@ -76,6 +76,16 @@ static int pawn_officer_class(const Position& pos) {
     return layout * 2 + many;
 }
 
+// Material balance of the side to move (P 1, N 3, B 3, R 5, Q 9): 0 if within one pawn, 1 if ahead by
+// two or more, 2 if behind by two or more.
+static int imbalance_class(const Position& pos) {
+    const Color us = pos.side_to_move(), them = ~us;
+    const int   d  = pos.count<PAWN>(us) - pos.count<PAWN>(them)
+                + 3 * (pos.count<KNIGHT>(us) + pos.count<BISHOP>(us) - pos.count<KNIGHT>(them) - pos.count<BISHOP>(them))
+                + 5 * (pos.count<ROOK>(us) - pos.count<ROOK>(them)) + 9 * (pos.count<QUEEN>(us) - pos.count<QUEEN>(them));
+    return d >= -1 && d <= 1 ? 0 : d > 0 ? 1 : 2;
+}
+
 namespace fs = std::filesystem;
 
 namespace Detail {
@@ -166,7 +176,8 @@ Value Network::evaluate(const Position&    pos,
     const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
     const Color stm         = pos.side_to_move();
     const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
-    const int bucket = layerStackIndex[(pcBucket * 4 + queenBucket) * 6 + pawn_officer_class(pos)];
+    const int bucket =
+      layerStackIndex[((pcBucket * 4 + queenBucket) * 3 + imbalance_class(pos)) * 6 + pawn_officer_class(pos)];
 
     featureTransformer.transform(pos, accumulatorStack, cache, transformedFeatures, nnzInfo);
     const auto positional = network[bucket].propagate(transformedFeatures, nnzInfo);
@@ -230,7 +241,8 @@ NnueEvalTrace Network::trace_evaluate(const Position&    pos,
     const int   pcBucket    = (pos.count<ALL_PIECES>() - 1) / 4;
     const Color stm         = pos.side_to_move();
     const int   queenBucket = (pos.pieces(stm, QUEEN) ? 2 : 0) | (pos.pieces(~stm, QUEEN) ? 1 : 0);
-    const int bucket = layerStackIndex[(pcBucket * 4 + queenBucket) * 6 + pawn_officer_class(pos)];
+    const int bucket =
+      layerStackIndex[((pcBucket * 4 + queenBucket) * 3 + imbalance_class(pos)) * 6 + pawn_officer_class(pos)];
 
     NnueEvalTrace t{};
     t.correctBucket = bucket;
