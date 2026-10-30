@@ -120,6 +120,62 @@ void          TTWriter::write(
     const auto key21 = keys >> KeyBits * index & MASK21;
     auto&      entry = cluster->entry[index];
 
+    // If an opposite single bound of comparable depth from the current search would be
+    // overwritten, keep it in another slot of the cluster. The new data goes into the
+    // lower slot, which probe() finds first, so the primary entry is the same as before.
+    if ((k & MASK21) == key21 && entry.is_occupied() && !entry.relative_age(curr_generation))
+    {
+        const Bound ob = Bound((entry.genBound8 & BOUND_MASK) >> BOUND_SHIFT);
+
+        if (((ob == BOUND_LOWER && b == BOUND_UPPER) || (ob == BOUND_UPPER && b == BOUND_LOWER))
+            && entry.depth8 + DEPTH_NONE >= d - 2 && d - DEPTH_NONE + 2 * pv > entry.depth8 - 4)
+        {
+            // Prefer a slot already holding this position, else the least valuable one
+            int victim = -1;
+            for (int i = 0; i < ClusterSize; ++i)
+                if (i != index && (keys >> KeyBits * i & MASK21) == (k & MASK21))
+                    victim = i;
+
+            if (victim < 0)
+                for (int i = 0; i < ClusterSize; ++i)
+                    if (i != index
+                        && (victim < 0
+                            || cluster->entry[victim].depth8
+                                   - 8 * cluster->entry[victim].relative_age(curr_generation)
+                                 > cluster->entry[i].depth8
+                                     - 8 * cluster->entry[i].relative_age(curr_generation)))
+                        victim = i;
+
+            const int lo = std::min(victim, index);
+            const int hi = std::max(victim, index);
+            auto&     eLo = cluster->entry[lo];
+            auto&     eHi = cluster->entry[hi];
+
+            // Copy the old bound upwards if it is in the lower slot
+            if (hi != index)
+            {
+                eHi.depth8    = u8(entry.depth8);
+                eHi.genBound8 = u8(entry.genBound8);
+                eHi.move16    = Move(entry.move16);
+                eHi.value16   = i16(entry.value16);
+                eHi.eval16    = i16(entry.eval16);
+                keys &= ~(MASK21 << (KeyBits * hi));
+                keys |= (k & MASK21) << (KeyBits * hi);
+            }
+
+            // Preserve the old ttmove if we don't have a new one
+            eLo.move16 = m ? m : Move(entry.move16);
+            keys &= ~(MASK21 << (KeyBits * lo));
+            keys |= (k & MASK21) << (KeyBits * lo);
+            cluster->keys = keys;
+            eLo.depth8    = u8(d - DEPTH_NONE);
+            eLo.genBound8 = u8(curr_generation | b << BOUND_SHIFT | u8(pv) << PV_SHIFT);
+            eLo.value16   = i16(v);
+            eLo.eval16    = i16(ev);
+            return;
+        }
+    }
+
     // Preserve the old ttmove if we don't have a new one
     if (m || (k & MASK21) != key21)
         entry.move16 = m;
@@ -300,6 +356,30 @@ std::tuple<bool, TTData, TTWriter> TranspositionTable::probe(const Key key) cons
 
     return {false, TTData{Move::none(), VALUE_NONE, VALUE_NONE, DEPTH_NONE, BOUND_NONE, false},
             TTWriter(cluster, replace)};
+}
+
+
+// Looks up a second entry of the same position, which may hold the bound opposite
+// to the one returned by probe()
+std::tuple<bool, TTData> TranspositionTable::probe_second(const Key key) const {
+
+    Cluster* const cluster = get_cluster(key);
+    const u64      keys    = cluster->keys;
+    const u64      key21   = key & MASK21;
+    bool           first   = true;
+
+    for (int i = 0; i < ClusterSize; ++i)
+        if ((keys >> KeyBits * i & MASK21) == key21)
+        {
+            if (first)
+            {
+                first = false;
+                continue;
+            }
+            return {cluster->entry[i].is_occupied(), cluster->entry[i].read()};
+        }
+
+    return {false, TTData{Move::none(), VALUE_NONE, VALUE_NONE, DEPTH_NONE, BOUND_NONE, false}};
 }
 
 

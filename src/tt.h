@@ -108,6 +108,9 @@ class TranspositionTable {
     //   3) a writer object to the entry
     std::tuple<bool, TTData, TTWriter> probe(const Key key) const;
 
+    // Second entry of the same position, if any (see TTWriter::write)
+    std::tuple<bool, TTData> probe_second(const Key key) const;
+
     // The hash function; its only external use is memory prefetching
     Cluster* get_cluster(const Key key) const;
 

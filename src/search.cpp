@@ -946,6 +946,20 @@ Value Search::Worker::search(
         }
     }
 
+    // A second entry of this position may hold the bound needed for a cutoff
+    if (!PvNode && !excludedMove && ttHit && is_valid(ttData.value)
+        && !(ttData.bound & (ttData.value >= beta ? BOUND_LOWER : BOUND_UPPER))
+        && pos.rule50_count() < 96)
+    {
+        auto [ttHit2, ttData2] = tt.probe_second(posKey);
+        ttData2.value = ttHit2 ? value_from_tt(ttData2.value, ss->ply, pos.rule50_count()) : VALUE_NONE;
+
+        if (is_valid(ttData2.value) && ttData2.depth > depth - (ttData2.value <= beta)
+            && (ttData2.bound & (ttData2.value >= beta ? BOUND_LOWER : BOUND_UPPER))
+            && (cutNode == (ttData2.value >= beta) || depth > 4))
+            return ttData2.value;
+    }
+
     // Step 7. Tablebases probe
     if (!rootNode && !excludedMove && tbConfig.cardinality)
     {
