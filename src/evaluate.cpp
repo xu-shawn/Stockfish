@@ -52,7 +52,7 @@ Value Eval::evaluate(const Eval::NNUE::Network&     network,
                      int                            optimism) {
 
     assert(!pos.checkers());
-    Value nnue = network.evaluate(pos, accumulators, caches);
+    Value nnue = network.evaluate(pos, accumulators, caches) * 1085 / 1000;
     return scale_evaluation(nnue, optimism, pos);
 }
 
