@@ -46,7 +46,7 @@ constexpr IndexType L1 = 1024;
 constexpr int       L2 = 32;
 constexpr int       L3 = 32;
 
-constexpr IndexType RawLayerStacks = 192;
+constexpr IndexType RawLayerStacks = 576;
 constexpr IndexType LayerStacks    = RawLayerStacks;
 
 struct NetworkArchitecture {

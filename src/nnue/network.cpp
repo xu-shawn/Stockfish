@@ -154,7 +154,16 @@ int Network::layer_stack(const Position& pos) const {
     };
     const bool many = std::max(officers(WHITE), officers(BLACK)) >= 2;
 
-    return layerStackIndex[((band * 4 + queens) * 3 + layout) * 2 + many];
+    // Material balance of the side to move (P 1, N 3, B 3, R 5, Q 9): 0 if within one pawn, 1 if ahead by two or
+    // more, 2 if behind by two or more
+    const auto diff = [&](PieceType pt) {
+        return popcount(pos.pieces(stm, pt)) - popcount(pos.pieces(~stm, pt));
+    };
+    const int balance =
+      diff(PAWN) + 3 * (diff(KNIGHT) + diff(BISHOP)) + 5 * diff(ROOK) + 9 * diff(QUEEN);
+    const int imbalance = balance >= -1 && balance <= 1 ? 0 : balance > 0 ? 1 : 2;
+
+    return layerStackIndex[(((band * 4 + queens) * 3 + imbalance) * 3 + layout) * 2 + many];
 }
 
 Value Network::evaluate(const Position&    pos,
