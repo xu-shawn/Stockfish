@@ -349,10 +349,10 @@ struct DirtyPawnPairs {
     Bitboard after[COLOR_NB];
 };
 
-// Pawn, knight and bishop bitboards before and after the move (used by the trio features)
+// Trio feature rows a move removes and adds, as perspective-free descriptors (nnue/features/trio.cpp)
 struct DirtyTrio {
-    Bitboard before[COLOR_NB][3];
-    Bitboard after[COLOR_NB][3];
+    u32 rows[96];
+    int count;
 };
 
 struct Dirties {

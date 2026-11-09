@@ -48,6 +48,9 @@ class Trio {
     static constexpr IndexType Dimensions =
       MobCoverDimensions + BlockadeDimensions + TriangleDimensions;
 
+    // Piece types whose puts and removals can change rows
+    static constexpr u32 EventTypes = (1u << PAWN) | (1u << KNIGHT) | (1u << BISHOP);
+
     static constexpr IndexType MaxActiveDimensions = 128;
     using IndexList                                = ValueList<u16, MaxActiveDimensions>;
     using DiffType                                 = DirtyTrio;
@@ -56,6 +59,13 @@ class Trio {
 
     static void append_changed_indices(
       Color perspective, Square ksq, const DiffType& diff, IndexList& removed, IndexList& added);
+
+    // Records the rows involving piece pc on square s (pc is on the board), called by Position for every
+    // piece put and removal during do_move
+    static void piece_event(const Position& pos, Piece pc, bool put, Square s, DirtyTrio& out);
+
+    // Drops the rows a move both removed and added
+    static void cancel_events(DirtyTrio& out);
 };
 
 }  // namespace Stockfish::Eval::NNUE::Features
