@@ -556,6 +556,15 @@ sf_always_inline Tile apply_threat_features(IndexType                          j
     return apply_features<sign>(j, acc, list.begin(), list.ssize(), &ft.threatAndPpWeights[j]);
 }
 
+sf_always_inline Tile apply_trio_features(IndexType                        j,
+                                          Tile                             acc,
+                                          const TrioFeatureSet::IndexList& removed,
+                                          const TrioFeatureSet::IndexList& added,
+                                          const FeatureTransformer&        ft) {
+    acc = apply_features<-1>(j, acc, removed.begin(), removed.ssize(), &ft.trioWeights[j]);
+    return apply_features<+1>(j, acc, added.begin(), added.ssize(), &ft.trioWeights[j]);
+}
+
 template<typename PsqRemoved, typename PsqAdded>
 sf_always_inline Tile apply_combined_features(IndexType                          j,
                                               Tile                               acc,
@@ -582,6 +591,8 @@ void apply_combined(Color                              perspective,
                     const PSQFeatureSet::IndexList&    psqRemoved,
                     const ThreatFeatureSet::IndexList& thrAdded,
                     const ThreatFeatureSet::IndexList& thrRemoved,
+                    const TrioFeatureSet::IndexList&   trioAdded,
+                    const TrioFeatureSet::IndexList&   trioRemoved,
                     const WeightType*                  psqWeights) {
 
     static_assert(RemovedCount == 1 || RemovedCount == 2);
@@ -603,6 +614,7 @@ void apply_combined(Color                              perspective,
 
         acc = apply_combined_features(j, acc, removedWeights, thrRemoved, addedWeights, thrAdded,
                                       featureTransformer, psqWeights);
+        acc = apply_trio_features(j, acc, trioRemoved, trioAdded, featureTransformer);
 
         store_tile(j, toAcc.data(), acc);
     }
@@ -616,6 +628,8 @@ void apply_combined(Color                              perspective,
                     const PSQFeatureSet::IndexList&    psqRemoved,
                     const ThreatFeatureSet::IndexList& thrAdded,
                     const ThreatFeatureSet::IndexList& thrRemoved,
+                    const TrioFeatureSet::IndexList&   trioAdded,
+                    const TrioFeatureSet::IndexList&   trioRemoved,
                     const WeightType*                  psqWeights) {
     assert(psqRemoved.size() == 1 || psqRemoved.size() == 2);
     assert(psqAdded.size() == 1 || psqAdded.size() == 2);
@@ -625,19 +639,19 @@ void apply_combined(Color                              perspective,
     {
         if (psqAdded.size() == 1)
             apply_combined<1, 1>(perspective, featureTransformer, from, to, psqAdded, psqRemoved,
-                                 thrAdded, thrRemoved, psqWeights);
+                                 thrAdded, thrRemoved, trioAdded, trioRemoved, psqWeights);
         else
             apply_combined<1, 2>(perspective, featureTransformer, from, to, psqAdded, psqRemoved,
-                                 thrAdded, thrRemoved, psqWeights);
+                                 thrAdded, thrRemoved, trioAdded, trioRemoved, psqWeights);
     }
     else
     {
         if (psqAdded.size() == 1)
             apply_combined<2, 1>(perspective, featureTransformer, from, to, psqAdded, psqRemoved,
-                                 thrAdded, thrRemoved, psqWeights);
+                                 thrAdded, thrRemoved, trioAdded, trioRemoved, psqWeights);
         else
             apply_combined<2, 2>(perspective, featureTransformer, from, to, psqAdded, psqRemoved,
-                                 thrAdded, thrRemoved, psqWeights);
+                                 thrAdded, thrRemoved, trioAdded, trioRemoved, psqWeights);
     }
 }
 
@@ -658,10 +672,12 @@ void update_accumulator_incremental(Color                     perspective,
     // updates with more added/removed features than MaxActiveDimensions.
     PSQFeatureSet::IndexList    psqRemoved, psqAdded;
     ThreatFeatureSet::IndexList thrRemoved, thrAdded;
+    TrioFeatureSet::IndexList   trioRemoved, trioAdded;
 
     const auto& dirtyPiece     = Forward ? target_state.dirtyPiece : computed.dirtyPiece;
     const auto& dirtyThreats   = Forward ? target_state.dirtyThreats : computed.dirtyThreats;
     const auto& dirtyPawnPairs = Forward ? target_state.dirtyPawnPairs : computed.dirtyPawnPairs;
+    const auto& dirtyTrio      = Forward ? target_state.dirtyTrio : computed.dirtyTrio;
 
     // Used solely for prefetching
     const auto* threatPpBase = &featureTransformer.threatAndPpWeights[0];
@@ -674,6 +690,7 @@ void update_accumulator_incremental(Color                     perspective,
         PairFeatureSet::append_changed_indices(perspective, ksq, dirtyPawnPairs, thrRemoved,
                                                thrAdded, threatPpBase, pfStride);
         PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, psqRemoved, psqAdded);
+        TrioFeatureSet::append_changed_indices(perspective, ksq, dirtyTrio, trioRemoved, trioAdded);
     }
     else
     {
@@ -682,10 +699,12 @@ void update_accumulator_incremental(Color                     perspective,
         PairFeatureSet::append_changed_indices(perspective, ksq, dirtyPawnPairs, thrAdded,
                                                thrRemoved, threatPpBase, pfStride);
         PSQFeatureSet::append_changed_indices(perspective, ksq, dirtyPiece, psqAdded, psqRemoved);
+        TrioFeatureSet::append_changed_indices(perspective, ksq, dirtyTrio, trioAdded, trioRemoved);
     }
 
     apply_combined(perspective, featureTransformer, computed, target_state, psqAdded, psqRemoved,
-                   thrAdded, thrRemoved, featureTransformer.psq_weights(psqBlock));
+                   thrAdded, thrRemoved, trioAdded, trioRemoved,
+                   featureTransformer.psq_weights(psqBlock));
 
     target_state.computed[perspective] = true;
 }
@@ -705,6 +724,7 @@ void update_accumulator_incremental_both(const FeatureTransformer& featureTransf
 
     PSQFeatureSet::IndexList    psq_removed[COLOR_NB], psq_added[COLOR_NB];
     ThreatFeatureSet::IndexList thr_removed[COLOR_NB], thr_added[COLOR_NB];
+    TrioFeatureSet::IndexList   trio_removed[COLOR_NB], trio_added[COLOR_NB];
 
     const auto* threat_pp_base = &featureTransformer.threatAndPpWeights[0];
     const auto  pf_stride      = FeatureTransformer::OutputDimensions;
@@ -719,13 +739,17 @@ void update_accumulator_incremental_both(const FeatureTransformer& featureTransf
                                           psq_removed[WHITE], psq_added[WHITE]);
     PSQFeatureSet::append_changed_indices(BLACK, black_ksq, target_state.dirtyPiece,
                                           psq_removed[BLACK], psq_added[BLACK]);
+    TrioFeatureSet::append_changed_indices(WHITE, white_ksq, target_state.dirtyTrio,
+                                           trio_removed[WHITE], trio_added[WHITE]);
+    TrioFeatureSet::append_changed_indices(BLACK, black_ksq, target_state.dirtyTrio,
+                                           trio_removed[BLACK], trio_added[BLACK]);
 
     apply_combined(WHITE, featureTransformer, computed, target_state, psq_added[WHITE],
-                   psq_removed[WHITE], thr_added[WHITE], thr_removed[WHITE],
-                   featureTransformer.psq_weights(whiteBlock));
+                   psq_removed[WHITE], thr_added[WHITE], thr_removed[WHITE], trio_added[WHITE],
+                   trio_removed[WHITE], featureTransformer.psq_weights(whiteBlock));
     apply_combined(BLACK, featureTransformer, computed, target_state, psq_added[BLACK],
-                   psq_removed[BLACK], thr_added[BLACK], thr_removed[BLACK],
-                   featureTransformer.psq_weights(blackBlock));
+                   psq_removed[BLACK], thr_added[BLACK], thr_removed[BLACK], trio_added[BLACK],
+                   trio_removed[BLACK], featureTransformer.psq_weights(blackBlock));
 
     target_state.computed[WHITE] = true;
     target_state.computed[BLACK] = true;
@@ -931,6 +955,9 @@ void update_accumulator_hybrid(Color                     perspective,
                                              thrAdded, threatPpBase, pfStride);
     PairFeatureSet::append_changed_indices(perspective, newKsq, target.dirtyPawnPairs, thrRemoved,
                                            thrAdded, threatPpBase, pfStride);
+    TrioFeatureSet::IndexList trioRemoved, trioAdded;
+    TrioFeatureSet::append_changed_indices(perspective, newKsq, target.dirtyTrio, trioRemoved,
+                                           trioAdded);
 
     const auto& fromAcc = computed.accumulation[perspective];
     auto&       toAcc   = target.accumulation[perspective];
@@ -954,6 +981,7 @@ void update_accumulator_hybrid(Color                     perspective,
         // The old entry's removed psq features have to be added back, its added ones removed
         acc = apply_combined_features(j, acc, oldAdd, thrRemoved, oldRemove, thrAdded,
                                       featureTransformer, psqWeights);
+        acc = apply_trio_features(j, acc, trioRemoved, trioAdded, featureTransformer);
 
         store_tile(j, toAcc.data(), acc);
     }
@@ -987,6 +1015,8 @@ void update_accumulator_refresh_cache(Color                     perspective,
     ThreatFeatureSet::IndexList active;
     ThreatFeatureSet::append_active_indices(perspective, pos, active);
     PairFeatureSet::append_active_indices(perspective, pos, active);
+    TrioFeatureSet::IndexList trioActive;
+    TrioFeatureSet::append_active_indices(perspective, pos, trioActive);
 
     accumulator.computed[perspective] = true;
 
@@ -999,6 +1029,8 @@ void update_accumulator_refresh_cache(Color                     perspective,
         store_tile(j, &entry.accumulation[0], acc);
 
         acc = apply_threat_features<+1>(j, acc, active, featureTransformer);
+        acc = apply_features<+1>(j, acc, trioActive.begin(), trioActive.ssize(),
+                                 &featureTransformer.trioWeights[j]);
 
         store_tile(j, accumulator.accumulation[perspective].data(), acc);
     }

@@ -88,9 +88,11 @@ class FeatureTransformer {
     // Number of input/output dimensions
     static constexpr IndexType ThreatInputDimensions = ThreatFeatureSet::Dimensions;
     static constexpr IndexType PairInputDimensions   = PairFeatureSet::Dimensions;
+    static constexpr IndexType TrioInputDimensions   = TrioFeatureSet::Dimensions;
     static constexpr IndexType PsqDimensions         = PSQFeatureSet::Dimensions;
     static constexpr IndexType ThreatAndPpDimensions = ThreatInputDimensions + PairInputDimensions;
-    static constexpr IndexType InputDimensions       = PsqDimensions + ThreatAndPpDimensions;
+    static constexpr IndexType InputDimensions =
+      PsqDimensions + ThreatAndPpDimensions + TrioInputDimensions;
     static constexpr IndexType OutputDimensions      = HalfDimensions;
     static constexpr IndexType ThreatWeightSize      = ThreatInputDimensions * HalfDimensions;
     static constexpr IndexType PairWeightSize        = PairInputDimensions * HalfDimensions;
@@ -99,6 +101,7 @@ class FeatureTransformer {
     using BiasesArray            = std::array<BiasType, HalfDimensions>;
     using WeightArray            = std::array<WeightType, HalfDimensions * PsqDimensions>;
     using ThreatAndPpWeightArray = std::array<ThreatWeightType, ThreatAndPpWeightSize>;
+    using TrioWeightArray = std::array<ThreatWeightType, TrioInputDimensions * HalfDimensions>;
 
     // Size of forward propagation buffer
     static constexpr usize BufferSize = OutputDimensions * sizeof(OutputType);
@@ -158,8 +161,9 @@ class FeatureTransformer {
 
     // Hash value embedded in the evaluation file
     static constexpr u32 get_hash_value() {
-        return combine_hash(
-                 {ThreatFeatureSet::HashValue, PairFeatureSet::HashValue, PSQFeatureSet::HashValue})
+        return combine_hash({ThreatFeatureSet::HashValue, PairFeatureSet::HashValue,
+                             TrioFeatureSet::MobCoverHashValue, TrioFeatureSet::BlockadeHashValue,
+                             TrioFeatureSet::TriangleHashValue, PSQFeatureSet::HashValue})
              ^ (OutputDimensions * 2);
     }
 
@@ -168,6 +172,7 @@ class FeatureTransformer {
         permute<8>(weights, PackusEpi16Order);
 
         permute<8>(threatAndPpWeights, PackusEpi16Order);
+        permute<8>(trioWeights, PackusEpi16Order);
 
 #if defined(USE_PAIRED_WIDENING_ADD)
         // With 128-bit vectors the order is the identity
@@ -175,6 +180,7 @@ class FeatureTransformer {
         {
             permute<8>(weights, WideningPairOrder);
             permute<8>(threatAndPpWeights, WideningPairOrder);
+            permute<8>(trioWeights, WideningPairOrder);
         }
 #endif
     }
@@ -185,12 +191,14 @@ class FeatureTransformer {
         {
             permute<8>(weights, InverseWideningPairOrder);
             permute<8>(threatAndPpWeights, InverseWideningPairOrder);
+            permute<8>(trioWeights, InverseWideningPairOrder);
         }
 #endif
 
         permute<16>(biases, InversePackusEpi16Order);
         permute<8>(weights, InversePackusEpi16Order);
         permute<8>(threatAndPpWeights, InversePackusEpi16Order);
+        permute<8>(trioWeights, InversePackusEpi16Order);
     }
 
     ThreatWeightType* threatWeightData() { return threatAndPpWeights.data(); }
@@ -202,6 +210,7 @@ class FeatureTransformer {
 
         read_little_endian(stream, threatWeightData(), ThreatWeightSize);
         read_little_endian(stream, pawnPairWeightData(), PairWeightSize);
+        read_little_endian(stream, trioWeights.data(), trioWeights.size());
 
         read_little_endian(stream, weights.data(), weights.size());
 
@@ -220,6 +229,7 @@ class FeatureTransformer {
 
         write_little_endian(stream, copy->threatWeightData(), ThreatWeightSize);
         write_little_endian(stream, copy->pawnPairWeightData(), PairWeightSize);
+        write_little_endian(stream, copy->trioWeights.data(), copy->trioWeights.size());
 
         write_little_endian(stream, copy->weights.data(), copy->weights.size());
 
@@ -233,6 +243,7 @@ class FeatureTransformer {
         hash_combine(h, get_raw_data_hash(weights));
 
         hash_combine(h, get_raw_data_hash(threatAndPpWeights));
+        hash_combine(h, get_raw_data_hash(trioWeights));
 
         hash_combine(h, get_hash_value());
 
@@ -439,6 +450,7 @@ class FeatureTransformer {
     static_assert(PairFeatureSet::IndexBase == ThreatFeatureSet::Dimensions);
 
     alignas(CacheLineSize) ThreatAndPpWeightArray threatAndPpWeights;
+    alignas(CacheLineSize) TrioWeightArray trioWeights;
 };
 
 }  // namespace Stockfish::Eval::NNUE
