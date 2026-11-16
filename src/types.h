@@ -349,10 +349,17 @@ struct DirtyPawnPairs {
     Bitboard after[COLOR_NB];
 };
 
+// Pawn, knight and bishop bitboards before and after the move (used by the trio features)
+struct DirtyTrio {
+    Bitboard before[COLOR_NB][3];
+    Bitboard after[COLOR_NB][3];
+};
+
 struct Dirties {
     DirtyPiece     dirtyPiece;
     DirtyThreats   dirtyThreats;
     DirtyPawnPairs dirtyPawnPairs;
+    DirtyTrio      dirtyTrio;
 };
 
     #define ENABLE_INCR_OPERATORS_ON(T) \
