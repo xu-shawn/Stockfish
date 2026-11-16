@@ -806,10 +806,8 @@ void Position::do_move(
     dpps.before[WHITE] = pieces(WHITE, PAWN);
     dpps.before[BLACK] = pieces(BLACK, PAWN);
 
-    auto& dtr = dirties.dirtyTrio;
-    for (Color c : {WHITE, BLACK})
-        for (PieceType pt : {PAWN, KNIGHT, BISHOP})
-            dtr.before[c][pt - PAWN] = pieces(c, pt);
+    trioRows                = &dirties.dirtyTrio;
+    dirties.dirtyTrio.count = 0;
 
     Color  us       = sideToMove;
     Color  them     = ~us;
@@ -1035,9 +1033,8 @@ void Position::do_move(
     dpps.after[WHITE] = pieces(WHITE, PAWN);
     dpps.after[BLACK] = pieces(BLACK, PAWN);
 
-    for (Color c : {WHITE, BLACK})
-        for (PieceType pt : {PAWN, KNIGHT, BISHOP})
-            dtr.after[c][pt - PAWN] = pieces(c, pt);
+    if (dirties.dirtyTrio.count > 1)
+        Eval::NNUE::Features::Trio::cancel_events(dirties.dirtyTrio);
 
     assert(dp.pc != NO_PIECE);
     assert(!(bool(captured) || m.type_of() == CASTLING) ^ (dp.remove_sq != SQ_NONE));
