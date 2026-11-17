@@ -17,11 +17,14 @@
 */
 
 
-// Knight_MobCover, Knight_Blockade and Bishop_Triangle input features, concatenated in that order
+// Knight_MobCover, Knight_Blockade, Bishop_Triangle, Knight_Behind and Bishop_Domination input
+// features, concatenated in that order
 //   Knight_MobCover: opponent pawns attacking one of a knight's attack squares, except pawns attacking
 //   the knight and pawns it attacks (6144 rows)
 //   Knight_Blockade: pawns whose stop square holds an enemy knight (96 rows)
 //   Bishop_Triangle: per bishop, which of the four squares ahead of it hold enemy pawns (2048 rows)
+//   Knight_Behind: pawns with a knight of their side right behind them (96 rows)
+//   Bishop_Domination: knights with an enemy bishop three ranks ahead on their file (128 rows)
 
 #ifndef NNUE_FEATURES_TRIO_INCLUDED
 #define NNUE_FEATURES_TRIO_INCLUDED
@@ -41,12 +44,17 @@ class Trio {
     static constexpr u32 MobCoverHashValue = 0x4b4d4332u;
     static constexpr u32 BlockadeHashValue = 0x4b424b32u;
     static constexpr u32 TriangleHashValue = 0x42545231u;
+    static constexpr u32 BehindHashValue     = 0x4b4e4231u;
+    static constexpr u32 DominationHashValue = 0x42444d31u;
 
     static constexpr IndexType MobCoverDimensions = 2 * 64 * 48;
     static constexpr IndexType BlockadeDimensions = 2 * 48;
     static constexpr IndexType TriangleDimensions = 2 * 64 * 16;
-    static constexpr IndexType Dimensions =
-      MobCoverDimensions + BlockadeDimensions + TriangleDimensions;
+    static constexpr IndexType BehindDimensions     = 2 * 48;
+    static constexpr IndexType DominationDimensions = 2 * 64;
+    static constexpr IndexType Dimensions           = MobCoverDimensions + BlockadeDimensions
+                                          + TriangleDimensions + BehindDimensions
+                                          + DominationDimensions;
 
     // Piece types whose puts and removals can change rows
     static constexpr u32 EventTypes = (1u << PAWN) | (1u << KNIGHT) | (1u << BISHOP);

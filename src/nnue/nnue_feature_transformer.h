@@ -163,7 +163,8 @@ class FeatureTransformer {
     static constexpr u32 get_hash_value() {
         return combine_hash({ThreatFeatureSet::HashValue, PairFeatureSet::HashValue,
                              TrioFeatureSet::MobCoverHashValue, TrioFeatureSet::BlockadeHashValue,
-                             TrioFeatureSet::TriangleHashValue, PSQFeatureSet::HashValue})
+                             TrioFeatureSet::TriangleHashValue, TrioFeatureSet::BehindHashValue,
+                             TrioFeatureSet::DominationHashValue, PSQFeatureSet::HashValue})
              ^ (OutputDimensions * 2);
     }
 

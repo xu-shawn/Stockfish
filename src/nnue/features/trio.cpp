@@ -34,11 +34,14 @@ namespace {
 using TrioBitboards = Bitboard[COLOR_NB][3];
 
 // Per-perspective caps of active features, as in the trainer
-constexpr int MaxMobCover = 64, MaxBlockade = 8, MaxTriangle = 10;
+constexpr int       MaxMobCover = 32, MaxBlockade = 8, MaxTriangle = 10;
+constexpr int       MaxBehind = 16, MaxDomination = 16;
+constexpr IndexType ExtraBase =
+  Trio::MobCoverDimensions + Trio::BlockadeDimensions + Trio::TriangleDimensions;
 
 void append_indices(Color perspective, Square ksq, const TrioBitboards& bb, Trio::IndexList& out) {
     const unsigned orient    = OrientTBL[ksq] ^ (56 * perspective);
-    int            nMobCover = 0, nBlockade = 0, nTriangle = 0;
+    int            nMobCover = 0, nBlockade = 0, nTriangle = 0, nBehind = 0, nDomination = 0;
 
     for (Color c : {WHITE, BLACK})
     {
@@ -90,6 +93,18 @@ void append_indices(Color perspective, Square ksq, const TrioBitboards& bb, Trio
                 out.push_back(Trio::MobCoverDimensions + Trio::BlockadeDimensions
                               + (rel * 64 + os) * 16 + pat);
         }
+
+        // Pawns with a knight of their side right behind them
+        const Bitboard behind =
+          pawns & (c == WHITE ? shift(knights, NORTH) : shift(knights, SOUTH));
+        for (Bitboard b = behind; b && nBehind < MaxBehind; ++nBehind)
+            out.push_back(ExtraBase + rel * 48 + (unsigned(pop_lsb(b)) ^ orient) - SQ_A2);
+
+        // Knights with an enemy bishop three ranks ahead on their file
+        const Bitboard dominated = knights & (c == WHITE ? bb[them][2] >> 24 : bb[them][2] << 24);
+        for (Bitboard b = dominated; b && nDomination < MaxDomination; ++nDomination)
+            out.push_back(ExtraBase + Trio::BehindDimensions + rel * 64
+                          + (unsigned(pop_lsb(b)) ^ orient));
     }
 }
 
@@ -97,7 +112,9 @@ void append_indices(Color perspective, Square ksq, const TrioBitboards& bb, Trio
 enum Kind : u32 {
     MOB_COVER,
     BLOCKADE,
-    TRIANGLE
+    TRIANGLE,
+    BEHIND,
+    DOMINATION
 };
 constexpr u32 AddBit = 1u << 31;
 constexpr u32 desc(Kind k, u32 v) { return (u32(k) << 24) | v; }
@@ -106,6 +123,7 @@ Bitboard pawn_attacks(Color c, Bitboard b) {
     return c == WHITE ? pawn_attacks_bb<WHITE>(b) : pawn_attacks_bb<BLACK>(b);
 }
 Bitboard forward(Color c, Bitboard b) { return c == WHITE ? shift(b, NORTH) : shift(b, SOUTH); }
+Bitboard forward3(Color c, Bitboard b) { return c == WHITE ? b << 24 : b >> 24; }
 
 struct Tables {
     // Squares of enemy pawns covering a knight of that colour on the square, and the reverse
@@ -162,6 +180,10 @@ IndexType map(u32 x, Color perspective, unsigned orient) {
              - SQ_A2;
     case BLOCKADE :  // pawn colour, pawn square
         return Trio::MobCoverDimensions + ((v >> 6) ^ p) * 48 + ((v & 63) ^ orient) - SQ_A2;
+    case BEHIND :  // pawn colour, pawn square
+        return ExtraBase + ((v >> 6) ^ p) * 48 + ((v & 63) ^ orient) - SQ_A2;
+    case DOMINATION :  // knight colour, knight square
+        return ExtraBase + Trio::BehindDimensions + ((v >> 6) ^ p) * 64 + ((v & 63) ^ orient);
     default : {  // bishop colour, bishop square, pattern with files mirrored when the orientation mirrors them
         u32 pat = v & 15;
         if ((orient & 7) == 7)
@@ -191,14 +213,22 @@ void Trio::piece_event(const Position& pos, Piece pc, bool put, Square s, DirtyT
             emit(true, desc(BLOCKADE, (u32(~c) << 6) | u32(s - (c == WHITE ? SOUTH : NORTH))));
         for (Bitboard b = pos.pieces(~c, PAWN) & T.coverZone[c][s]; b;)
             emit(true, desc(MOB_COVER, (u32(c) << 12) | (u32(s) << 6) | u32(pop_lsb(b))));
+        if (const Bitboard b = pos.pieces(c, PAWN) & forward(c, sb))
+            emit(true, desc(BEHIND, (u32(c) << 6) | u32(lsb(b))));
+        if (pos.pieces(~c, BISHOP) & forward3(c, sb))
+            emit(true, desc(DOMINATION, (u32(c) << 6) | u32(s)));
         break;
     case BISHOP :
         if (const u32 pat = triangle_pattern(c, s, pos.pieces(~c, PAWN)))
             emit(true, desc(TRIANGLE, (u32(c) << 10) | (u32(s) << 4) | pat));
+        if (const Bitboard b = pos.pieces(~c, KNIGHT) & forward3(c, sb))
+            emit(true, desc(DOMINATION, (u32(~c) << 6) | u32(lsb(b))));
         break;
     case PAWN : {
         if (pos.pieces(~c, KNIGHT) & forward(c, sb))
             emit(true, desc(BLOCKADE, (u32(c) << 6) | u32(s)));
+        if (pos.pieces(c, KNIGHT) & forward(~c, sb))
+            emit(true, desc(BEHIND, (u32(c) << 6) | u32(s)));
         for (Bitboard b = pos.pieces(~c, KNIGHT) & T.coverRev[~c][s]; b;)
             emit(true, desc(MOB_COVER, (u32(~c) << 12) | (u32(pop_lsb(b)) << 6) | u32(s)));
         const Bitboard pawns = pos.pieces(c, PAWN);
