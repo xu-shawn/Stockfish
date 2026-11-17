@@ -20,6 +20,7 @@
 #include "trio.h"
 
 #include <cassert>
+#include <cstdlib>
 #include <iterator>
 
 #include "../../attacks.h"
@@ -34,11 +35,66 @@ namespace {
 using TrioBitboards = Bitboard[COLOR_NB][3];
 
 // Per-perspective caps of active features, as in the trainer
-constexpr int MaxMobCover = 64, MaxBlockade = 8, MaxTriangle = 10;
+constexpr int       MaxMobCover = 32, MaxBlockade = 8, MaxTriangle = 10;
+constexpr int       MaxKnightPawn = 32;
+constexpr IndexType ExtraBase =
+  Trio::MobCoverDimensions + Trio::BlockadeDimensions + Trio::TriangleDimensions;
+
+// Knight_Pawn: knight places relative to a pawn, as file and rank offsets along the pawn's
+// direction of travel
+constexpr int OwnPlaces[7][2]   = {{0, -1}, {-1, 0}, {1, 0}, {-2, 0}, {2, 0}, {-3, 0}, {3, 0}};
+constexpr int EnemyPlaces[4][2] = {{-1, 3}, {1, 3}, {-1, -1}, {1, -1}};
+
+struct KnightPawnTables {
+    // Squares of the pawns of the knight's colour / of the other colour that a knight of that
+    // colour on the square is placed to, and the reverse: squares of the knights placed to a pawn
+    // of that colour
+    Bitboard pawnsOwn[COLOR_NB][SQUARE_NB], pawnsEnemy[COLOR_NB][SQUARE_NB];
+    Bitboard knightsOwn[COLOR_NB][SQUARE_NB], knightsEnemy[COLOR_NB][SQUARE_NB];
+
+    KnightPawnTables() {
+        for (Color c : {WHITE, BLACK})
+            for (Square s = SQ_A1; s <= SQ_H8; ++s)
+                pawnsOwn[c][s] = pawnsEnemy[c][s] = knightsOwn[c][s] = knightsEnemy[c][s] = 0;
+        for (Color pc : {WHITE, BLACK})
+            for (Square p = SQ_A2; p <= SQ_H7; ++p)
+            {
+                const int dr = pc == WHITE ? 1 : -1;
+                auto      at = [&](const int o[2]) {
+                    const int f = file_of(p) + o[0], r = rank_of(p) + dr * o[1];
+                    return f < 0 || f > 7 || r < 0 || r > 7 ? SQ_NONE : Square(r * 8 + f);
+                };
+                for (const auto& o : OwnPlaces)
+                    if (Square k = at(o); k != SQ_NONE)
+                    {
+                        pawnsOwn[pc][k] |= square_bb(p);
+                        knightsOwn[pc][p] |= square_bb(k);
+                    }
+                for (const auto& o : EnemyPlaces)
+                    if (Square k = at(o); k != SQ_NONE)
+                    {
+                        pawnsEnemy[~pc][k] |= square_bb(p);
+                        knightsEnemy[pc][p] |= square_bb(k);
+                    }
+            }
+    }
+};
+const KnightPawnTables KP;
+
+// Index of a pawn of colour pc on p with a knight on k (of the pawn's colour if same)
+IndexType
+knight_pawn_index(Color pc, bool same, Square p, Square k, Color perspective, unsigned orient) {
+    const unsigned op = unsigned(p) ^ orient, ok = unsigned(k) ^ orient;
+    const int      dx   = int(ok & 7) - int(op & 7);
+    const int      dy   = (int(rank_of(k)) - int(rank_of(p))) * (pc == WHITE ? 1 : -1);
+    const int      slot = same ? (dy == -1 ? 0 : (dx < 0 ? 1 : 2) + 2 * (std::abs(dx) - 1))
+                               : (dy == 3 ? 7 : 9) + (dx > 0);
+    return ExtraBase + ((pc ^ perspective) * 48 + op - SQ_A2) * 11 + slot;
+}
 
 void append_indices(Color perspective, Square ksq, const TrioBitboards& bb, Trio::IndexList& out) {
     const unsigned orient    = OrientTBL[ksq] ^ (56 * perspective);
-    int            nMobCover = 0, nBlockade = 0, nTriangle = 0;
+    int            nMobCover = 0, nBlockade = 0, nTriangle = 0, nKnightPawn = 0;
 
     for (Color c : {WHITE, BLACK})
     {
@@ -90,6 +146,18 @@ void append_indices(Color perspective, Square ksq, const TrioBitboards& bb, Trio
                 out.push_back(Trio::MobCoverDimensions + Trio::BlockadeDimensions
                               + (rel * 64 + os) * 16 + pat);
         }
+
+        // c is the pawn colour here
+        for (Bitboard b = pawns; b;)
+        {
+            const Square p = pop_lsb(b);
+            for (Bitboard k = knights & KP.knightsOwn[c][p]; k && nKnightPawn < MaxKnightPawn;
+                 ++nKnightPawn)
+                out.push_back(knight_pawn_index(c, true, p, pop_lsb(k), perspective, orient));
+            for (Bitboard k = bb[them][1] & KP.knightsEnemy[c][p]; k && nKnightPawn < MaxKnightPawn;
+                 ++nKnightPawn)
+                out.push_back(knight_pawn_index(c, false, p, pop_lsb(k), perspective, orient));
+        }
     }
 }
 
@@ -97,7 +165,8 @@ void append_indices(Color perspective, Square ksq, const TrioBitboards& bb, Trio
 enum Kind : u32 {
     MOB_COVER,
     BLOCKADE,
-    TRIANGLE
+    TRIANGLE,
+    KNIGHT_PAWN
 };
 constexpr u32 AddBit = 1u << 31;
 constexpr u32 desc(Kind k, u32 v) { return (u32(k) << 24) | v; }
@@ -162,6 +231,9 @@ IndexType map(u32 x, Color perspective, unsigned orient) {
              - SQ_A2;
     case BLOCKADE :  // pawn colour, pawn square
         return Trio::MobCoverDimensions + ((v >> 6) ^ p) * 48 + ((v & 63) ^ orient) - SQ_A2;
+    case KNIGHT_PAWN :  // pawn colour, knight of the pawn's colour, pawn square, knight square
+        return knight_pawn_index(Color((v >> 13) & 1), (v >> 12) & 1, Square((v >> 6) & 63),
+                                 Square(v & 63), perspective, orient);
     default : {  // bishop colour, bishop square, pattern with files mirrored when the orientation mirrors them
         u32 pat = v & 15;
         if ((orient & 7) == 7)
@@ -191,6 +263,11 @@ void Trio::piece_event(const Position& pos, Piece pc, bool put, Square s, DirtyT
             emit(true, desc(BLOCKADE, (u32(~c) << 6) | u32(s - (c == WHITE ? SOUTH : NORTH))));
         for (Bitboard b = pos.pieces(~c, PAWN) & T.coverZone[c][s]; b;)
             emit(true, desc(MOB_COVER, (u32(c) << 12) | (u32(s) << 6) | u32(pop_lsb(b))));
+        for (Bitboard b = pos.pieces(c, PAWN) & KP.pawnsOwn[c][s]; b;)
+            emit(true,
+                 desc(KNIGHT_PAWN, (u32(c) << 13) | (1u << 12) | (u32(pop_lsb(b)) << 6) | u32(s)));
+        for (Bitboard b = pos.pieces(~c, PAWN) & KP.pawnsEnemy[c][s]; b;)
+            emit(true, desc(KNIGHT_PAWN, (u32(~c) << 13) | (u32(pop_lsb(b)) << 6) | u32(s)));
         break;
     case BISHOP :
         if (const u32 pat = triangle_pattern(c, s, pos.pieces(~c, PAWN)))
@@ -201,6 +278,11 @@ void Trio::piece_event(const Position& pos, Piece pc, bool put, Square s, DirtyT
             emit(true, desc(BLOCKADE, (u32(c) << 6) | u32(s)));
         for (Bitboard b = pos.pieces(~c, KNIGHT) & T.coverRev[~c][s]; b;)
             emit(true, desc(MOB_COVER, (u32(~c) << 12) | (u32(pop_lsb(b)) << 6) | u32(s)));
+        for (Bitboard b = pos.pieces(c, KNIGHT) & KP.knightsOwn[c][s]; b;)
+            emit(true,
+                 desc(KNIGHT_PAWN, (u32(c) << 13) | (1u << 12) | (u32(s) << 6) | u32(pop_lsb(b))));
+        for (Bitboard b = pos.pieces(~c, KNIGHT) & KP.knightsEnemy[c][s]; b;)
+            emit(true, desc(KNIGHT_PAWN, (u32(c) << 13) | (u32(s) << 6) | u32(pop_lsb(b))));
         const Bitboard pawns = pos.pieces(c, PAWN);
         for (Bitboard b = pos.pieces(~c, BISHOP) & T.triangleRev[~c][s]; b;)
         {
