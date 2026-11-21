@@ -347,9 +347,14 @@ Thread* ThreadPool::get_best_thread() const {
     for (auto&& th : threads)
         minScore = std::min(minScore, th->worker->rootMoves[0].score);
 
-    // Vote according to score, and select the best thread
+    // Vote according to score, weighted by the share of the thread's nodes spent on its best move,
+    // and select the best thread
     for (auto&& th : threads)
-        votes[th->worker->rootMoves[0].pv[0]] += th->worker->rootMoves[0].score - minScore + 14;
+    {
+        const auto& rm         = th->worker->rootMoves[0];
+        const i64   effortFrac = i64(rm.effort * 1024 / std::max(u64(1), u64(th->worker->nodes)));
+        votes[rm.pv[0]] += (rm.score - minScore + 14) * effortFrac;
+    }
 
     for (auto&& th : threads)
     {
