@@ -889,6 +889,9 @@ Value Search::Worker::search(
     improving         = ss->staticEval > (ss - 2)->staticEval;
     opponentWorsening = ss->staticEval > -(ss - 1)->staticEval;
 
+    // Static evaluation is less reliable with less material on the board
+    const int material = 521 * pos.count<PAWN>() + pos.non_pawn_material();
+
     // Hindsight adjustment of reductions based on static evaluation difference
     if (priorReduction >= 3 && !opponentWorsening)
         depth++;
@@ -1030,10 +1033,11 @@ Value Search::Worker::search(
     {
         Value futilityMult = std::min(45 + depth * 4, 85);
         futilityMult -= 20 * !ss->ttHit;
+        futilityMult = futilityMult * (52000 - material) / 40000;
 
-        Value futilityMargin = futilityMult * depth
-                             - (2789 * improving + 335 * opponentWorsening) * futilityMult / 1024
-                             + std::abs(correctionValue) / 198435;
+        Value futilityMargin =
+          futilityMult * depth - (2789 * improving + 335 * opponentWorsening) * futilityMult / 1024
+          + std::abs(correctionValue) / 198435 + 3 * depth * (4 - std::min((ss - 1)->moveCount, 8));
 
         if (eval - futilityMargin >= beta)
             return (661 * beta + 363 * eval) / 1024;
@@ -1041,7 +1045,8 @@ Value Search::Worker::search(
 
     // Step 10. Null move search with verification search
     if (cutNode
-        && ss->staticEval + 50 * ss->priorNMPFailHigh >= beta - 13 * depth - 47 * improving + 365
+        && ss->staticEval + 50 * ss->priorNMPFailHigh
+             >= beta - 13 * depth - 47 * improving + 365 + depth * (12000 - material) / 500
         && !excludedMove && pos.non_pawn_material(us) && ss->ply >= nmpMinPly && beta >= -2000)
     {
         assert((ss - 1)->currentMove != Move::null());
@@ -1246,8 +1251,8 @@ moves_loop:  // When in check, search starts here
                 // (*Scaler): Generally, lower divisors scale well
                 lmrDepth += history / lmr_divisor(depth);
 
-                Value futilityValue =
-                  ss->staticEval + 119 * lmrDepth + 90 * (ss->staticEval > alpha) + 164;
+                Value futilityValue = ss->staticEval + 119 * lmrDepth
+                                    + 90 * (ss->staticEval > alpha) + 164 + (12000 - material) / 64;
 
                 // Futility pruning: parent node
                 // (*Scaler): Generally, more frequent futility pruning scales well
