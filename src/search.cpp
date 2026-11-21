@@ -1034,8 +1034,12 @@ Value Search::Worker::search(
     }
 
     // Step 10. Null move search with verification search
+    // With little material left the static evaluation is less reliable (zugzwang), so require more
     if (cutNode
-        && ss->staticEval + 50 * ss->priorNMPFailHigh >= beta - 13 * depth - 47 * improving + 365
+        && ss->staticEval + 50 * ss->priorNMPFailHigh
+             >= beta - 13 * depth - 47 * improving + 365
+                  + depth * std::max(0, 12000 - 521 * pos.count<PAWN>() - pos.non_pawn_material())
+                      / 500
         && !excludedMove && pos.non_pawn_material(us) && ss->ply >= nmpMinPly && beta >= -2000)
     {
         assert((ss - 1)->currentMove != Move::null());
