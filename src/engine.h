@@ -35,6 +35,7 @@
 #include "nnue/network.h"
 #include "nnue/nnue_misc.h"
 #include "numa.h"
+#include "policy.h"
 #include "position.h"
 #include "search.h"
 #include "syzygy/tbprobe.h"  // for Stockfish::Depth
@@ -129,6 +130,7 @@ class Engine {
     TranspositionTable                                tt;
     Eval::NNUE::EvalFile                              networkFile;
     LazyNumaReplicatedSystemWide<Eval::NNUE::Network> network;
+    Policy::Network                                   policyNetwork;
 
     Search::SearchManager::UpdateContext  updateContext;
     std::function<void(std::string_view)> onVerifyNetwork;

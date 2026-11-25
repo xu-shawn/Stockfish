@@ -35,6 +35,7 @@
 #include "misc.h"
 #include "nnue/nnue_accumulator.h"
 #include "numa.h"
+#include "policy.h"
 #include "position.h"
 #include "score.h"
 #include "syzygy/tbprobe.h"
@@ -197,18 +198,21 @@ struct SharedState {
                 ThreadPool&                                              threadPool,
                 TranspositionTable&                                      transpositionTable,
                 std::map<NumaIndex, SharedHistories>&                    sharedHists,
-                const LazyNumaReplicatedSystemWide<Eval::NNUE::Network>& net) :
+                const LazyNumaReplicatedSystemWide<Eval::NNUE::Network>& net,
+                const Policy::Network&                                   policyNet) :
         options(optionsMap),
         threads(threadPool),
         tt(transpositionTable),
         sharedHistories(sharedHists),
-        network(net) {}
+        network(net),
+        policyNetwork(policyNet) {}
 
     const OptionsMap&                                        options;
     ThreadPool&                                              threads;
     TranspositionTable&                                      tt;
     std::map<NumaIndex, SharedHistories>&                    sharedHistories;
     const LazyNumaReplicatedSystemWide<Eval::NNUE::Network>& network;
+    const Policy::Network&                                   policyNetwork;
 };
 
 class Worker;
@@ -347,6 +351,10 @@ class Worker {
     void undo_move(Position& pos, const Move move);
     void undo_null_move(Position& pos);
 
+    void policy_order_quiets(
+      const Position& pos, Move ttMove, bool allowInference, ExtMove* begin, ExtMove* end);
+    void policy_order_root();
+
     // This is the main search function, for both PV and non-PV nodes
     template<NodeType nodeType>
     Value
@@ -398,6 +406,13 @@ class Worker {
     // Used by NNUE
     Eval::NNUE::AccumulatorStack  accumulatorStack;
     Eval::NNUE::AccumulatorCaches refreshTable;
+
+    // Used by the move policy
+    const Policy::Network& policyNetwork;
+    Policy::Accumulator    policyAccumulator;
+    Policy::QuietCache     policyCache;
+    u64                    policyWork;
+    std::vector<Move>      policyRootOrder;
 
     friend class Stockfish::ThreadPool;
     friend class SearchManager;

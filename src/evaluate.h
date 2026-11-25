@@ -34,6 +34,7 @@ namespace Eval {
 // name of the macro or the location where this macro is defined, as it is used
 // in the Makefile/Fishtest.
 #define EvalFileDefaultName "nn-bddd9d57eb87.nnue"
+#define EvalFileDefaultNamePolicy "nn-7a702165ba92.nnue"
 
 namespace NNUE {
 class Network;

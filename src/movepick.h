@@ -54,6 +54,15 @@ class MovePicker {
     Move next_move();
     void skip_quiet_moves();
 
+    static constexpr int GoodQuietThreshold = -14000;
+
+    // Called with the sorted quiet moves once they are generated
+    using QuietPolicy = void (*)(void*, ExtMove*, ExtMove*);
+    void set_quiet_policy(void* context, QuietPolicy policy) {
+        quietPolicyContext = context;
+        quietPolicy        = policy;
+    }
+
    private:
     template<typename Pred>
     Move select(Pred);
@@ -73,7 +82,9 @@ class MovePicker {
     int                          threshold;
     Depth                        depth;
     int                          ply;
-    bool                         skipQuiets = false;
+    void*                        quietPolicyContext = nullptr;
+    QuietPolicy                  quietPolicy        = nullptr;
+    bool                         skipQuiets         = false;
     ExtMove                      moves[MAX_MOVES];
 };
 

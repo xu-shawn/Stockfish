@@ -64,6 +64,8 @@ Engine::Engine(std::optional<std::filesystem::path> path) :
 
     pos.set(StartFEN, false);
 
+    policyNetwork.load(binaryDirectory, EvalFileDefaultNamePolicy);
+
     options.add(  //
       "Debug Log File", Option("", [](const Option& o) {
           start_logger(path_from_utf8(std::string(o)));
@@ -133,6 +135,14 @@ Engine::Engine(std::optional<std::filesystem::path> path) :
     options.add(  //
       "EvalFile", Option(EvalFileDefaultName, [this](const Option& o) {
           load_network(path_from_utf8(std::string(o)));
+          return std::nullopt;
+      }));
+
+    options.add(  //
+      "EvalFilePolicy", Option(EvalFileDefaultNamePolicy, [this](const Option& o) {
+          threads.wait_for_search_finished();
+          policyNetwork.load(binaryDirectory, std::string(o));
+          threads.clear();
           return std::nullopt;
       }));
 
@@ -235,8 +245,8 @@ bool Engine::set_numa_config_from_option(const std::string& o) {
 
 void Engine::resize_threads() {
     threads.wait_for_search_finished();
-    threads.set(numaContext.get_numa_config(), {options, threads, tt, sharedHists, network},
-                updateContext);
+    threads.set(numaContext.get_numa_config(),
+                {options, threads, tt, sharedHists, network, policyNetwork}, updateContext);
 
     // Reallocate the hash with the new threadpool size
     set_tt_size(options["Hash"]);
@@ -255,6 +265,13 @@ void Engine::set_ponderhit(bool b) { threads.main_manager()->ponder = b; }
 void Engine::verify_network() const {
     const auto file = path_from_utf8(std::string(options["EvalFile"]));
     network->verify(onVerifyNetwork, networkFile, file);
+
+    if (!policyNetwork.is_loaded())
+    {
+        onVerifyNetwork("ERROR: Policy network " + std::string(options["EvalFilePolicy"])
+                        + " was not loaded successfully. The engine will be terminated now.");
+        exit(EXIT_FAILURE);
+    }
 
     auto statuses = network.get_status_and_errors();
     for (usize i = 0; i < statuses.size(); ++i)

@@ -188,7 +188,8 @@ Search::Worker::Worker(SharedState&                   sharedState,
     threads(sharedState.threads),
     tt(sharedState.tt),
     network(sharedState.network),
-    refreshTable(network[token]) {
+    refreshTable(network[token]),
+    policyNetwork(sharedState.policyNetwork) {
     clear();
 }
 
@@ -279,6 +280,9 @@ void Search::Worker::start_searching() {
 bool Search::Worker::iterative_deepening() {
 
     SearchManager* mainThread = (is_mainthread() ? main_manager() : nullptr);
+
+    policyAccumulator.reset();
+    policyWork = 0;
 
     PVMoves pv;
 
@@ -678,6 +682,7 @@ void Search::Worker::do_move(
 
     Dirties& dirties = accumulatorStack.push(pos);
     pos.do_move(move, givesCheck, dirties, &sharedHistory);
+    policyAccumulator.push();
 
     if (ss != nullptr)
     {
@@ -692,6 +697,7 @@ void Search::Worker::do_move(
 
 void Search::Worker::do_null_move(Position& pos, Stack* const ss) {
     pos.do_null_move();
+    policyAccumulator.push();
     ss->currentMove                   = Move::null();
     ss->continuationHistory           = &continuationHistory[0][0][NO_PIECE][0];
     ss->continuationCorrectionHistory = &continuationCorrectionHistory[NO_PIECE][0];
@@ -700,13 +706,18 @@ void Search::Worker::do_null_move(Position& pos, Stack* const ss) {
 void Search::Worker::undo_move(Position& pos, const Move move) {
     pos.undo_move(move);
     accumulatorStack.pop();
+    policyAccumulator.pop();
 }
 
-void Search::Worker::undo_null_move(Position& pos) { pos.undo_null_move(); }
+void Search::Worker::undo_null_move(Position& pos) {
+    pos.undo_null_move();
+    policyAccumulator.pop();
+}
 
 
 // Reset histories, usually before a new game
 void Search::Worker::clear() {
+    policyCache.clear();
     mainHistory.fill(-5);
     captureHistory.fill(-742);
 
@@ -729,6 +740,79 @@ void Search::Worker::clear() {
             h.fill(5);
 
     refreshTable.clear(network[numaAccessToken]);
+}
+
+
+// Reorders the first good quiets by the policy network. New logits are
+// computed only at PV and expected cut nodes, within a work budget per node.
+void Search::Worker::policy_order_quiets(
+  const Position& pos, Move ttMove, bool allowInference, ExtMove* begin, ExtMove* end) {
+
+    const Key  key       = pos.key();
+    const bool cached    = policyCache.contains(key);
+    const u64  allowance = Policy::work_allowance(nodes);
+
+    if (!cached && (!allowInference || policyWork + Policy::work_cost(2) > allowance))
+        return;
+
+    Policy::QuietCandidates candidates;
+    candidates.collect(begin, end, ttMove, MovePicker::GoodQuietThreshold);
+    if (candidates.count < 2)
+        return;
+
+    std::array<bool, Policy::QuietCandidates::Limit> missing;
+    const int missingCount = policyCache.get(key, candidates, missing);
+
+    if (missingCount)
+    {
+        if (!allowInference || policyWork + Policy::work_cost(missingCount) > allowance)
+            return;
+
+        policyWork += Policy::work_cost(missingCount);
+
+        std::array<Move, Policy::QuietCandidates::Limit>  moves{};
+        std::array<float, Policy::QuietCandidates::Limit> logits;
+        int                                               count = 0;
+        for (int i = 0; i < candidates.count; ++i)
+            if (missing[i])
+                moves[count++] = *candidates.slots[i];
+
+        policyAccumulator.evaluate(policyNetwork, pos, moves.data(), logits.data(), count);
+
+        count = 0;
+        for (int i = 0; i < candidates.count; ++i)
+            if (missing[i])
+            {
+                candidates.logits[i] = logits[count++];
+                policyCache.put(key, *candidates.slots[i], candidates.logits[i]);
+            }
+    }
+
+    candidates.promote();
+}
+
+// Orders the root moves after the first one by policy, for the first iteration
+void Search::Worker::policy_order_root() {
+    policyRootOrder.clear();
+    for (usize i = pvIdx; i < pvLast; ++i)
+        policyRootOrder.push_back(rootMoves[i].pv[0]);
+
+    const int count = int(policyRootOrder.size()) - 1;
+    if (count < 2)
+        return;
+
+    std::array<float, MAX_MOVES> logits;
+    policyAccumulator.evaluate(policyNetwork, rootPos, &policyRootOrder[1], logits.data(), count);
+
+    std::vector<std::pair<float, Move>> ranked;
+    for (int i = 0; i < count; ++i)
+        ranked.emplace_back(logits[i], policyRootOrder[i + 1]);
+
+    std::stable_sort(ranked.begin(), ranked.end(),
+                     [](const auto& a, const auto& b) { return a.first > b.first; });
+
+    for (int i = 0; i < count; ++i)
+        policyRootOrder[i + 1] = ranked[i].second;
 }
 
 
@@ -1142,13 +1226,37 @@ moves_loop:  // When in check, search starts here
     MovePicker mp(pos, ttData.move, depth, &mainHistory, &lowPlyHistory, &captureHistory, contHist,
                   &sharedHistory, ss->ply);
 
+    struct PolicyContext {
+        Worker*         worker;
+        const Position* pos;
+        Move            ttMove;
+        bool            allowInference;
+    } policyContext{this, &pos, ttData.move, PvNode || cutNode};
+
+    if (!rootNode && !excludedMove && !ss->inCheck && depth >= 6)
+        mp.set_quiet_policy(&policyContext, [](void* context, ExtMove* begin, ExtMove* end) {
+            const auto& c = *static_cast<PolicyContext*>(context);
+            c.worker->policy_order_quiets(*c.pos, c.ttMove, c.allowInference, begin, end);
+        });
+
+    usize rootOrderIdx = 0;
+    if (rootNode && rootDepth == 1)
+        policy_order_root();
+
+    auto next_move = [&]() {
+        if (rootNode && rootDepth == 1)
+            return rootOrderIdx < policyRootOrder.size() ? policyRootOrder[rootOrderIdx++]
+                                                         : Move::none();
+        return mp.next_move();
+    };
+
     value = bestValue;
 
     int moveCount = 0;
 
     // Step 14. Loop through all legal moves until no moves remain
     // or a beta cutoff occurs.
-    while ((move = mp.next_move()) != Move::none())
+    while ((move = next_move()) != Move::none())
     {
         assert(move.is_ok());
 
